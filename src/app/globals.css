@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --border: #e4e4e7;
+  --muted: #52525b;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --card: #18181b;
+  --border: #3f3f46;
+  --muted: #a1a1aa;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-noto-sans-kr), "Apple SD Gothic Neo", "Malgun Gothic",
+    sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: auto;
+  font-weight: 500;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+@keyframes paste-row-highlight {
+  0%,
+  50% {
+    background-color: rgb(254 240 138);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes paste-row-highlight-dark {
+  0%,
+  50% {
+    background-color: rgb(113 63 18 / 0.45);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.paste-row-highlight {
+  animation: paste-row-highlight 2s ease-out forwards;
+  transition: none !important;
+}
+
+.dark .paste-row-highlight {
+  animation: paste-row-highlight-dark 2s ease-out forwards;
+  transition: none !important;
+}

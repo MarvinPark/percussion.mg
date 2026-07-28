@@ -1,0 +1,50 @@
+export type Product = {
+  id: string;
+  sku: string;
+  product_name: string;
+  model_name: string;
+  brand: string | null;
+  category: string | null;
+  supplier: string;
+  color: string | null;
+  product_option: string | null;
+  size: string | null;
+  purchase_price: number;
+  sale_price: number;
+  stock_quantity: number;
+  min_stock_quantity: number;
+  is_key_stock: boolean;
+  stock_location: string;
+  stock_floor3: number;
+  stock_b1: number;
+  stock_display: number;
+  reserved_quantity: number;
+  keywords: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProductFormData = {
+  sku: string;
+  product_name: string;
+  model_name: string;
+  brand: string;
+  category: string;
+  supplier: string;
+  color: string;
+  product_option: string;
+  size: string;
+  purchase_price: number;
+  sale_price: number;
+  stock_quantity: number;
+  min_stock_quantity: number;
+  is_key_stock: boolean;
+  stock_location: string;
+  stock_floor3: number;
+  stock_b1: number;
+  stock_display: number;
+  reserved_quantity: number;
+  keywords: string;
+};
+
+export type CopiedProduct = Omit<Product, "id" | "created_at" | "updated_at">;

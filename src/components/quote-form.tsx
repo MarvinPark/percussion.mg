@@ -1,0 +1,586 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState, useMemo, useRef, useState } from "react";
+import { createQuote, updateQuote } from "@/app/quotes/actions";
+import ModelNameAutocomplete, {
+  type ModelNameAutocompleteHandle,
+} from "@/components/model-name-autocomplete";
+import {
+  calculateQuoteLine,
+  calculateQuoteTotals,
+} from "@/lib/quote-calculator";
+import { formatKRW } from "@/lib/sales-calculator";
+import type { PaymentMethod } from "@/types/sale";
+import type {
+  QuoteItemInput,
+  QuoteProductOption,
+} from "@/types/quote";
+import { QUOTE_MAX_ITEMS } from "@/types/quote";
+
+const inputClass =
+  "w-full rounded border border-zinc-400 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+const labelClass = "text-xs font-semibold text-zinc-700 dark:text-zinc-300";
+
+type QuoteEditInitial = {
+  quote_date: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_address: string;
+  customer_email: string;
+  customer_note: string;
+  memo: string;
+  manager_name: string;
+  payment_method_id: string;
+  items: QuoteItemInput[];
+};
+
+type QuoteFormProps = {
+  products: QuoteProductOption[];
+  paymentMethods: PaymentMethod[];
+  managerName: string;
+  managerPhone: string;
+  quoteId?: string;
+  initialQuote?: QuoteEditInitial;
+  onSaved?: () => void;
+};
+
+function todayString() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function buildItemFromProduct(
+  product: QuoteProductOption,
+  quantity: number,
+  saleUnitPrice: number,
+): QuoteItemInput {
+  const calculated = calculateQuoteLine({
+    quantity,
+    consumerPrice: product.sale_price,
+    saleUnitPrice,
+    purchasePrice: product.purchase_price,
+    shippingCost: 0,
+  });
+
+  return {
+    product_id: product.id,
+    supplier: product.supplier,
+    purchase_source: product.supplier,
+    category: product.category ?? "",
+    brand: product.brand ?? "",
+    product_name: product.product_name,
+    model_name: product.model_name || product.sku,
+    quantity,
+    consumer_price: product.sale_price,
+    sale_unit_price: saleUnitPrice,
+    rounded_unit_price: calculated.roundedUnitPrice,
+    line_total: calculated.lineTotal,
+    purchase_price: product.purchase_price,
+    shipping_cost: 0,
+    margin: calculated.margin,
+    margin_rate: calculated.marginRate,
+  };
+}
+
+function recalculateItem(item: QuoteItemInput): QuoteItemInput {
+  const calculated = calculateQuoteLine({
+    quantity: item.quantity,
+    consumerPrice: item.consumer_price,
+    saleUnitPrice: item.sale_unit_price,
+    purchasePrice: item.purchase_price,
+    shippingCost: item.shipping_cost,
+  });
+
+  return {
+    ...item,
+    rounded_unit_price: calculated.roundedUnitPrice,
+    line_total: calculated.lineTotal,
+    margin: calculated.margin,
+    margin_rate: calculated.marginRate,
+  };
+}
+
+export default function QuoteForm({
+  products,
+  paymentMethods,
+  managerName,
+  managerPhone,
+  quoteId,
+  initialQuote,
+  onSaved,
+}: QuoteFormProps) {
+  const isEditing = Boolean(quoteId);
+
+  const [items, setItems] = useState<QuoteItemInput[]>(
+    initialQuote?.items ?? [],
+  );
+  const [modelSearch, setModelSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] =
+    useState<QuoteProductOption | null>(null);
+  const [addQuantity, setAddQuantity] = useState(1);
+  const [addSalePrice, setAddSalePrice] = useState(0);
+  const [quoteDate, setQuoteDate] = useState(
+    initialQuote?.quote_date ?? todayString(),
+  );
+  const [editableManagerName, setEditableManagerName] = useState(
+    initialQuote?.manager_name ?? managerName,
+  );
+  const [customerName, setCustomerName] = useState(
+    initialQuote?.customer_name ?? "",
+  );
+  const [customerPhone, setCustomerPhone] = useState(
+    initialQuote?.customer_phone ?? "",
+  );
+  const [customerAddress, setCustomerAddress] = useState(
+    initialQuote?.customer_address ?? "",
+  );
+  const [customerEmail, setCustomerEmail] = useState(
+    initialQuote?.customer_email ?? "",
+  );
+  const [customerNote, setCustomerNote] = useState(
+    initialQuote?.customer_note ?? "",
+  );
+  const [memo, setMemo] = useState(initialQuote?.memo ?? "");
+  const [paymentMethodId, setPaymentMethodId] = useState(
+    initialQuote?.payment_method_id ?? paymentMethods[0]?.id ?? "",
+  );
+  const modelInputRef = useRef<ModelNameAutocompleteHandle>(null);
+
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
+      if (isEditing) {
+        const result = await updateQuote(formData);
+        if (result?.success) {
+          onSaved?.();
+        }
+        return result ?? null;
+      }
+      return (await createQuote(formData)) ?? null;
+    },
+    null,
+  );
+
+  const totals = useMemo(() => calculateQuoteTotals(items), [items]);
+
+  function handleProductPick(product: QuoteProductOption) {
+    setSelectedProduct(product);
+    setAddSalePrice(product.sale_price);
+  }
+
+  function resolveProductForAdd(): QuoteProductOption | null {
+    if (selectedProduct) return selectedProduct;
+
+    const query = modelSearch.trim().toLowerCase();
+    if (!query) return null;
+
+    return (
+      products.find(
+        (product) =>
+          (product.model_name || "").toLowerCase() === query ||
+          product.sku.toLowerCase() === query,
+      ) ?? null
+    );
+  }
+
+  function focusModelInput() {
+    requestAnimationFrame(() => {
+      modelInputRef.current?.focus();
+    });
+  }
+
+  function addItem(): boolean {
+    const product = resolveProductForAdd();
+    if (!product || addQuantity <= 0) {
+      alert("모델명을 입력하고 목록에서 제품을 선택해 주세요.");
+      return false;
+    }
+
+    if (items.length >= QUOTE_MAX_ITEMS) {
+      const existingIndex = items.findIndex(
+        (item) => item.product_id === product.id,
+      );
+      if (existingIndex < 0) {
+        alert(`제품은 최대 ${QUOTE_MAX_ITEMS}개까지 추가할 수 있습니다.`);
+        return false;
+      }
+    }
+
+    setItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) => item.product_id === product.id,
+      );
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = buildItemFromProduct(
+          product,
+          prev[existingIndex].quantity + addQuantity,
+          addSalePrice,
+        );
+        return next;
+      }
+      return [...prev, buildItemFromProduct(product, addQuantity, addSalePrice)];
+    });
+
+    setModelSearch("");
+    setSelectedProduct(null);
+    setAddQuantity(1);
+    setAddSalePrice(0);
+    focusModelInput();
+    return true;
+  }
+
+  function updateItemSalePrice(index: number, saleUnitPrice: number) {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? recalculateItem({ ...item, sale_unit_price: saleUnitPrice })
+          : item,
+      ),
+    );
+  }
+
+  function updateItemQuantity(index: number, quantity: number) {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === index ? recalculateItem({ ...item, quantity }) : item,
+      ),
+    );
+  }
+
+  function removeItem(index: number) {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl border border-zinc-200 bg-amber-50/40 p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <h3 className="text-center text-2xl font-bold tracking-[0.3em] text-zinc-900 dark:text-zinc-100">
+          견 적 서
+        </h3>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelClass}>담당</label>
+            <input
+              value={editableManagerName}
+              onChange={(event) => setEditableManagerName(event.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>견적일</label>
+            <input
+              type="date"
+              value={quoteDate}
+              onChange={(event) => setQuoteDate(event.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+        <p className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
+          고객 정보
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelClass}>성함 *</label>
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="입력"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>연락처</label>
+            <input
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>주소</label>
+            <input
+              value={customerAddress}
+              onChange={(e) => setCustomerAddress(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>이메일</label>
+            <input
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>비고</label>
+            <input
+              value={customerNote}
+              onChange={(e) => setCustomerNote(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              견적금액 (VAT포함)
+            </p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {formatKRW(totals.totalAmount)}원
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+              총 마진
+            </p>
+            <p className="mt-1 text-xl font-bold text-green-700 dark:text-green-300">
+              {formatKRW(totals.totalMargin)}원
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
+              카드결제 +4%
+            </p>
+            <p className="mt-1 text-xl font-bold text-orange-700 dark:text-orange-300">
+              {formatKRW(totals.cardAmount)}원
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+        <p className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
+          제품 추가
+        </p>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[200px] flex-1">
+            <label className={labelClass}>모델명</label>
+            <ModelNameAutocomplete
+              ref={modelInputRef}
+              products={products}
+              value={modelSearch}
+              onChange={(value) => {
+                setModelSearch(value);
+                setSelectedProduct(null);
+              }}
+              onSelectProduct={handleProductPick}
+            />
+          </div>
+          <div className="w-20">
+            <label className={labelClass}>수량</label>
+            <input
+              type="number"
+              min={1}
+              value={addQuantity}
+              onChange={(e) => setAddQuantity(Number(e.target.value) || 1)}
+              className={inputClass}
+            />
+          </div>
+          <div className="w-32">
+            <label className={labelClass}>판매가</label>
+            <input
+              type="number"
+              min={0}
+              value={addSalePrice || ""}
+              onChange={(e) => setAddSalePrice(Number(e.target.value) || 0)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addItem();
+                }
+              }}
+              className={inputClass}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={addItem}
+            className="ml-auto rounded-lg bg-zinc-800 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-200 dark:text-zinc-900"
+          >
+            추가
+          </button>
+        </div>
+      </section>
+
+      <section className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
+        <table className="min-w-full text-xs">
+          <thead className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+            <tr>
+              <th className="px-2 py-2">공급처</th>
+              <th className="px-2 py-2">모델명</th>
+              <th className="px-2 py-2">제품 설명</th>
+              <th className="px-2 py-2">수량</th>
+              <th className="px-2 py-2">판매단가</th>
+              <th className="px-2 py-2">총 판매가</th>
+              <th className="px-2 py-2">마진</th>
+              <th className="px-2 py-2">마진율</th>
+              <th className="px-2 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={9}
+                  className="px-4 py-8 text-center text-sm text-zinc-500"
+                >
+                  제품을 추가해 주세요.
+                </td>
+              </tr>
+            ) : (
+              items.map((item, index) => (
+                <tr
+                  key={`${item.product_id}-${index}`}
+                  className="border-t border-zinc-200 dark:border-zinc-700"
+                >
+                  <td className="px-2 py-2">{item.supplier || "-"}</td>
+                  <td className="px-2 py-2 font-medium">{item.model_name}</td>
+                  <td className="px-2 py-2">{item.product_name}</td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItemQuantity(index, Number(e.target.value) || 1)
+                      }
+                      className={`${inputClass} w-16`}
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.sale_unit_price}
+                      onChange={(e) =>
+                        updateItemSalePrice(index, Number(e.target.value) || 0)
+                      }
+                      className={`${inputClass} w-28`}
+                    />
+                  </td>
+                  <td className="px-2 py-2 font-semibold">
+                    {formatKRW(item.line_total)}
+                  </td>
+                  <td className="px-2 py-2 font-semibold text-green-700 dark:text-green-300">
+                    {formatKRW(item.margin)}
+                  </td>
+                  <td className="px-2 py-2">
+                    {(item.margin_rate * 100).toFixed(1)}%
+                  </td>
+                  <td className="px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="text-red-600 hover:underline"
+                    >
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+            결제 방식
+          </p>
+          <Link
+            href="/sales/payment-methods"
+            className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+          >
+            결제 수단 관리 →
+          </Link>
+        </div>
+        {paymentMethods.length === 0 ? (
+          <p className="text-sm text-red-600">
+            등록된 결제 방식이 없습니다. 매출관리에서 먼저 등록해 주세요.
+          </p>
+        ) : (
+          <select
+            value={paymentMethodId}
+            onChange={(event) => setPaymentMethodId(event.target.value)}
+            className={inputClass}
+          >
+            {paymentMethods.map((method) => (
+              <option key={method.id} value={method.id}>
+                {method.name}
+                {method.fee_rate > 0 ? ` (수수료 ${method.fee_rate}%)` : ""}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+        <label className={labelClass}>메모</label>
+        <textarea
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          rows={3}
+          placeholder="견적 관련 메모를 입력하세요"
+          className={`${inputClass} mt-1 resize-y`}
+        />
+      </section>
+
+      {state?.error ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          {state.error}
+        </p>
+      ) : null}
+      {state && "success" in state && state.success ? (
+        <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+          견적이 수정되었습니다.
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-3">
+        <form action={formAction} className="inline">
+          {isEditing ? (
+            <input type="hidden" name="quote_id" value={quoteId} />
+          ) : null}
+          <input type="hidden" name="quote_date" value={quoteDate} />
+          <input type="hidden" name="manager_name" value={editableManagerName} />
+          <input type="hidden" name="payment_method_id" value={paymentMethodId} />
+          <input type="hidden" name="customer_name" value={customerName} />
+          <input type="hidden" name="customer_phone" value={customerPhone} />
+          <input
+            type="hidden"
+            name="customer_address"
+            value={customerAddress}
+          />
+          <input type="hidden" name="customer_email" value={customerEmail} />
+          <input type="hidden" name="customer_note" value={customerNote} />
+          <input type="hidden" name="memo" value={memo} />
+          <input type="hidden" name="items_json" value={JSON.stringify(items)} />
+          <button
+            type="submit"
+            disabled={
+              isPending || items.length === 0 || paymentMethods.length === 0
+            }
+            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {isPending
+              ? "저장 중..."
+              : isEditing
+                ? "견적 수정"
+                : "견적 저장"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
