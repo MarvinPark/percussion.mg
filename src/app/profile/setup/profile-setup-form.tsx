@@ -9,9 +9,11 @@ const inputClass =
 
 export default function ProfileSetupForm({
   defaultFullName = "",
+  defaultJobTitle = "",
   defaultPhone = "",
 }: {
   defaultFullName?: string;
+  defaultJobTitle?: string;
   defaultPhone?: string;
 }) {
   const [state, formAction, isPending] = useActionState(
@@ -36,6 +38,24 @@ export default function ProfileSetupForm({
           type="text"
           required
           defaultValue={defaultFullName}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="job_title"
+          className="mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+        >
+          직함 <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="job_title"
+          name="job_title"
+          type="text"
+          required
+          defaultValue={defaultJobTitle}
+          placeholder="예: 대표, 매니저, 영업팀장"
           className={inputClass}
         />
       </div>

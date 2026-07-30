@@ -11,6 +11,7 @@ create table quotes (
   id uuid primary key default gen_random_uuid(),
   quote_date date not null default current_date,
   customer_name text not null,
+  business_partner text,
   customer_phone text,
   customer_address text,
   customer_email text,

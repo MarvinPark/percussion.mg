@@ -5,6 +5,7 @@ import {
   parseProductExcelBuffer,
   validateExcelProductRow,
 } from "@/lib/excel-products";
+import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -45,13 +46,8 @@ export async function importProductsFromExcel(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { error: "로그인이 필요합니다." };
-  }
+  const auth = await requirePermission(supabase, "manageProducts");
+  if ("error" in auth) return { error: auth.error };
 
   let successCount = 0;
   const errors: string[] = [];

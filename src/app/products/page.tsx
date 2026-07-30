@@ -1,19 +1,22 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
-import ProductsWorkspace from "@/components/products-workspace";
+import ProductsPageClient from "@/components/products-page-client";
+import { hasPermission, normalizeRole } from "@/lib/permissions";
+import { getCurrentUserProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Product } from "@/types/product";
 
 export default async function ProductsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentUserProfile(supabase);
 
   if (!user) {
     redirect("/login");
   }
+
+  const role = normalizeRole(profile?.role);
+  const canManageProducts = hasPermission(role, "manageProducts");
 
   const { data: products, error } = await supabase
     .from("products")
@@ -31,11 +34,12 @@ export default async function ProductsPage() {
               제품 목록
             </h2>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              행을 클릭하면 선택됩니다. 우클릭하면 복사·수정·상세보기 등
-              메뉴를 사용할 수 있습니다. 헤더 오른쪽 세로 막대를 드래그하면
-              열 너비를 조절할 수 있으며, 설정은 계정별로 저장됩니다.
+              {canManageProducts
+                ? "행을 클릭하면 선택됩니다. 우클릭하면 복사·수정·상세보기 등 메뉴를 사용할 수 있습니다."
+                : "재고 현황을 조회할 수 있습니다. 수정은 관리자·매니저만 가능합니다."}
             </p>
           </div>
+          {canManageProducts ? (
           <div className="flex flex-wrap justify-end gap-2">
               <Link
                 href="/products/key-stock"
@@ -62,12 +66,21 @@ export default async function ProductsPage() {
                 + 제품 등록
               </Link>
           </div>
+          ) : (
+          <Link
+            href="/products/key-stock"
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            주요재고현황
+          </Link>
+          )}
         </div>
 
         {!error && products?.length ? (
-          <ProductsWorkspace
+          <ProductsPageClient
             userId={user.id}
             products={products as Product[]}
+            readOnly={!canManageProducts}
           />
         ) : null}
 
@@ -87,12 +100,14 @@ export default async function ProductsPage() {
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
               아직 등록된 제품이 없습니다.
             </p>
+            {canManageProducts ? (
             <Link
               href="/products/new"
               className="mt-4 inline-block text-sm font-medium text-zinc-900 underline dark:text-zinc-100"
             >
               첫 제품 등록하기
             </Link>
+            ) : null}
           </div>
         ) : null}
       </main>

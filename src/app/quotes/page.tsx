@@ -1,7 +1,7 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
-import QuotesList from "@/components/quotes-list";
-import { getCurrentUserProfile } from "@/lib/profile";
+import QuotesPageClient from "@/components/quotes-page-client";
+import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -19,6 +19,7 @@ export default async function QuotesPage() {
     { data: quotes, error },
     { data: products },
     { data: paymentMethods },
+    { data: linkedSales },
   ] = await Promise.all([
     supabase
       .from("quotes")
@@ -35,7 +36,16 @@ export default async function QuotesPage() {
       .from("payment_methods")
       .select("id, name, fee_rate, sort_order")
       .order("sort_order", { ascending: true }),
+    supabase.from("sales").select("quote_id").not("quote_id", "is", null),
   ]);
+
+  const convertedQuoteIds = [
+    ...new Set(
+      (linkedSales ?? [])
+        .map((row) => row.quote_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950">
@@ -87,11 +97,15 @@ export default async function QuotesPage() {
             </Link>
           </div>
         ) : (
-          <QuotesList
+          <QuotesPageClient
             quotes={quotes}
             products={products ?? []}
             paymentMethods={paymentMethods ?? []}
-            managerName={profile?.full_name ?? ""}
+            convertedQuoteIds={convertedQuoteIds}
+            managerName={formatManagerDisplayName(
+              profile?.full_name,
+              profile?.job_title,
+            )}
             managerPhone={profile?.phone ?? ""}
           />
         )}

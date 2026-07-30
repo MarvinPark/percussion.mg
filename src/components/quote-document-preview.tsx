@@ -1,6 +1,11 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { jsPDF } from "jspdf";
+import { useMemo, useRef, useState } from "react";
+import {
+  captureQuoteDocumentFull,
+  captureQuoteDocumentPages,
+} from "@/lib/quote-document-capture";
 import { formatKoreanWonLabel } from "@/lib/korean-number";
 import { formatKRW } from "@/lib/sales-calculator";
 import {
@@ -61,46 +66,48 @@ function DocumentTable({
   showTotal: boolean;
 }) {
   const columnCount = mode === "quote" ? 8 : 7;
+  const headCellClass = "border-y border-zinc-400 px-1 py-1";
+  const bodyCellClass = "border-y border-zinc-400 px-1 py-1";
 
   return (
     <table className="w-full border-collapse text-[11px]">
       <thead>
-        <tr className="border border-zinc-400 bg-zinc-100">
-          <th className="border border-zinc-400 px-1 py-1">분류</th>
-          <th className="border border-zinc-400 px-1 py-1">브랜드</th>
-          <th className="border border-zinc-400 px-1 py-1">제품 설명</th>
-          <th className="border border-zinc-400 px-1 py-1">모델명</th>
-          <th className="border border-zinc-400 px-1 py-1">수량</th>
+        <tr className="bg-zinc-100">
+          <th className={headCellClass}>분류</th>
+          <th className={headCellClass}>브랜드</th>
+          <th className={headCellClass}>제품 설명</th>
+          <th className={headCellClass}>모델명</th>
+          <th className={headCellClass}>수량</th>
           {mode === "quote" ? (
-            <th className="border border-zinc-400 px-1 py-1">소비자가</th>
+            <th className={headCellClass}>소비자가</th>
           ) : null}
-          <th className="border border-zinc-400 px-1 py-1">판매단가</th>
-          <th className="border border-zinc-400 px-1 py-1">총 판매가</th>
+          <th className={headCellClass}>판매단가</th>
+          <th className={headCellClass}>총 판매가</th>
         </tr>
       </thead>
       <tbody>
         {items.map((item, index) => (
           <tr key={`${item.product_id}-${index}`}>
-            <td className="border border-zinc-400 px-1 py-1">{item.category}</td>
-            <td className="border border-zinc-400 px-1 py-1">{item.brand}</td>
-            <td className="border border-zinc-400 px-1 py-1">
+            <td className={bodyCellClass}>{item.category}</td>
+            <td className={bodyCellClass}>{item.brand}</td>
+            <td className={bodyCellClass}>
               {item.product_name}
             </td>
-            <td className="border border-zinc-400 px-1 py-1 font-medium">
+            <td className={`${bodyCellClass} font-medium`}>
               {item.model_name}
             </td>
-            <td className="border border-zinc-400 px-1 py-1 text-center">
+            <td className={`${bodyCellClass} text-center`}>
               {item.quantity}
             </td>
             {mode === "quote" ? (
-              <td className="border border-zinc-400 px-1 py-1 text-right">
+              <td className={`${bodyCellClass} text-right`}>
                 {formatKRW(item.consumer_price)}
               </td>
             ) : null}
-            <td className="border border-zinc-400 px-1 py-1 text-right">
+            <td className={`${bodyCellClass} text-right`}>
               {formatKRW(item.rounded_unit_price)}
             </td>
-            <td className="border border-zinc-400 px-1 py-1 text-right font-medium">
+            <td className={`${bodyCellClass} text-right font-medium`}>
               {formatKRW(item.line_total)}
             </td>
           </tr>
@@ -110,24 +117,24 @@ function DocumentTable({
             <tr className="bg-zinc-50 font-semibold">
               <td
                 colSpan={5}
-                className="border border-zinc-400 px-1 py-1 text-center"
+                className={`${bodyCellClass} text-center`}
               >
                 합계
               </td>
               {mode === "quote" ? (
-                <td className="border border-zinc-400 px-1 py-1 text-right">
+                <td className={`${bodyCellClass} text-right`}>
                   (부가세포함)
                 </td>
               ) : null}
-              <td className="border border-zinc-400 px-1 py-1">&nbsp;</td>
-              <td className="total-amount border border-zinc-400 px-1 py-2 text-right text-base font-bold text-red-600">
+              <td className={bodyCellClass}>&nbsp;</td>
+              <td className={`total-amount ${bodyCellClass} py-2 text-right text-base font-bold text-red-600`}>
                 {formatKRW(totalAmount)}원
               </td>
             </tr>
             <tr>
               <td
                 colSpan={columnCount}
-                className="card-fee-row border border-zinc-400 px-1 py-1 text-right text-[10px] text-zinc-600"
+                className={`card-fee-row ${bodyCellClass} text-right text-[10px] text-zinc-600`}
               >
                 카드결제+4%: {formatKRW(cardAmount)}원
               </td>
@@ -143,6 +150,41 @@ function CenterDivider() {
   return (
     <div className="center-divider flex justify-center py-2">
       <span className="block h-px w-3/5 bg-zinc-400" />
+    </div>
+  );
+}
+
+const COMPANY_SEAL_SRC = "/images/company-seal.jpg";
+const COMPANY_SEAL_SIZE_PX = 95;
+const COMPANY_SEAL_BOTTOM_PX = -25;
+
+function SupplierInfoBox() {
+  return (
+    <div className="box rounded border border-zinc-400 p-3 text-sm">
+      <p className="mb-2 font-semibold">공급자 정보</p>
+      <p>{SUPPLIER_INFO.companyName}</p>
+      <p>{SUPPLIER_INFO.brandLine}</p>
+      <div className="supplier-company-line relative">
+        <p className="relative z-0">{SUPPLIER_INFO.representative}</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={COMPANY_SEAL_SRC}
+          alt=""
+          aria-hidden="true"
+          width={COMPANY_SEAL_SIZE_PX}
+          height={COMPANY_SEAL_SIZE_PX}
+          className="supplier-seal pointer-events-none absolute right-2.5 z-10 object-contain"
+          style={{
+            width: COMPANY_SEAL_SIZE_PX,
+            height: COMPANY_SEAL_SIZE_PX,
+            bottom: COMPANY_SEAL_BOTTOM_PX,
+          }}
+        />
+      </div>
+      <p>{SUPPLIER_INFO.businessNumber}</p>
+      <p>{SUPPLIER_INFO.email}</p>
+      <p>{SUPPLIER_INFO.phone}</p>
+      <p>{SUPPLIER_INFO.address}</p>
     </div>
   );
 }
@@ -170,16 +212,11 @@ function DocumentHeader({
       </div>
 
       <div className="grid-2 mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="box rounded border border-zinc-400 p-3 text-sm">
-          <p className="mb-2 font-semibold">공급자 정보</p>
-          <p>{SUPPLIER_INFO.company}</p>
-          <p>{SUPPLIER_INFO.businessNumber}</p>
-          <p>{SUPPLIER_INFO.email}</p>
-          <p>{SUPPLIER_INFO.address}</p>
-        </div>
+        <SupplierInfoBox />
         <div className="box rounded border border-zinc-400 p-3 text-sm">
           <p className="mb-2 font-semibold">고객 정보</p>
           <p>성함: {data.customer_name}</p>
+          <p>거래처명: {data.business_partner || "-"}</p>
           <p>연락처: {data.customer_phone || "-"}</p>
           <p>주소: {data.customer_address || "-"}</p>
           <p>이메일: {data.customer_email || "-"}</p>
@@ -255,9 +292,20 @@ const PRINT_STYLES = `
   .print-page { page-break-after: always; break-after: page; min-height: 0; }
   .print-page:last-child { page-break-after: auto; break-after: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th, td { border: 1px solid #666; padding: 4px; }
+  th, td { border-top: 1px solid #666; border-bottom: 1px solid #666; border-left: 0; border-right: 0; padding: 4px; }
   .title { text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 0.3em; margin-bottom: 16px; }
   .box { border: 1px solid #666; padding: 8px; }
+  .supplier-company-line { position: relative; display: inline-block; max-width: 100%; }
+  .supplier-seal {
+    position: absolute;
+    right: 10px;
+    bottom: ${COMPANY_SEAL_BOTTOM_PX}px;
+    width: ${COMPANY_SEAL_SIZE_PX}px;
+    height: ${COMPANY_SEAL_SIZE_PX}px;
+    object-fit: contain;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   .amount-box {
     background: #fff2cc !important;
     padding: 10px;
@@ -282,6 +330,21 @@ const PRINT_STYLES = `
   .page-label { display: none; }
 `;
 
+const headerButtonClass =
+  "rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
+
+function buildDocumentFileName(
+  mode: PreviewMode,
+  customerName: string,
+  quoteDate: string,
+) {
+  const docType = mode === "quote" ? "견적서" : "거래명세서";
+  const safeName =
+    customerName.replace(/[\\/:*?"<>|]/g, "_").trim() || "고객";
+  const safeDate = quoteDate.replace(/-/g, "") || "날짜없음";
+  return `${docType}_${safeName}_${safeDate}`;
+}
+
 export default function QuoteDocumentPreview({
   mode,
   open,
@@ -290,11 +353,15 @@ export default function QuoteDocumentPreview({
   totals,
 }: QuoteDocumentPreviewProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const itemPages = useMemo(() => paginateItems(data.items), [data.items]);
 
   if (!open) return null;
 
   const title = mode === "quote" ? "견적서" : "거래명세서";
+  const isBusy = isPdfGenerating || isCopying;
 
   function handlePrint() {
     const content = printRef.current;
@@ -319,6 +386,107 @@ export default function QuoteDocumentPreview({
     printWindow.print();
   }
 
+  async function handlePdfExport() {
+    const content = printRef.current;
+    if (!content || isBusy) return;
+
+    setIsPdfGenerating(true);
+    setActionMessage(null);
+
+    try {
+      const pageCanvases = await captureQuoteDocumentPages(content);
+      if (pageCanvases.length === 0) {
+        throw new Error("no pages");
+      }
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      pageCanvases.forEach((canvas, index) => {
+        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+        let renderWidth = pageWidth;
+        let renderHeight = (canvas.height * pageWidth) / canvas.width;
+
+        if (renderHeight > pageHeight) {
+          renderHeight = pageHeight;
+          renderWidth = (canvas.width * pageHeight) / canvas.height;
+        }
+
+        const offsetX = (pageWidth - renderWidth) / 2;
+
+        if (index > 0) {
+          pdf.addPage();
+        }
+
+        pdf.addImage(imgData, "JPEG", offsetX, 0, renderWidth, renderHeight);
+      });
+
+      pdf.save(
+        `${buildDocumentFileName(mode, data.customer_name, data.quote_date)}.pdf`,
+      );
+
+      setActionMessage("PDF 파일을 저장했습니다.");
+    } catch (error) {
+      console.error("quote pdf export failed:", error);
+      setActionMessage("PDF 다운에 실패했습니다.");
+    } finally {
+      setIsPdfGenerating(false);
+    }
+  }
+
+  async function handleCopyCapture() {
+    const content = printRef.current;
+    if (!content || isBusy) return;
+
+    setIsCopying(true);
+    setActionMessage(null);
+
+    try {
+      const canvas = await captureQuoteDocumentFull(content);
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((value) => resolve(value), "image/png");
+      });
+
+      if (!blob) {
+        setActionMessage("캡쳐 생성에 실패했습니다.");
+        return;
+      }
+
+      if (
+        typeof ClipboardItem !== "undefined" &&
+        navigator.clipboard?.write
+      ) {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob }),
+          ]);
+          setActionMessage("캡쳐 후 클립보드에 복사했습니다.");
+          return;
+        } catch {
+          // fall through to PNG download
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${buildDocumentFileName(mode, data.customer_name, data.quote_date)}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setActionMessage("클립보드 복사를 지원하지 않아 PNG 파일로 저장했습니다.");
+    } catch (error) {
+      console.error("quote capture copy failed:", error);
+      setActionMessage("캡쳐 후 복사에 실패했습니다.");
+    } finally {
+      setIsCopying(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl dark:bg-zinc-900">
@@ -327,23 +495,46 @@ export default function QuoteDocumentPreview({
             {title} 미리보기
             {itemPages.length > 1 ? ` (${itemPages.length}페이지)` : ""}
           </h3>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handlePdfExport()}
+              disabled={isBusy}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-400"
+            >
+              {isPdfGenerating ? "PDF 다운 중..." : "PDF다운"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCopyCapture()}
+              disabled={isBusy}
+              className={headerButtonClass}
+            >
+              {isCopying ? "캡쳐 중..." : "캡쳐후복사"}
+            </button>
             <button
               type="button"
               onClick={handlePrint}
-              className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-medium text-white"
+              disabled={isBusy}
+              className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-700"
             >
               인쇄
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-600"
             >
               닫기
             </button>
           </div>
         </div>
+
+        {actionMessage ? (
+          <p className="border-b border-zinc-200 px-4 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+            {actionMessage}
+          </p>
+        ) : null}
 
         <div className="overflow-y-auto p-4">
           <div ref={printRef} className="mx-auto max-w-3xl text-zinc-900">

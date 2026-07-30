@@ -11,10 +11,15 @@ export async function signup(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const full_name = String(formData.get("full_name") ?? "").trim();
+  const job_title = String(formData.get("job_title") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
 
   if (!full_name) {
     return { error: "이름을 입력해 주세요." };
+  }
+
+  if (!job_title) {
+    return { error: "직함을 입력해 주세요." };
   }
 
   if (!phone) {
@@ -28,6 +33,7 @@ export async function signup(formData: FormData) {
       emailRedirectTo: `${getAppUrl()}/auth/callback`,
       data: {
         full_name,
+        job_title,
         phone,
       },
     },
@@ -51,6 +57,7 @@ export async function signup(formData: FormData) {
   const { error: profileError } = await supabase.from("profiles").insert({
     id: data.user.id,
     full_name,
+    job_title,
     phone,
   });
 

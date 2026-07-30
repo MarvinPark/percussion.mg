@@ -1,11 +1,13 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
-import SalesTable from "@/components/sales-table";
+import SalesPageClient from "@/components/sales-page-client";
 import {
   formatKRW,
   getMonthKey,
   getYearKey,
 } from "@/lib/sales-calculator";
+import { hasPermission, normalizeRole } from "@/lib/permissions";
+import { getCurrentUserProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { SaleWithProduct } from "@/types/sale";
@@ -20,11 +22,6 @@ function summarizeSales(sales: SaleWithProduct[]) {
   let yearTotal = 0;
   let yearMargin = 0;
 
-  const productCountMap = new Map<
-    string,
-    { name: string; quantity: number; total: number }
-  >();
-
   for (const sale of sales) {
     const monthKey = getMonthKey(sale.sold_at);
     const yearKey = getYearKey(sale.sold_at);
@@ -32,16 +29,6 @@ function summarizeSales(sales: SaleWithProduct[]) {
     if (monthKey === currentMonth) {
       monthTotal += sale.total_amount;
       monthMargin += sale.margin_amount;
-
-      const productName = sale.products?.product_name ?? "알 수 없음";
-      const existing = productCountMap.get(productName) ?? {
-        name: productName,
-        quantity: 0,
-        total: 0,
-      };
-      existing.quantity += sale.quantity;
-      existing.total += sale.total_amount;
-      productCountMap.set(productName, existing);
     }
 
     if (yearKey === currentYear) {
@@ -50,20 +37,18 @@ function summarizeSales(sales: SaleWithProduct[]) {
     }
   }
 
-  const topProducts = [...productCountMap.values()]
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
-
-  return { monthTotal, monthMargin, yearTotal, yearMargin, topProducts };
+  return { monthTotal, monthMargin, yearTotal, yearMargin };
 }
 
 export default async function SalesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentUserProfile(supabase);
 
   if (!user) redirect("/login");
+
+  const role = normalizeRole(profile?.role);
+  const canManageSales = hasPermission(role, "manageSales");
+  const canManagePaymentMethods = hasPermission(role, "managePaymentMethods");
 
   const [{ data: sales, error }, { data: products }, { data: paymentMethods }] =
     await Promise.all([
@@ -98,17 +83,19 @@ export default async function SalesPage() {
               매출관리
             </h2>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              판매 기록, 월별·연도별 누적 매출과 마진을 확인합니다. 행을
-              더블클릭하면 수정할 수 있습니다.
+              판매 기록, 월별·연도별 누적 매출과 마진을 확인합니다.
+              {canManageSales ? " 행을 더블클릭하면 수정할 수 있습니다." : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {canManagePaymentMethods ? (
             <Link
               href="/sales/payment-methods"
               className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               결제 수단 관리
             </Link>
+            ) : null}
             <Link
               href="/sales/new"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
@@ -152,29 +139,6 @@ export default async function SalesPage() {
               ))}
             </div>
 
-            {summary.topProducts.length > 0 ? (
-              <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  이번 달 주요 상품 TOP 5
-                </h3>
-                <ul className="mt-3 space-y-2 text-sm">
-                  {summary.topProducts.map((item, index) => (
-                    <li
-                      key={item.name}
-                      className="flex items-center justify-between gap-3 text-zinc-800 dark:text-zinc-200"
-                    >
-                      <span>
-                        {index + 1}. {item.name} ({item.quantity}개)
-                      </span>
-                      <span className="font-semibold">
-                        {formatKRW(item.total)}원
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
             {!sales?.length ? (
               <div className="mt-6 rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
                 <p className="font-medium text-zinc-800 dark:text-zinc-200">
@@ -188,10 +152,11 @@ export default async function SalesPage() {
                 </Link>
               </div>
             ) : (
-              <SalesTable
+              <SalesPageClient
                 sales={sales as SaleWithProduct[]}
                 products={products ?? []}
                 paymentMethods={paymentMethods ?? []}
+                canManageSales={canManageSales}
               />
             )}
           </>

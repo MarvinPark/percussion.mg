@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   description: "재고 · 매출 · 견적 관리",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 const themeScript = `
   (function () {
     var theme = localStorage.getItem("theme");

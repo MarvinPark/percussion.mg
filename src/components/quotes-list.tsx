@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteQuote, convertQuoteToSale } from "@/app/quotes/actions";
+import { deleteQuote, convertQuoteToSale, cancelQuoteConversion } from "@/app/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
 import QuoteDocumentPreview from "@/components/quote-document-preview";
 import QuoteForm from "@/components/quote-form";
@@ -15,6 +15,7 @@ export type QuoteListItem = {
   id: string;
   quote_date: string;
   customer_name: string;
+  business_partner: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   customer_email: string | null;
@@ -50,8 +51,11 @@ type QuotesListProps = {
   quotes: QuoteListItem[];
   products: QuoteProductOption[];
   paymentMethods: PaymentMethod[];
+  convertedQuoteIds: string[];
   managerName: string;
   managerPhone: string;
+  rowFontSize?: number;
+  emptyMessage?: string;
 };
 
 function formatDate(value: string) {
@@ -76,16 +80,26 @@ export default function QuotesList({
   quotes,
   products,
   paymentMethods,
+  convertedQuoteIds,
   managerName,
   managerPhone,
+  rowFontSize = 12,
+  emptyMessage,
 }: QuotesListProps) {
   const router = useRouter();
+  const convertedQuoteIdSet = new Set(convertedQuoteIds);
+  const subFontSize = Math.max(8, rowFontSize - 2);
+  const actionFontSize = Math.max(9, rowFontSize - 1);
   const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
   const [convertingQuote, setConvertingQuote] = useState<QuoteListItem | null>(
     null,
   );
-  const [convertError, setConvertError] = useState<string | null>(null);
+  const [cancellingQuote, setCancellingQuote] = useState<QuoteListItem | null>(
+    null,
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isConverting, startConvert] = useTransition();
+  const [isCancelling, startCancel] = useTransition();
   const [preview, setPreview] = useState<{
     quote: QuoteListItem;
     mode: "quote" | "invoice";
@@ -100,29 +114,52 @@ export default function QuotesList({
     if (!convertingQuote) return;
 
     startConvert(async () => {
-      setConvertError(null);
+      setActionError(null);
       const result = await convertQuoteToSale(convertingQuote.id);
       if (result.error) {
-        setConvertError(result.error);
+        setActionError(result.error);
         setConvertingQuote(null);
         return;
       }
       setConvertingQuote(null);
-      router.push("/sales");
+      router.refresh();
+    });
+  }
+
+  function handleConfirmCancel() {
+    if (!cancellingQuote) return;
+
+    startCancel(async () => {
+      setActionError(null);
+      const result = await cancelQuoteConversion(cancellingQuote.id);
+      if (result.error) {
+        setActionError(result.error);
+        setCancellingQuote(null);
+        return;
+      }
+      setCancellingQuote(null);
       router.refresh();
     });
   }
 
   return (
     <>
-      {convertError ? (
+      {actionError ? (
         <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {convertError}
+          {actionError}
         </p>
       ) : null}
 
-      <div className="space-y-2">
-        {quotes.map((quote) => (
+      <div className="mt-3 space-y-2">
+        {quotes.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+            {emptyMessage ?? "표시할 견적 기록이 없습니다."}
+          </div>
+        ) : null}
+        {quotes.map((quote) => {
+          const isConverted = convertedQuoteIdSet.has(quote.id);
+
+          return (
           <div
             key={quote.id}
             role="button"
@@ -138,13 +175,19 @@ export default function QuotesList({
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                <p
+                  className="truncate font-semibold text-zinc-900 dark:text-zinc-100"
+                  style={{ fontSize: `${rowFontSize}px` }}
+                >
                   {quote.customer_name}
                   <span className="ml-2 font-bold text-zinc-800 dark:text-zinc-200">
                     {formatKRW(quote.total_amount)}원
                   </span>
                 </p>
-                <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                <p
+                  className="mt-0.5 truncate text-zinc-500 dark:text-zinc-400"
+                  style={{ fontSize: `${subFontSize}px` }}
+                >
                   {formatDate(quote.quote_date)}
                   {" · "}
                   {quote.quote_items.length}품목 ({summarizeItems(quote.quote_items)})
@@ -161,6 +204,7 @@ export default function QuotesList({
                   type="button"
                   onClick={() => setPreview({ quote, mode: "quote" })}
                   className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+                  style={{ fontSize: `${actionFontSize}px` }}
                 >
                   견적서 미리보기
                 </button>
@@ -168,25 +212,53 @@ export default function QuotesList({
                   type="button"
                   onClick={() => setPreview({ quote, mode: "invoice" })}
                   className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+                  style={{ fontSize: `${actionFontSize}px` }}
                 >
                   거래명세서 미리보기
                 </button>
-                <button
-                  type="button"
-                  disabled={isConverting}
-                  onClick={() => {
-                    setConvertError(null);
-                    setConvertingQuote(quote);
-                  }}
-                  className={`${actionButtonClass} border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900`}
-                >
-                  매출전환
-                </button>
+                {isConverted ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled
+                      className={`${actionButtonClass} border-zinc-300 bg-zinc-100 text-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-400`}
+                      style={{ fontSize: `${actionFontSize}px` }}
+                    >
+                      매출완료
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isCancelling}
+                      onClick={() => {
+                        setActionError(null);
+                        setCancellingQuote(quote);
+                      }}
+                      className={`${actionButtonClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900`}
+                      style={{ fontSize: `${actionFontSize}px` }}
+                    >
+                      매출취소
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isConverting}
+                    onClick={() => {
+                      setActionError(null);
+                      setConvertingQuote(quote);
+                    }}
+                    className={`${actionButtonClass} border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900`}
+                    style={{ fontSize: `${actionFontSize}px` }}
+                  >
+                    매출전환
+                  </button>
+                )}
                 <form action={deleteQuote}>
                   <input type="hidden" name="quote_id" value={quote.id} />
                   <button
                     type="submit"
                     className={`${actionButtonClass} w-full border-zinc-300 text-red-600 hover:bg-red-50 dark:border-zinc-600 dark:hover:bg-red-950/30`}
+                    style={{ fontSize: `${actionFontSize}px` }}
                   >
                     삭제
                   </button>
@@ -194,7 +266,8 @@ export default function QuotesList({
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {editingQuote ? (
@@ -229,6 +302,7 @@ export default function QuotesList({
               initialQuote={{
                 quote_date: editingQuote.quote_date,
                 customer_name: editingQuote.customer_name,
+                business_partner: editingQuote.business_partner ?? "",
                 customer_phone: editingQuote.customer_phone ?? "",
                 customer_address: editingQuote.customer_address ?? "",
                 customer_email: editingQuote.customer_email ?? "",
@@ -265,7 +339,20 @@ export default function QuotesList({
           title="매출기록하겠습니까?"
           description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
           onConfirm={handleConfirmConvert}
-          onCancel={() => setConvertingQuote(null)}
+          onCancel={() => {
+            if (!isConverting) setConvertingQuote(null);
+          }}
+        />
+      ) : null}
+
+      {cancellingQuote ? (
+        <ConfirmDialog
+          title="매출을 취소하시겠습니까?"
+          description={`${cancellingQuote.customer_name} 견적의 매출 기록을 삭제하고 재고를 복구합니다.`}
+          onConfirm={handleConfirmCancel}
+          onCancel={() => {
+            if (!isCancelling) setCancellingQuote(null);
+          }}
         />
       ) : null}
     </>

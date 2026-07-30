@@ -4,6 +4,7 @@
 -- ============================================================
 
 alter table sales
+  add column if not exists business_partner text,
   add column if not exists customer_phone text,
   add column if not exists customer_address text;
 

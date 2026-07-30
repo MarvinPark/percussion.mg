@@ -51,6 +51,7 @@ export function dbQuoteItemToInput(item: DbQuoteItem): QuoteItemInput {
 type SavedQuoteForPreview = {
   quote_date: string;
   customer_name: string;
+  business_partner: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   customer_email: string | null;
@@ -73,6 +74,7 @@ export function buildQuotePreviewFromSaved(
   const data: QuoteFormData = {
     quote_date: quote.quote_date,
     customer_name: quote.customer_name,
+    business_partner: quote.business_partner ?? "",
     customer_phone: quote.customer_phone ?? "",
     customer_address: quote.customer_address ?? "",
     customer_email: quote.customer_email ?? "",

@@ -5,6 +5,7 @@ alter table quotes alter column customer_phone drop not null;
 
 alter table quotes add column if not exists memo text;
 alter table quotes add column if not exists manager_name text;
+alter table quotes add column if not exists business_partner text;
 alter table quotes add column if not exists payment_method_id uuid references payment_methods(id) on delete set null;
 
 -- 이미 policy가 있으면 이 줄은 건너뛰세요.

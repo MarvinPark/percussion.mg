@@ -150,6 +150,7 @@ const ModelNameAutocomplete = forwardRef<
                   {product.brand ? ` · ${product.brand}` : ""}
                   {" · 매입가 "}
                   {formatKRW(product.purchase_price)}원
+                  {product.sku ? ` · ${product.sku}` : ""}
                 </span>
               </button>
             </li>

@@ -3,6 +3,7 @@ import AppHeader from "@/components/app-header";
 import DashboardLowStockAlert from "@/components/dashboard-low-stock-alert";
 import { formatKRW, getMonthKey, getYearKey } from "@/lib/sales-calculator";
 import { getCurrentUserProfile } from "@/lib/profile";
+import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -13,6 +14,9 @@ export default async function DashboardPage() {
   if (!user) {
     redirect("/login");
   }
+
+  const role = normalizeRole(profile?.role);
+  const canViewQuotes = hasPermission(role, "viewQuotes");
 
   const displayName =
     profile?.full_name?.trim() ||
@@ -66,13 +70,13 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <div className={`mt-6 grid gap-4 ${canViewQuotes ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <Link
             href="/products"
             className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500"
           >
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
-              재고관리
+              재고
             </p>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
               제품 등록 · 재고 확인
@@ -90,7 +94,7 @@ export default async function DashboardPage() {
             className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500"
           >
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
-              매출관리
+              매출
             </p>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
               이번 달 매출 · 마진
@@ -106,12 +110,13 @@ export default async function DashboardPage() {
             </p>
           </Link>
 
+          {canViewQuotes ? (
           <Link
             href="/quotes"
             className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500"
           >
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
-              견적관리
+              견적
             </p>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
               견적서 작성 · 이력
@@ -123,6 +128,7 @@ export default async function DashboardPage() {
               </span>
             </p>
           </Link>
+          ) : null}
         </div>
 
         <DashboardLowStockAlert products={lowStockProducts} />

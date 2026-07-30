@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteProductsByIds,
@@ -80,11 +80,17 @@ function ActionToast({ message }: { message: string }) {
 type ProductsWorkspaceProps = {
   userId: string;
   products: Product[];
+  readOnly?: boolean;
+  externalHighlightedIds?: Set<string>;
+  searchSlot?: ReactNode;
 };
 
 export default function ProductsWorkspace({
   userId,
   products,
+  readOnly = false,
+  externalHighlightedIds,
+  searchSlot,
 }: ProductsWorkspaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -299,6 +305,8 @@ export default function ProductsWorkspace({
   }, [products, applyHighlight]);
 
   useEffect(() => {
+    if (readOnly) return;
+
     function handleKeyDown(event: KeyboardEvent) {
       if (shouldIgnoreKeyboardShortcut(event)) return;
 
@@ -349,6 +357,7 @@ export default function ProductsWorkspace({
     handleRedo,
     handleUndo,
     products,
+    readOnly,
     selectedIds,
     showToast,
   ]);
@@ -364,6 +373,12 @@ export default function ProductsWorkspace({
     products.length > 0 && selectedIds.size === products.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
 
+  const mergedHighlightedIds = useMemo(() => {
+    const merged = new Set(highlightedIds);
+    externalHighlightedIds?.forEach((id) => merged.add(id));
+    return merged;
+  }, [highlightedIds, externalHighlightedIds]);
+
   function handleSelectAll(checked: boolean) {
     if (checked) {
       setSelectedIds(new Set(products.map((product) => product.id)));
@@ -374,26 +389,31 @@ export default function ProductsWorkspace({
 
   return (
     <>
-      <div className="mb-2 flex flex-wrap items-start justify-end gap-2">
-        <div className="flex flex-wrap gap-1">
-          <button
-            type="button"
-            onClick={handleCopy}
-            disabled={selectedIds.size === 0}
-            className={toolbarButtonClass}
-          >
-            복사
-          </button>
-          <button
-            type="button"
-            onClick={() => void handlePaste()}
-            disabled={isPasting || clipboard.length === 0}
-            className={toolbarButtonClass}
-          >
-            {isPasting ? "붙여넣는 중..." : "붙여넣기"}
-          </button>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        {searchSlot ? <div className="shrink-0">{searchSlot}</div> : null}
+        {!readOnly ? (
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={selectedIds.size === 0}
+              className={toolbarButtonClass}
+            >
+              복사
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePaste()}
+              disabled={isPasting || clipboard.length === 0}
+              className={toolbarButtonClass}
+            >
+              {isPasting ? "붙여넣는 중..." : "붙여넣기"}
+            </button>
+          </div>
+          <ExcelProductActions />
         </div>
-        <ExcelProductActions />
+        ) : null}
       </div>
 
       {toast ? <ActionToast message={toast} /> : null}
@@ -409,9 +429,10 @@ export default function ProductsWorkspace({
       <ProductsList
         userId={userId}
         products={products}
+        readOnly={readOnly}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
-        highlightedIds={highlightedIds}
+        highlightedIds={mergedHighlightedIds}
         allSelected={allSelected}
         someSelected={someSelected}
         onSelectAll={handleSelectAll}

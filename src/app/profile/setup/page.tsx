@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import ProfileSetupForm from "./profile-setup-form";
 import { createClient } from "@/lib/supabase/server";
+import { isProfileComplete } from "@/types/profile";
 
 export default async function ProfileSetupPage() {
   const supabase = await createClient();
@@ -14,11 +15,11 @@ export default async function ProfileSetupPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("full_name, job_title, phone")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profile) {
+  if (isProfileComplete(profile)) {
     redirect("/dashboard");
   }
 
@@ -30,20 +31,28 @@ export default async function ProfileSetupPage() {
             개인정보 등록
           </h1>
           <p className="mt-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            이름과 전화번호를 등록해야 시스템을 사용할 수 있습니다.
+            이름, 직함, 전화번호를 등록해야 시스템을 사용할 수 있습니다.
           </p>
         </div>
 
         <ProfileSetupForm
           defaultFullName={
-            typeof user.user_metadata?.full_name === "string"
+            profile?.full_name?.trim() ||
+            (typeof user.user_metadata?.full_name === "string"
               ? user.user_metadata.full_name
-              : ""
+              : "")
+          }
+          defaultJobTitle={
+            profile?.job_title?.trim() ||
+            (typeof user.user_metadata?.job_title === "string"
+              ? user.user_metadata.job_title
+              : "")
           }
           defaultPhone={
-            typeof user.user_metadata?.phone === "string"
+            profile?.phone?.trim() ||
+            (typeof user.user_metadata?.phone === "string"
               ? user.user_metadata.phone
-              : ""
+              : "")
           }
         />
       </div>

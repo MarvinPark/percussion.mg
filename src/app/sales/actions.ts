@@ -2,7 +2,7 @@
 
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import { parseSaleCategory } from "@/lib/sale-categories";
-import { getModifierInfo } from "@/lib/profile";
+import { getModifierInfo, requirePermission } from "@/lib/profile";
 import {
   addLocationStock,
   deductLocationStock,
@@ -223,7 +223,7 @@ export async function createSale(formData: FormData) {
   if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
 
   const supabase = await createClient();
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await requirePermission(supabase, "createSales");
   if ("error" in modifier) return { error: modifier.error };
 
   const stockNote = `판매 출고${customer_name ? ` — ${customer_name}` : ""}`;
@@ -334,6 +334,8 @@ export async function updateSale(formData: FormData) {
   if (!payment_method_id) return { error: "결제 방식을 선택해 주세요." };
 
   const supabase = await createClient();
+  const auth = await requirePermission(supabase, "manageSales");
+  if ("error" in auth) return { error: auth.error };
 
   const { data: existingSale } = await supabase
     .from("sales")
@@ -408,6 +410,54 @@ export async function updateSale(formData: FormData) {
     return {
       error:
         "판매 수정에 실패했습니다. Supabase에서 sales 테이블 수정 권한(RLS)을 확인해 주세요.",
+    };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/products");
+  revalidatePath("/products/history");
+  revalidatePath("/dashboard");
+
+  return { ok: true as const };
+}
+
+export async function deleteSale(
+  saleId: string,
+): Promise<{ error?: string; ok?: boolean }> {
+  const sale_id = saleId.trim();
+  if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const supabase = await createClient();
+  const auth = await requirePermission(supabase, "manageSales");
+  if ("error" in auth) return { error: auth.error };
+
+  const { data: existingSale } = await supabase
+    .from("sales")
+    .select("id, product_id, quantity, customer_name")
+    .eq("id", sale_id)
+    .single();
+
+  if (!existingSale) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const stockNote = `판매 삭제${existingSale.customer_name ? ` — ${existingSale.customer_name}` : ""}`;
+
+  const stockResult = await recordStockIn(
+    supabase,
+    existingSale.product_id,
+    existingSale.quantity,
+    stockNote,
+  );
+
+  if ("error" in stockResult) {
+    return { error: stockResult.error };
+  }
+
+  const { error: deleteError } = await supabase.from("sales").delete().eq("id", sale_id);
+
+  if (deleteError) {
+    return {
+      error:
+        "판매 삭제에 실패했습니다. Supabase에서 sales 테이블 삭제 권한(RLS)을 확인해 주세요.",
     };
   }
 

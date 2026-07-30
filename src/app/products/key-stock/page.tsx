@@ -65,7 +65,10 @@ export default async function KeyStockPage() {
             </p>
           </div>
         ) : (
-          <KeyStockWorkspace products={(products ?? []) as Product[]} />
+          <KeyStockWorkspace
+            userId={user.id}
+            products={(products ?? []) as Product[]}
+          />
         )}
       </main>
     </div>

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
 import QuoteForm from "@/components/quote-form";
-import { getCurrentUserProfile } from "@/lib/profile";
+import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
+import { isProfileComplete } from "@/types/profile";
 import { redirect } from "next/navigation";
 
 export default async function NewQuotePage() {
@@ -11,9 +12,11 @@ export default async function NewQuotePage() {
 
   if (!user) redirect("/login");
 
-  if (!profile?.full_name || !profile.phone) {
+  if (!isProfileComplete(profile)) {
     redirect("/profile/setup");
   }
+
+  const completeProfile = profile!;
 
   const { data: products } = await supabase
     .from("products")
@@ -43,8 +46,8 @@ export default async function NewQuotePage() {
             견적서 작성
           </h2>
           <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            엑셀 견적서 양식과 동일하게 작성합니다. 담당자: {profile.full_name}{" "}
-            {profile.phone}
+            담당자: {formatManagerDisplayName(completeProfile.full_name, completeProfile.job_title)}{" "}
+            · {completeProfile.phone}
           </p>
         </div>
 
@@ -65,8 +68,11 @@ export default async function NewQuotePage() {
             <QuoteForm
               products={products}
               paymentMethods={paymentMethods ?? []}
-              managerName={profile.full_name}
-              managerPhone={profile.phone}
+              managerName={formatManagerDisplayName(
+                completeProfile.full_name,
+                completeProfile.job_title,
+              )}
+              managerPhone={completeProfile.phone}
             />
           </div>
         )}

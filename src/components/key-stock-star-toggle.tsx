@@ -8,12 +8,14 @@ type KeyStockStarToggleProps = {
   productId: string;
   productName: string;
   isKeyStock: boolean;
+  readOnly?: boolean;
 };
 
 export default function KeyStockStarToggle({
   productId,
   productName,
   isKeyStock: initialKeyStock,
+  readOnly = false,
 }: KeyStockStarToggleProps) {
   const router = useRouter();
   const [isKeyStock, setIsKeyStock] = useState(initialKeyStock);
@@ -24,6 +26,7 @@ export default function KeyStockStarToggle({
   }, [initialKeyStock]);
 
   function handleClick() {
+    if (readOnly) return;
     startTransition(async () => {
       const result = await toggleKeyStock(productId);
       if (result.error) return;
@@ -38,7 +41,7 @@ export default function KeyStockStarToggle({
     <button
       type="button"
       onClick={handleClick}
-      disabled={isPending}
+      disabled={isPending || readOnly}
       className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800"
       aria-label={
         isKeyStock

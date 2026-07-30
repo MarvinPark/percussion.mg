@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState } from "react";
-import { updateSale } from "@/app/sales/actions";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { deleteSale, updateSale } from "@/app/sales/actions";
+import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ProductSearchSelect from "@/components/product-search-select";
 import PhoneInput from "@/components/phone-input";
 import SaleCategorySelect from "@/components/sale-category-select";
@@ -54,13 +55,11 @@ export default function SaleEditModal({
     );
     return matched?.id ?? paymentMethods[0]?.id ?? "";
   });
-
-  const [state, formAction, isPending] = useActionState(
-    async (_prev: { error?: string; ok?: boolean } | null, formData: FormData) => {
-      return (await updateSale(formData)) ?? null;
-    },
-    null,
-  );
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isDeleting, startDeleteTransition] = useTransition();
+  const [isSaving, startSaveTransition] = useTransition();
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -70,12 +69,28 @@ export default function SaleEditModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  useEffect(() => {
-    if (state?.ok) {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaveError(null);
+
+    if (!selectedProductId) {
+      setSaveError("제품을 선택해 주세요.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    formData.set("product_id", selectedProductId);
+
+    startSaveTransition(async () => {
+      const result = await updateSale(formData);
+      if (result?.error) {
+        setSaveError(result.error);
+        return;
+      }
       router.refresh();
       onClose();
-    }
-  }, [state?.ok, router, onClose]);
+    });
+  }
 
   const selectedPayment = paymentMethods.find(
     (method) => method.id === paymentMethodId,
@@ -99,6 +114,20 @@ export default function SaleEditModal({
       setUnitSalePrice(product.sale_price);
       setUnitPurchasePrice(product.purchase_price);
     }
+  }
+
+  function handleDeleteConfirm() {
+    setDeleteError(null);
+    startDeleteTransition(async () => {
+      const result = await deleteSale(sale.id);
+      if (result.error) {
+        setDeleteError(result.error);
+        setShowDeleteConfirm(false);
+        return;
+      }
+      router.refresh();
+      onClose();
+    });
   }
 
   return (
@@ -130,8 +159,22 @@ export default function SaleEditModal({
           </button>
         </div>
 
-        <form action={formAction} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sale_id" value={sale.id} />
+          <input type="hidden" name="product_id" value={selectedProductId} />
+
+          <div>
+            <label htmlFor="edit_created_by_name" className={labelClass}>
+              판매자
+            </label>
+            <input
+              id="edit_created_by_name"
+              type="text"
+              readOnly
+              value={sale.created_by_name ?? "-"}
+              className={`${inputClass} cursor-not-allowed bg-zinc-100 text-zinc-600 dark:bg-zinc-800/80 dark:text-zinc-400`}
+            />
+          </div>
 
           <div>
             <label htmlFor="edit_sale_category" className={labelClass}>
@@ -187,6 +230,7 @@ export default function SaleEditModal({
               products={products}
               selectedProductId={selectedProductId}
               onSelect={handleProductChange}
+              showHiddenField={false}
               initialDisplayValue={
                 initialProduct ? productDisplayLabel(initialProduct) : undefined
               }
@@ -323,9 +367,15 @@ export default function SaleEditModal({
             </dl>
           </div>
 
-          {state?.error ? (
+          {saveError ? (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-              {state.error}
+              {saveError}
+            </p>
+          ) : null}
+
+          {deleteError ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+              {deleteError}
             </p>
           ) : null}
 
@@ -338,14 +388,32 @@ export default function SaleEditModal({
               취소
             </button>
             <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isSaving || isDeleting}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-400"
+            >
+              {isDeleting ? "삭제 중..." : "삭제"}
+            </button>
+            <button
               type="submit"
-              disabled={isPending || !selectedProductId}
+              disabled={isSaving || isDeleting || !selectedProductId}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
             >
-              {isPending ? "저장 중..." : "수정 저장"}
+              {isSaving ? "저장 중..." : "수정 저장"}
             </button>
           </div>
         </form>
+
+        {showDeleteConfirm ? (
+          <DeleteConfirmDialog
+            count={1}
+            onCancel={() => {
+              if (!isDeleting) setShowDeleteConfirm(false);
+            }}
+            onConfirm={handleDeleteConfirm}
+          />
+        ) : null}
       </div>
     </div>
   );

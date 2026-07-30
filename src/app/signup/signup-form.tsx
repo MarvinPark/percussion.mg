@@ -37,6 +37,23 @@ export default function SignupForm() {
 
       <div>
         <label
+          htmlFor="job_title"
+          className="mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+        >
+          직함 <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="job_title"
+          name="job_title"
+          type="text"
+          required
+          placeholder="예: 대표, 매니저, 영업팀장"
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label
           htmlFor="phone"
           className="mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
         >

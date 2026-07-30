@@ -23,6 +23,7 @@ type EditableProductCellProps = {
   onRequestEdit?: () => void;
   onNavigate?: (direction: "forward" | "backward") => void;
   onFinishEdit?: () => void;
+  readOnly?: boolean;
 };
 
 export default function EditableProductCell({
@@ -37,7 +38,13 @@ export default function EditableProductCell({
   onRequestEdit,
   onNavigate,
   onFinishEdit,
+  readOnly = false,
 }: EditableProductCellProps) {
+  if (readOnly) {
+    return (
+      <span className={className}>{(displayValue ?? value) || "-"}</span>
+    );
+  }
   const router = useRouter();
   const [internalEditing, setInternalEditing] = useState(false);
   const isControlled = onRequestEdit !== undefined;

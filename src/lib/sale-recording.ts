@@ -20,6 +20,7 @@ type SaleLinePayload = {
   unit_sale_price: number;
   unit_purchase_price: number;
   customer_name: string | null;
+  business_partner: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   payment_method: string;
@@ -30,6 +31,7 @@ type SaleLinePayload = {
   note: string | null;
   created_by_user_id: string;
   created_by_name: string;
+  quote_id?: string | null;
 };
 
 export function formatSaleInsertError(error: {
@@ -45,6 +47,10 @@ export function formatSaleInsertError(error: {
 
   if (message.includes("customer_phone") || message.includes("customer_address")) {
     return "sales 테이블에 고객 연락처 컬럼이 없습니다. supabase/schema-sales-update.sql을 실행해 주세요.";
+  }
+
+  if (message.includes("quote_id")) {
+    return "sales 테이블에 quote_id 컬럼이 없습니다. supabase/schema-quotes-conversion.sql을 실행해 주세요.";
   }
 
   if (error.code === "42501" || message.includes("row-level security")) {
@@ -103,7 +109,7 @@ export async function insertSaleRecord(
     unit_sale_price: Math.round(payload.unit_sale_price),
     unit_purchase_price: Math.round(payload.unit_purchase_price),
     customer_name: payload.customer_name,
-    business_partner: null,
+    business_partner: payload.business_partner,
     customer_phone: payload.customer_phone,
     customer_address: payload.customer_address,
     payment_method: payload.payment_method,
@@ -114,6 +120,7 @@ export async function insertSaleRecord(
     note: payload.note,
     created_by_user_id: payload.created_by_user_id,
     created_by_name: payload.created_by_name,
+    ...(payload.quote_id ? { quote_id: payload.quote_id } : {}),
   };
 
   const { data, error } = await supabase

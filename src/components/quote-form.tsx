@@ -26,6 +26,7 @@ const labelClass = "text-xs font-semibold text-zinc-700 dark:text-zinc-300";
 type QuoteEditInitial = {
   quote_date: string;
   customer_name: string;
+  business_partner: string;
   customer_phone: string;
   customer_address: string;
   customer_email: string;
@@ -129,6 +130,9 @@ export default function QuoteForm({
   );
   const [customerName, setCustomerName] = useState(
     initialQuote?.customer_name ?? "",
+  );
+  const [businessPartner, setBusinessPartner] = useState(
+    initialQuote?.business_partner ?? "",
   );
   const [customerPhone, setCustomerPhone] = useState(
     initialQuote?.customer_phone ?? "",
@@ -265,6 +269,7 @@ export default function QuoteForm({
             <input
               value={editableManagerName}
               onChange={(event) => setEditableManagerName(event.target.value)}
+              placeholder="예: 홍길동 실장"
               className={inputClass}
             />
           </div>
@@ -284,47 +289,62 @@ export default function QuoteForm({
         <p className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
           고객 정보
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className={labelClass}>성함 *</label>
-            <input
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="입력"
-              className={inputClass}
-            />
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>성함 *</label>
+              <input
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="입력"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>거래처명</label>
+              <input
+                value={businessPartner}
+                onChange={(e) => setBusinessPartner(e.target.value)}
+                placeholder="입력"
+                className={inputClass}
+              />
+            </div>
           </div>
-          <div>
-            <label className={labelClass}>연락처</label>
-            <input
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className={inputClass}
-            />
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
+            <div>
+              <label className={labelClass}>연락처</label>
+              <input
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>주소</label>
+              <input
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                className={inputClass}
+              />
+            </div>
           </div>
-          <div>
-            <label className={labelClass}>주소</label>
-            <input
-              value={customerAddress}
-              onChange={(e) => setCustomerAddress(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>이메일</label>
-            <input
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass}>비고</label>
-            <input
-              value={customerNote}
-              onChange={(e) => setCustomerNote(e.target.value)}
-              className={inputClass}
-            />
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
+            <div>
+              <label className={labelClass}>이메일</label>
+              <input
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>비고</label>
+              <input
+                value={customerNote}
+                onChange={(e) => setCustomerNote(e.target.value)}
+                className={inputClass}
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -556,6 +576,7 @@ export default function QuoteForm({
           <input type="hidden" name="manager_name" value={editableManagerName} />
           <input type="hidden" name="payment_method_id" value={paymentMethodId} />
           <input type="hidden" name="customer_name" value={customerName} />
+          <input type="hidden" name="business_partner" value={businessPartner} />
           <input type="hidden" name="customer_phone" value={customerPhone} />
           <input
             type="hidden"

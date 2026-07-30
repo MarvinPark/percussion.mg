@@ -20,6 +20,7 @@ export type QuoteItemInput = {
 export type QuoteFormData = {
   quote_date: string;
   customer_name: string;
+  business_partner: string;
   customer_phone: string;
   customer_address: string;
   customer_email: string;
@@ -35,6 +36,7 @@ export type Quote = {
   id: string;
   quote_date: string;
   customer_name: string;
+  business_partner: string | null;
   customer_phone: string;
   customer_address: string | null;
   customer_email: string | null;
@@ -72,12 +74,15 @@ export const QUOTE_LINE_START_ROW = 14;
 export const QUOTE_LINE_COUNT = 50;
 
 export const SUPPLIER_INFO = {
-  company: "비에스비인터내셔널 (퍼커션센터)   대표자 조익환",
+  companyName: "(주)비에스비인터내셔널",
+  brandLine: " -퍼커션센터",
+  representative: "대표자 조익환",
   businessNumber: "488-81-02809",
   email: "percussion.cs@gmail.com",
+  phone: "02-573-7485",
+  address: "서울 서초구 양재동 392-10 정암빌딩 지하",
   manager: "담당 전인철 실장 010-4311-3604",
-  address: "서울시 서초구 양재동 392-10 정암빌딩 지하",
-  transactionReceipt: "위와같이 거래하였음을 정히 영수합니다.",
+  transactionReceipt: "위와 같이 거래하였음을 정히 영수합니다.",
   bank: "계좌정보: 우리은행(1005-804-509027) (주)비에스비인터내셔널",
   footerNote:
     "- 위 견적은 일주일간 유효하며 이후 금액이 변동될 수 있습니다.\n- 현금가 기준이며, 카드결제시 4% 수수료 추가됩니다.\n- 타 업체에 해당 견적서 유출을 방지해 주시기 바랍니다.\n- 견적중 일부 상품만 구매시 금액이 변동될 수 있습니다.",

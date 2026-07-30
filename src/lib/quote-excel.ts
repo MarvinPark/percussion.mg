@@ -75,6 +75,7 @@ export function buildQuoteWorkbook(data: QuoteFormData) {
 
   setCell(ws, "L2", quoteDate);
   setCell(ws, "I4", data.customer_name);
+  setCell(ws, "I7", data.business_partner);
   setCell(ws, "I5", data.customer_phone);
   setCell(ws, "I6", data.customer_address);
   setCell(ws, "I8", data.customer_email);

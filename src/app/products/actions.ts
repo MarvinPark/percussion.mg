@@ -1,6 +1,6 @@
 "use server";
 
-import { getModifierInfo } from "@/lib/profile";
+import { getModifierInfo, requirePermission } from "@/lib/profile";
 import { nextPasteSku } from "@/lib/product-sku";
 import {
   addLocationStock,
@@ -135,12 +135,22 @@ function productPayload(data: ReturnType<typeof parseProductForm>) {
   };
 }
 
+async function ensureManageProducts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const auth = await requirePermission(supabase, "manageProducts");
+  if ("error" in auth) return auth;
+  return null;
+}
+
 export async function createProduct(formData: FormData) {
   const data = parseProductForm(formData);
   const error = validateProduct(data);
   if (error) return { error };
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
 
   const { error: dbError } = await supabase
     .from("products")
@@ -170,6 +180,8 @@ export async function updateProduct(formData: FormData) {
   if (error) return { error };
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
 
   const { error: dbError } = await supabase
     .from("products")
@@ -216,6 +228,8 @@ export async function updateProductField(
   }
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
 
   const { data: product } = await supabase
     .from("products")
@@ -376,6 +390,8 @@ export async function updateStock(formData: FormData) {
   if (stock_quantity < 0 || Number.isNaN(stock_quantity)) return;
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return;
 
   const { data: product } = await supabase
     .from("products")
@@ -440,6 +456,8 @@ export async function registerStockMovement(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
 
   const { data: product } = await supabase
     .from("products")
@@ -507,6 +525,9 @@ export async function deleteProduct(formData: FormData) {
   if (!id) return;
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return;
+
   await supabase.from("products").delete().eq("id", id);
   revalidatePath("/products");
 }
@@ -519,6 +540,9 @@ export async function deleteProductsByIds(
   }
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
   const { error } = await supabase.from("products").delete().in("id", ids);
 
   if (error) {
@@ -557,6 +581,8 @@ export async function restoreProducts(
   }
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
 
   for (const product of products) {
     const { error } = await supabase.from("products").insert({
@@ -614,6 +640,9 @@ export async function pasteProducts(
   }
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
   const ids: string[] = [];
 
   const { data: existingProducts } = await supabase
@@ -683,6 +712,8 @@ export async function updateKeyStockReserved(
   }
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
 
   const { data: product } = await supabase
     .from("products")
@@ -727,6 +758,8 @@ export async function toggleKeyStock(
   }
 
   const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
 
   const { data: product } = await supabase
     .from("products")

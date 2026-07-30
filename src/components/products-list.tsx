@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProductInlineField } from "@/app/products/actions";
 import EditableProductCell from "@/components/editable-product-cell";
 import KeyStockStarToggle from "@/components/key-stock-star-toggle";
@@ -50,6 +50,7 @@ type ProductsListProps = {
   onRequestDelete: (products: Product[]) => void;
   hasClipboard: boolean;
   isPasting: boolean;
+  readOnly?: boolean;
 };
 
 type ContextMenuState = {
@@ -205,6 +206,7 @@ function ProductContextMenu({
   onRequestDelete,
   onDetail,
   onClose,
+  readOnly = false,
 }: {
   menu: ContextMenuState;
   products: Product[];
@@ -216,6 +218,7 @@ function ProductContextMenu({
   onRequestDelete: (products: Product[]) => void;
   onDetail: (product: Product) => void;
   onClose: () => void;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const { product, x, y } = menu;
@@ -292,6 +295,12 @@ function ProductContextMenu({
       style={{ left: x, top: y }}
       onContextMenu={(event) => event.preventDefault()}
     >
+        {readOnly ? (
+          <button type="button" onClick={handleDetail} className={`${menuItemClass} ${menuItemActive}`}>
+            상세보기
+          </button>
+        ) : (
+          <>
         <button type="button" onClick={handleCopy} className={`${menuItemClass} ${menuItemActive}`}>
           복사
         </button>
@@ -319,6 +328,8 @@ function ProductContextMenu({
         <button type="button" onClick={handleDetail} className={`${menuItemClass} ${menuItemActive}`}>
         상세보기
       </button>
+          </>
+        )}
     </div>
   );
 }
@@ -337,6 +348,7 @@ export default function ProductsList({
   onRequestDelete,
   hasClipboard,
   isPasting,
+  readOnly = false,
 }: ProductsListProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -345,6 +357,13 @@ export default function ProductsList({
   const editRefs = useRef(new Map<string, HTMLAnchorElement>());
   const deleteRefs = useRef(new Map<string, HTMLButtonElement>());
   const { widths, startResize, tableMinWidth } = useProductColumnWidths(userId);
+  const tableColumns = useMemo(
+    () =>
+      readOnly
+        ? PRODUCT_TABLE_COLUMNS.filter((column) => column.id !== "actions")
+        : PRODUCT_TABLE_COLUMNS,
+    [readOnly],
+  );
 
   const navigateFocus = useCallback(
     (from: TableFocusState, direction: "forward" | "backward") => {
@@ -393,6 +412,7 @@ export default function ProductsList({
         ),
       onNavigate: (direction: "forward" | "backward") =>
         navigateFocus({ kind: "field", productId, field }, direction),
+      ...(readOnly ? { readOnly: true as const } : {}),
     };
   }
 
@@ -506,7 +526,7 @@ export default function ProductsList({
           style={{ minWidth: tableMinWidth }}
         >
           <colgroup className="max-md:hidden">
-            {PRODUCT_TABLE_COLUMNS.map((column) => (
+            {tableColumns.map((column) => (
               <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
             ))}
           </colgroup>
@@ -576,6 +596,7 @@ export default function ProductsList({
               return (
                 <tr
                   key={product.id}
+                  id={`product-row-${product.id}`}
                   onClick={(event) => handleRowClick(event, product)}
                   onContextMenu={(event) => openContextMenu(event, product)}
                   className={rowClass(product)}
@@ -632,6 +653,7 @@ export default function ProductsList({
                       productId={product.id}
                       productName={product.product_name}
                       isKeyStock={product.is_key_stock ?? false}
+                      readOnly={readOnly}
                     />
                   </td>
                   <td
@@ -789,6 +811,7 @@ export default function ProductsList({
                       {...cellFocusProps(product.id, "sale_price")}
                     />
                   </td>
+                  {!readOnly ? (
                   <td
                     className="px-3 py-1.5"
                     onClick={(event) => event.stopPropagation()}
@@ -857,6 +880,7 @@ export default function ProductsList({
                       </button>
                     </div>
                   </td>
+                  ) : null}
                 </tr>
               );
             })}
@@ -876,6 +900,7 @@ export default function ProductsList({
           onRequestDelete={onRequestDelete}
           onDetail={setSelectedProduct}
           onClose={() => setContextMenu(null)}
+          readOnly={readOnly}
         />
       ) : null}
 

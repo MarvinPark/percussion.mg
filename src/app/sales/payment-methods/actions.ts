@@ -1,5 +1,6 @@
 "use server";
 
+import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -19,6 +20,8 @@ export async function createPaymentMethod(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const auth = await requirePermission(supabase, "managePaymentMethods");
+  if ("error" in auth) return { error: auth.error };
 
   const { data: lastMethod } = await supabase
     .from("payment_methods")
@@ -58,6 +61,8 @@ export async function updatePaymentMethod(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const auth = await requirePermission(supabase, "managePaymentMethods");
+  if ("error" in auth) return { error: auth.error };
 
   const { error } = await supabase
     .from("payment_methods")
@@ -80,6 +85,9 @@ export async function deletePaymentMethod(formData: FormData) {
   if (!id) return { error: "삭제할 결제 수단을 찾을 수 없습니다." };
 
   const supabase = await createClient();
+  const auth = await requirePermission(supabase, "managePaymentMethods");
+  if ("error" in auth) return { error: auth.error };
+
   const { error } = await supabase.from("payment_methods").delete().eq("id", id);
 
   if (error) {

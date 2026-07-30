@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { login } from "./actions";
 
@@ -69,13 +68,6 @@ export default function LoginForm({ authError }: { authError?: string }) {
       >
         {isPending ? "로그인 중..." : "로그인"}
       </button>
-
-      <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
-        계정이 없으신가요?{" "}
-        <Link href="/signup" className="font-medium text-blue-600 underline dark:text-blue-400">
-          회원가입
-        </Link>
-      </p>
     </form>
   );
 }

@@ -12,7 +12,7 @@ export default function SignupPage() {
             회원가입
           </h1>
           <p className="mt-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            이름과 전화번호를 입력해야 시스템을 사용할 수 있습니다.
+            이름, 직함, 전화번호를 입력해야 시스템을 사용할 수 있습니다.
           </p>
         </div>
 
