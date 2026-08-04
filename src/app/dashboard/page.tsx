@@ -17,6 +17,7 @@ export default async function DashboardPage() {
 
   const role = normalizeRole(profile?.role);
   const canViewQuotes = hasPermission(role, "viewQuotes");
+  const canManageProducts = hasPermission(role, "manageProducts");
 
   const displayName =
     profile?.full_name?.trim() ||
@@ -131,7 +132,10 @@ export default async function DashboardPage() {
           ) : null}
         </div>
 
-        <DashboardLowStockAlert products={lowStockProducts} />
+        <DashboardLowStockAlert
+          products={lowStockProducts}
+          canManageProducts={canManageProducts}
+        />
       </main>
     </div>
   );
