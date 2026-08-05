@@ -6,10 +6,18 @@ import { createQuote, updateQuote } from "@/app/quotes/actions";
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
 } from "@/components/model-name-autocomplete";
+import PaymentMethodCombobox from "@/components/payment-method-combobox";
+import PhoneInput from "@/components/phone-input";
+import PriceInput from "@/components/price-input";
+import SaleCategorySelect from "@/components/sale-category-select";
+import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
+import SaleTextAutocomplete from "@/components/sale-text-autocomplete";
 import {
   calculateQuoteLine,
   calculateQuoteTotals,
 } from "@/lib/quote-calculator";
+import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
+import { displaySaleCategory, type SaleCategory } from "@/lib/sale-categories";
 import { formatKRW } from "@/lib/sales-calculator";
 import type { PaymentMethod } from "@/types/sale";
 import type {
@@ -25,6 +33,7 @@ const labelClass = "text-xs font-semibold text-zinc-700 dark:text-zinc-300";
 
 type QuoteEditInitial = {
   quote_date: string;
+  sale_category: string;
   customer_name: string;
   business_partner: string;
   customer_phone: string;
@@ -42,6 +51,7 @@ type QuoteFormProps = {
   paymentMethods: PaymentMethod[];
   managerName: string;
   managerPhone: string;
+  contactSuggestions: SaleContactSuggestions;
   quoteId?: string;
   initialQuote?: QuoteEditInitial;
   onSaved?: () => void;
@@ -108,6 +118,7 @@ export default function QuoteForm({
   paymentMethods,
   managerName,
   managerPhone,
+  contactSuggestions,
   quoteId,
   initialQuote,
   onSaved,
@@ -124,6 +135,9 @@ export default function QuoteForm({
   const [addSalePrice, setAddSalePrice] = useState(0);
   const [quoteDate, setQuoteDate] = useState(
     initialQuote?.quote_date ?? todayString(),
+  );
+  const [saleCategory, setSaleCategory] = useState<SaleCategory>(
+    displaySaleCategory(initialQuote?.sale_category),
   );
   const [editableManagerName, setEditableManagerName] = useState(
     initialQuote?.manager_name ?? managerName,
@@ -263,7 +277,7 @@ export default function QuoteForm({
         <h3 className="text-center text-2xl font-bold tracking-[0.3em] text-zinc-900 dark:text-zinc-100">
           견 적 서
         </h3>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className={labelClass}>담당</label>
             <input
@@ -282,6 +296,17 @@ export default function QuoteForm({
               className={inputClass}
             />
           </div>
+          <div>
+            <label htmlFor="quote_sale_category" className={labelClass}>
+              구분 *
+            </label>
+            <SaleCategorySelect
+              id="quote_sale_category"
+              value={saleCategory}
+              onChange={(value) => setSaleCategory(displaySaleCategory(value))}
+              className={inputClass}
+            />
+          </div>
         </div>
       </section>
 
@@ -292,19 +317,33 @@ export default function QuoteForm({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>성함 *</label>
-              <input
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+              <label htmlFor="quote_business_partner" className={labelClass}>
+                거래처명
+              </label>
+              <SaleTextAutocomplete
+                id="quote_business_partner"
+                name="business_partner"
+                value={businessPartner}
+                onChange={setBusinessPartner}
+                suggestions={contactSuggestions.businessPartners}
                 placeholder="입력"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>거래처명</label>
-              <input
-                value={businessPartner}
-                onChange={(e) => setBusinessPartner(e.target.value)}
+              <label htmlFor="quote_customer_name" className={labelClass}>
+                고객명 *
+              </label>
+              <SaleCustomerAutocomplete
+                id="quote_customer_name"
+                name="customer_name"
+                value={customerName}
+                onChange={setCustomerName}
+                suggestions={contactSuggestions.customers}
+                onSelectCustomer={(customer) => {
+                  setCustomerPhone(customer.phone);
+                  setCustomerAddress(customer.address);
+                }}
                 placeholder="입력"
                 className={inputClass}
               />
@@ -312,18 +351,25 @@ export default function QuoteForm({
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
             <div>
-              <label className={labelClass}>연락처</label>
-              <input
+              <label htmlFor="quote_customer_phone" className={labelClass}>
+                연락처
+              </label>
+              <PhoneInput
+                id="quote_customer_phone"
+                name="customer_phone"
                 value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
+                onChange={setCustomerPhone}
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>주소</label>
+              <label htmlFor="quote_customer_address" className={labelClass}>
+                주소
+              </label>
               <input
+                id="quote_customer_address"
                 value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
+                onChange={(event) => setCustomerAddress(event.target.value)}
                 className={inputClass}
               />
             </div>
@@ -408,11 +454,10 @@ export default function QuoteForm({
           </div>
           <div className="w-32">
             <label className={labelClass}>판매가</label>
-            <input
-              type="number"
+            <PriceInput
               min={0}
-              value={addSalePrice || ""}
-              onChange={(e) => setAddSalePrice(Number(e.target.value) || 0)}
+              value={addSalePrice}
+              onChange={setAddSalePrice}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -478,12 +523,11 @@ export default function QuoteForm({
                     />
                   </td>
                   <td className="px-2 py-2">
-                    <input
-                      type="number"
+                    <PriceInput
                       min={0}
                       value={item.sale_unit_price}
-                      onChange={(e) =>
-                        updateItemSalePrice(index, Number(e.target.value) || 0)
+                      onChange={(saleUnitPrice) =>
+                        updateItemSalePrice(index, saleUnitPrice)
                       }
                       className={`${inputClass} w-28`}
                     />
@@ -530,18 +574,15 @@ export default function QuoteForm({
             등록된 결제 방식이 없습니다. 매출관리에서 먼저 등록해 주세요.
           </p>
         ) : (
-          <select
+          <PaymentMethodCombobox
+            id="quote_payment_method"
+            paymentMethods={paymentMethods}
             value={paymentMethodId}
-            onChange={(event) => setPaymentMethodId(event.target.value)}
+            onChange={setPaymentMethodId}
             className={inputClass}
-          >
-            {paymentMethods.map((method) => (
-              <option key={method.id} value={method.id}>
-                {method.name}
-                {method.fee_rate > 0 ? ` (수수료 ${method.fee_rate}%)` : ""}
-              </option>
-            ))}
-          </select>
+            placeholder="결제 방식 입력 또는 선택"
+            required
+          />
         )}
       </section>
 
@@ -573,6 +614,7 @@ export default function QuoteForm({
             <input type="hidden" name="quote_id" value={quoteId} />
           ) : null}
           <input type="hidden" name="quote_date" value={quoteDate} />
+          <input type="hidden" name="sale_category" value={saleCategory} />
           <input type="hidden" name="manager_name" value={editableManagerName} />
           <input type="hidden" name="payment_method_id" value={paymentMethodId} />
           <input type="hidden" name="customer_name" value={customerName} />

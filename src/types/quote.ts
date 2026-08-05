@@ -19,6 +19,7 @@ export type QuoteItemInput = {
 
 export type QuoteFormData = {
   quote_date: string;
+  sale_category: string;
   customer_name: string;
   business_partner: string;
   customer_phone: string;
@@ -35,6 +36,7 @@ export type QuoteFormData = {
 export type Quote = {
   id: string;
   quote_date: string;
+  sale_category: string;
   customer_name: string;
   business_partner: string | null;
   customer_phone: string;

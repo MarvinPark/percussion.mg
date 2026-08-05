@@ -15,10 +15,7 @@ import {
   type TableFocusState,
 } from "@/lib/product-table-navigation";
 import type { Product } from "@/types/product";
-
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("ko-KR").format(value);
-}
+import { formatKRW } from "@/lib/sales-calculator";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -85,14 +82,6 @@ function ProductDetailModal({
   product: Product;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
   const fields: { label: string; value: string; fullWidth?: boolean }[] = [
     { label: "공급처", value: product.supplier, fullWidth: true },
     { label: "품목", value: product.category ?? "-" },
@@ -103,8 +92,8 @@ function ProductDetailModal({
     { label: "색상", value: product.color ?? "-" },
     { label: "옵션", value: product.product_option ?? "-" },
     { label: "사이즈", value: product.size ?? "-" },
-    { label: "매입가", value: `${formatPrice(product.purchase_price)}원` },
-    { label: "소비자가", value: `${formatPrice(product.sale_price)}원` },
+    { label: "매입가", value: `${formatKRW(product.purchase_price)}원` },
+    { label: "소비자가", value: `${formatKRW(product.sale_price)}원` },
     { label: "현재고(3층)", value: `${product.stock_floor3 ?? 0}개` },
     { label: "현재고(B1)", value: `${product.stock_b1 ?? 0}개` },
     { label: "현재고(의왕)", value: `${product.stock_display ?? 0}개` },
@@ -119,14 +108,8 @@ function ProductDetailModal({
   const isLowStock = product.stock_quantity <= product.min_stock_quantity;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="break-words text-lg font-semibold text-zinc-900 dark:text-zinc-100">
@@ -136,14 +119,6 @@ function ProductDetailModal({
               {product.model_name}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
         </div>
 
         {isLowStock ? (
@@ -793,8 +768,9 @@ export default function ProductsList({
                       productId={product.id}
                       field="purchase_price"
                       value={String(product.purchase_price)}
-                      displayValue={`${formatPrice(product.purchase_price)}원`}
+                      displayValue={`${formatKRW(product.purchase_price)}원`}
                       inputType="number"
+                      formatAsPrice
                       {...cellFocusProps(product.id, "purchase_price")}
                     />
                   </td>
@@ -806,8 +782,9 @@ export default function ProductsList({
                       productId={product.id}
                       field="sale_price"
                       value={String(product.sale_price)}
-                      displayValue={`${formatPrice(product.sale_price)}원`}
+                      displayValue={`${formatKRW(product.sale_price)}원`}
                       inputType="number"
+                      formatAsPrice
                       {...cellFocusProps(product.id, "sale_price")}
                     />
                   </td>

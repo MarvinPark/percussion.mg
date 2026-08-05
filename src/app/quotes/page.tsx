@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
 import QuotesPageClient from "@/components/quotes-page-client";
+import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -20,6 +21,7 @@ export default async function QuotesPage() {
     { data: products },
     { data: paymentMethods },
     { data: linkedSales },
+    { data: salesContacts },
   ] = await Promise.all([
     supabase
       .from("quotes")
@@ -37,7 +39,16 @@ export default async function QuotesPage() {
       .select("id, name, fee_rate, sort_order")
       .order("sort_order", { ascending: true }),
     supabase.from("sales").select("quote_id").not("quote_id", "is", null),
+    supabase
+      .from("sales")
+      .select(
+        "business_partner, customer_name, customer_phone, customer_address, sold_at",
+      )
+      .order("sold_at", { ascending: false })
+      .limit(1000),
   ]);
+
+  const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
 
   const convertedQuoteIds = [
     ...new Set(
@@ -102,6 +113,7 @@ export default async function QuotesPage() {
             products={products ?? []}
             paymentMethods={paymentMethods ?? []}
             convertedQuoteIds={convertedQuoteIds}
+            contactSuggestions={contactSuggestions}
             managerName={formatManagerDisplayName(
               profile?.full_name,
               profile?.job_title,

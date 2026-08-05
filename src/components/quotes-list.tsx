@@ -7,6 +7,8 @@ import ConfirmDialog from "@/components/confirm-dialog";
 import QuoteDocumentPreview from "@/components/quote-document-preview";
 import QuoteForm from "@/components/quote-form";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
+import { displaySaleCategory } from "@/lib/sale-categories";
+import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
 import type { PaymentMethod } from "@/types/sale";
 import type { QuoteProductOption } from "@/types/quote";
@@ -14,6 +16,7 @@ import type { QuoteProductOption } from "@/types/quote";
 export type QuoteListItem = {
   id: string;
   quote_date: string;
+  sale_category: string | null;
   customer_name: string;
   business_partner: string | null;
   customer_phone: string | null;
@@ -52,6 +55,7 @@ type QuotesListProps = {
   products: QuoteProductOption[];
   paymentMethods: PaymentMethod[];
   convertedQuoteIds: string[];
+  contactSuggestions: SaleContactSuggestions;
   managerName: string;
   managerPhone: string;
   rowFontSize?: number;
@@ -74,13 +78,14 @@ function summarizeItems(items: QuoteListItem["quote_items"]) {
 }
 
 const actionButtonClass =
-  "rounded border px-2 py-1 text-[11px] font-medium leading-tight whitespace-nowrap";
+  "inline-flex h-[26px] w-[4.25rem] shrink-0 items-center justify-center rounded border text-[11px] font-medium leading-none whitespace-nowrap";
 
 export default function QuotesList({
   quotes,
   products,
   paymentMethods,
   convertedQuoteIds,
+  contactSuggestions,
   managerName,
   managerPhone,
   rowFontSize = 12,
@@ -89,7 +94,6 @@ export default function QuotesList({
   const router = useRouter();
   const convertedQuoteIdSet = new Set(convertedQuoteIds);
   const subFontSize = Math.max(8, rowFontSize - 2);
-  const actionFontSize = Math.max(9, rowFontSize - 1);
   const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
   const [convertingQuote, setConvertingQuote] = useState<QuoteListItem | null>(
     null,
@@ -150,7 +154,7 @@ export default function QuotesList({
         </p>
       ) : null}
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 space-y-1">
         {quotes.length === 0 ? (
           <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
             {emptyMessage ?? "표시할 견적 기록이 없습니다."}
@@ -171,21 +175,35 @@ export default function QuotesList({
                 setEditingQuote(quote);
               }
             }}
-            className="cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 py-2 transition hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
+            className={`cursor-pointer rounded-lg border px-2 py-1 transition ${
+              isConverted
+                ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
+                : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
+            }`}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-2">
+              <div className="min-w-0 w-full leading-tight md:flex-1">
                 <p
-                  className="truncate font-semibold text-zinc-900 dark:text-zinc-100"
+                  className={`truncate font-semibold ${
+                    isConverted
+                      ? "text-zinc-500 dark:text-zinc-400"
+                      : "text-zinc-900 dark:text-zinc-100"
+                  }`}
                   style={{ fontSize: `${rowFontSize}px` }}
                 >
                   {quote.customer_name}
-                  <span className="ml-2 font-bold text-zinc-800 dark:text-zinc-200">
+                  <span
+                    className={`ml-2 font-bold ${
+                      isConverted
+                        ? "text-zinc-500 dark:text-zinc-400"
+                        : "text-zinc-800 dark:text-zinc-200"
+                    }`}
+                  >
                     {formatKRW(quote.total_amount)}원
                   </span>
                 </p>
                 <p
-                  className="mt-0.5 truncate text-zinc-500 dark:text-zinc-400"
+                  className="truncate text-zinc-500 dark:text-zinc-400"
                   style={{ fontSize: `${subFontSize}px` }}
                 >
                   {formatDate(quote.quote_date)}
@@ -197,48 +215,35 @@ export default function QuotesList({
                 </p>
               </div>
               <div
-                className="flex shrink-0 flex-col gap-1"
+                className="flex w-full shrink-0 flex-wrap items-center justify-center gap-1 md:w-auto md:self-center"
                 onClick={(event) => event.stopPropagation()}
               >
                 <button
                   type="button"
                   onClick={() => setPreview({ quote, mode: "quote" })}
                   className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-                  style={{ fontSize: `${actionFontSize}px` }}
                 >
-                  견적서 미리보기
+                  견적서
                 </button>
                 <button
                   type="button"
                   onClick={() => setPreview({ quote, mode: "invoice" })}
                   className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-                  style={{ fontSize: `${actionFontSize}px` }}
                 >
-                  거래명세서 미리보기
+                  거래명세서
                 </button>
                 {isConverted ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled
-                      className={`${actionButtonClass} border-zinc-300 bg-zinc-100 text-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-400`}
-                      style={{ fontSize: `${actionFontSize}px` }}
-                    >
-                      매출완료
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isCancelling}
-                      onClick={() => {
-                        setActionError(null);
-                        setCancellingQuote(quote);
-                      }}
-                      className={`${actionButtonClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900`}
-                      style={{ fontSize: `${actionFontSize}px` }}
-                    >
-                      매출취소
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    disabled={isCancelling}
+                    onClick={() => {
+                      setActionError(null);
+                      setCancellingQuote(quote);
+                    }}
+                    className={`${actionButtonClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900`}
+                  >
+                    매출취소
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -248,17 +253,15 @@ export default function QuotesList({
                       setConvertingQuote(quote);
                     }}
                     className={`${actionButtonClass} border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900`}
-                    style={{ fontSize: `${actionFontSize}px` }}
                   >
                     매출전환
                   </button>
                 )}
-                <form action={deleteQuote}>
+                <form action={deleteQuote} className="inline-flex">
                   <input type="hidden" name="quote_id" value={quote.id} />
                   <button
                     type="submit"
-                    className={`${actionButtonClass} w-full border-zinc-300 text-red-600 hover:bg-red-50 dark:border-zinc-600 dark:hover:bg-red-950/30`}
-                    style={{ fontSize: `${actionFontSize}px` }}
+                    className={`${actionButtonClass} border-zinc-300 text-red-600 hover:bg-red-50 dark:border-zinc-600 dark:hover:bg-red-950/30`}
                   >
                     삭제
                   </button>
@@ -271,16 +274,12 @@ export default function QuotesList({
       </div>
 
       {editingQuote ? (
-        <div
-          className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/50 p-4"
-          onClick={() => setEditingQuote(null)}
-        >
+        <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/50 p-4">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="quote-edit-title"
             className="my-4 w-full max-w-6xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-            onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3
@@ -301,6 +300,7 @@ export default function QuotesList({
               quoteId={editingQuote.id}
               initialQuote={{
                 quote_date: editingQuote.quote_date,
+                sale_category: displaySaleCategory(editingQuote.sale_category),
                 customer_name: editingQuote.customer_name,
                 business_partner: editingQuote.business_partner ?? "",
                 customer_phone: editingQuote.customer_phone ?? "",
@@ -317,6 +317,7 @@ export default function QuotesList({
               }}
               products={products}
               paymentMethods={paymentMethods}
+              contactSuggestions={contactSuggestions}
               managerName={managerName}
               managerPhone={managerPhone}
               onSaved={handleEditSaved}

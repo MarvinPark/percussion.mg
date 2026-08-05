@@ -10,10 +10,7 @@ import {
   type KeyStockColumnFilter,
 } from "@/lib/key-stock-filters";
 import type { Product } from "@/types/product";
-
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("ko-KR").format(value);
-}
+import { formatKRW } from "@/lib/sales-calculator";
 
 function normalizeProduct(product: Product): Product {
   return {
@@ -173,7 +170,7 @@ function ProductCells({
       </td>
       <td className={`${cellClass} text-center font-semibold`}>{totalQty}</td>
       <td className={`${cellClass} text-right`}>
-        {formatPrice(product.purchase_price)}
+        {formatKRW(product.purchase_price)}
       </td>
     </>
   );
@@ -317,7 +314,7 @@ export default function KeyStockWorkspace({
           총 재고 가격
         </p>
         <p className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          {formatPrice(totalValue)}원
+          {formatKRW(totalValue)}원
           <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
             ({normalized.length}품목 · 예약 제외 · 매입가 기준)
           </span>

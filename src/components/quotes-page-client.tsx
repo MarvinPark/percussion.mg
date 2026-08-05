@@ -13,6 +13,7 @@ import {
 } from "@/lib/quotes-search";
 import type { PaymentMethod } from "@/types/sale";
 import type { QuoteProductOption } from "@/types/quote";
+import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 
 const buttonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
@@ -32,6 +33,7 @@ type QuotesPageClientProps = {
   products: QuoteProductOption[];
   paymentMethods: PaymentMethod[];
   convertedQuoteIds: string[];
+  contactSuggestions: SaleContactSuggestions;
   managerName: string;
   managerPhone: string;
 };
@@ -41,6 +43,7 @@ export default function QuotesPageClient({
   products,
   paymentMethods,
   convertedQuoteIds,
+  contactSuggestions,
   managerName,
   managerPhone,
 }: QuotesPageClientProps) {
@@ -98,6 +101,7 @@ export default function QuotesPageClient({
             value={sellerFilter}
             options={sellerOptions}
             onChange={setSellerFilter}
+            showAllOption
           />
 
           <QuotesListSearch
@@ -156,6 +160,7 @@ export default function QuotesPageClient({
         products={products}
         paymentMethods={paymentMethods}
         convertedQuoteIds={convertedQuoteIds}
+        contactSuggestions={contactSuggestions}
         managerName={managerName}
         managerPhone={managerPhone}
         rowFontSize={rowFontSize}

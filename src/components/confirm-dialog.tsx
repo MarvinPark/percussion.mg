@@ -31,10 +31,6 @@ export default function ConfirmDialog({
         event.preventDefault();
         onConfirm();
       }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onCancel();
-      }
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -42,16 +38,12 @@ export default function ConfirmDialog({
   }, [onConfirm, onCancel]);
 
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
-      onClick={onCancel}
-    >
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-        onClick={(event) => event.stopPropagation()}
       >
         <h3
           id="confirm-dialog-title"

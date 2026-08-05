@@ -1,6 +1,8 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
 import SalesPageClient from "@/components/sales-page-client";
+import SmartstoreImportPanel from "@/components/smartstore-import-panel";
+import GmarketImportPanel from "@/components/gmarket-import-panel";
 import {
   formatKRW,
   getMonthKey,
@@ -48,6 +50,7 @@ export default async function SalesPage() {
 
   const role = normalizeRole(profile?.role);
   const canManageSales = hasPermission(role, "manageSales");
+  const canCreateSales = hasPermission(role, "createSales");
   const canManagePaymentMethods = hasPermission(role, "managePaymentMethods");
 
   const [{ data: sales, error }, { data: products }, { data: paymentMethods }] =
@@ -118,7 +121,20 @@ export default async function SalesPage() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {canCreateSales ? (
+              <div className="mt-6 space-y-4">
+                <SmartstoreImportPanel
+                  canImport={canCreateSales}
+                  products={products ?? []}
+                />
+                <GmarketImportPanel
+                  canImport={canCreateSales}
+                  products={products ?? []}
+                />
+              </div>
+            ) : null}
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { label: "이번 달 매출", value: summary.monthTotal },
                 { label: "이번 달 마진", value: summary.monthMargin },

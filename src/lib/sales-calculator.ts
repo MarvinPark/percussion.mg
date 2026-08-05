@@ -17,8 +17,15 @@ export function calculateSaleAmounts(input: {
   };
 }
 
-export function formatKRW(value: number) {
-  return new Intl.NumberFormat("ko-KR").format(value);
+export function formatKRW(value: number | string | null | undefined) {
+  const amount = Math.round(Number(value) || 0);
+  return amount.toLocaleString("ko-KR");
+}
+
+export function parsePriceInput(value: string) {
+  const digits = value.replace(/[^\d-]/g, "");
+  if (!digits || digits === "-") return 0;
+  return Math.max(0, Math.round(Number(digits) || 0));
 }
 
 export function getMonthKey(dateStr: string) {

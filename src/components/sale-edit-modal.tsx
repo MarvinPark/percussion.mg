@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { deleteSale, updateSale } from "@/app/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ProductSearchSelect from "@/components/product-search-select";
 import PhoneInput from "@/components/phone-input";
+import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
 import {
   calculateSaleAmounts,
@@ -60,14 +61,6 @@ export default function SaleEditModal({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
   const [isSaving, startSaveTransition] = useTransition();
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,14 +124,8 @@ export default function SaleEditModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
@@ -149,14 +136,6 @@ export default function SaleEditModal({
               자동 조정됩니다.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -258,16 +237,13 @@ export default function SaleEditModal({
               <label htmlFor="edit_unit_sale_price" className={labelClass}>
                 판매 단가 (원) <span className="text-red-500">*</span>
               </label>
-              <input
+              <PriceInput
                 id="edit_unit_sale_price"
                 name="unit_sale_price"
-                type="number"
                 min={0}
                 required
                 value={unitSalePrice}
-                onChange={(event) =>
-                  setUnitSalePrice(Number(event.target.value) || 0)
-                }
+                onChange={setUnitSalePrice}
                 className={inputClass}
               />
             </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
 import SaleForm from "@/components/sale-form";
+import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -12,7 +13,8 @@ export default async function NewSalePage() {
 
   if (!user) redirect("/login");
 
-  const [{ data: products }, { data: paymentMethods }] = await Promise.all([
+  const [{ data: products }, { data: paymentMethods }, { data: salesContacts }] =
+    await Promise.all([
     supabase
       .from("products")
       .select(
@@ -23,7 +25,16 @@ export default async function NewSalePage() {
       .from("payment_methods")
       .select("*")
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("sales")
+      .select(
+        "business_partner, customer_name, customer_phone, customer_address, sold_at",
+      )
+      .order("sold_at", { ascending: false })
+      .limit(1000),
   ]);
+
+  const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950">
@@ -68,7 +79,11 @@ export default async function NewSalePage() {
           </div>
         ) : (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <SaleForm products={products} paymentMethods={paymentMethods} />
+            <SaleForm
+              products={products}
+              paymentMethods={paymentMethods}
+              contactSuggestions={contactSuggestions}
+            />
           </div>
         )}
       </main>

@@ -28,14 +28,6 @@ export default function StockEditModal({ product, onClose }: StockEditModalProps
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
@@ -62,14 +54,8 @@ export default function StockEditModal({ product, onClose }: StockEditModalProps
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
@@ -80,14 +66,6 @@ export default function StockEditModal({ product, onClose }: StockEditModalProps
               {product.model_name ? ` · ${product.model_name}` : ""}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
         </div>
 
         <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">

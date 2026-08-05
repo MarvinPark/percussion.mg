@@ -11,6 +11,8 @@ type SaleCategorySelectProps = {
   id?: string;
   name?: string;
   defaultValue?: string | null;
+  value?: string;
+  onChange?: (value: string) => void;
   className?: string;
 };
 
@@ -18,16 +20,27 @@ export default function SaleCategorySelect({
   id = "sale_category",
   name = "sale_category",
   defaultValue,
+  value,
+  onChange,
   className = selectClass,
 }: SaleCategorySelectProps) {
-  const value = displaySaleCategory(defaultValue);
+  const isControlled = value !== undefined;
+  const resolvedValue = isControlled
+    ? displaySaleCategory(value)
+    : displaySaleCategory(defaultValue);
 
   return (
     <select
       id={id}
-      name={name}
+      name={isControlled ? undefined : name}
       required
-      defaultValue={value || DEFAULT_SALE_CATEGORY}
+      value={isControlled ? resolvedValue : undefined}
+      defaultValue={isControlled ? undefined : resolvedValue || DEFAULT_SALE_CATEGORY}
+      onChange={
+        onChange
+          ? (event) => onChange(event.target.value)
+          : undefined
+      }
       className={className}
     >
       {SALE_CATEGORIES.map((category) => (

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createProduct, updateProduct } from "@/app/products/actions";
+import PriceInput from "@/components/price-input";
 import { STOCK_LOCATIONS } from "@/lib/stock-locations";
 import type { Product } from "@/types/product";
 
@@ -242,10 +243,9 @@ export default function ProductForm({ product }: ProductFormProps) {
             <label htmlFor="purchase_price" className={labelClass}>
               매입가격 (원)
             </label>
-            <input
+            <PriceInput
               id="purchase_price"
               name="purchase_price"
-              type="number"
               min={0}
               defaultValue={product?.purchase_price ?? 0}
               className={inputClass}
@@ -255,10 +255,9 @@ export default function ProductForm({ product }: ProductFormProps) {
             <label htmlFor="sale_price" className={labelClass}>
               소비자가 (원)
             </label>
-            <input
+            <PriceInput
               id="sale_price"
               name="sale_price"
-              type="number"
               min={0}
               defaultValue={product?.sale_price ?? 0}
               className={inputClass}

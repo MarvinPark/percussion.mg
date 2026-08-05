@@ -5,11 +5,16 @@ import { useActionState, useMemo, useState } from "react";
 import { createSale } from "@/app/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
 import PhoneInput from "@/components/phone-input";
+import PaymentMethodCombobox from "@/components/payment-method-combobox";
+import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
+import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
+import SaleTextAutocomplete from "@/components/sale-text-autocomplete";
 import {
   calculateSaleAmounts,
   formatKRW,
 } from "@/lib/sales-calculator";
+import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -18,15 +23,13 @@ const inputClass =
 const tableInputClass =
   "w-full min-w-[4rem] rounded border border-zinc-400 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
 
-const tableSelectClass =
-  "w-full min-w-[7rem] rounded border border-zinc-400 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
-
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
 
 type SaleFormProps = {
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  contactSuggestions: SaleContactSuggestions;
 };
 
 type SaleLineDraft = {
@@ -72,10 +75,18 @@ function linePreview(
   });
 }
 
-export default function SaleForm({ products, paymentMethods }: SaleFormProps) {
+export default function SaleForm({
+  products,
+  paymentMethods,
+  contactSuggestions,
+}: SaleFormProps) {
   const [lines, setLines] = useState<SaleLineDraft[]>(() => [
     createEmptyLine(paymentMethods),
   ]);
+  const [businessPartner, setBusinessPartner] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
@@ -248,38 +259,28 @@ export default function SaleForm({ products, paymentMethods }: SaleFormProps) {
                       />
                     </td>
                     <td className="px-3 py-2 align-top">
-                      <input
-                        type="number"
+                      <PriceInput
                         min={0}
                         required
                         value={line.unitSalePrice}
-                        onChange={(event) =>
-                          updateLine(line.id, {
-                            unitSalePrice: Number(event.target.value) || 0,
-                          })
+                        onChange={(unitSalePrice) =>
+                          updateLine(line.id, { unitSalePrice })
                         }
                         className={tableInputClass}
                         aria-label={`${index + 1}번째 판매단가`}
                       />
                     </td>
                     <td className="px-3 py-2 align-top">
-                      <select
+                      <PaymentMethodCombobox
                         required
+                        paymentMethods={paymentMethods}
                         value={line.paymentMethodId}
-                        onChange={(event) =>
-                          updateLine(line.id, {
-                            paymentMethodId: event.target.value,
-                          })
+                        onChange={(paymentMethodId) =>
+                          updateLine(line.id, { paymentMethodId })
                         }
-                        className={tableSelectClass}
+                        className={tableInputClass}
                         aria-label={`${index + 1}번째 결제방식`}
-                      >
-                        {paymentMethods.map((method) => (
-                          <option key={method.id} value={method.id}>
-                            {method.name} ({method.fee_rate}%)
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 align-top text-zinc-700 dark:text-zinc-300">
                       {line.productId
@@ -328,9 +329,12 @@ export default function SaleForm({ products, paymentMethods }: SaleFormProps) {
             <label htmlFor="business_partner" className={labelClass}>
               거래처명
             </label>
-            <input
+            <SaleTextAutocomplete
               id="business_partner"
               name="business_partner"
+              value={businessPartner}
+              onChange={setBusinessPartner}
+              suggestions={contactSuggestions.businessPartners}
               placeholder="예: OO음악학원"
               className={inputClass}
             />
@@ -340,9 +344,16 @@ export default function SaleForm({ products, paymentMethods }: SaleFormProps) {
             <label htmlFor="customer_name" className={labelClass}>
               고객명
             </label>
-            <input
+            <SaleCustomerAutocomplete
               id="customer_name"
               name="customer_name"
+              value={customerName}
+              onChange={setCustomerName}
+              suggestions={contactSuggestions.customers}
+              onSelectCustomer={(customer) => {
+                setCustomerPhone(customer.phone);
+                setCustomerAddress(customer.address);
+              }}
               placeholder="예: 홍길동"
               className={inputClass}
             />
@@ -355,6 +366,8 @@ export default function SaleForm({ products, paymentMethods }: SaleFormProps) {
             <PhoneInput
               id="customer_phone"
               name="customer_phone"
+              value={customerPhone}
+              onChange={setCustomerPhone}
               placeholder="010-1234-5678"
               className={inputClass}
             />
@@ -367,6 +380,8 @@ export default function SaleForm({ products, paymentMethods }: SaleFormProps) {
             <input
               id="customer_address"
               name="customer_address"
+              value={customerAddress}
+              onChange={(event) => setCustomerAddress(event.target.value)}
               placeholder="예: 경기도 성남시 ..."
               className={inputClass}
             />

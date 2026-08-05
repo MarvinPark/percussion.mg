@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
-import { DEFAULT_SALE_CATEGORY } from "@/lib/sale-categories";
+import {
+  DEFAULT_SALE_CATEGORY,
+  parseSaleCategory,
+} from "@/lib/sale-categories";
 import { getModifierInfo } from "@/lib/profile";
 import {
   addLocationStock,
@@ -15,6 +18,7 @@ type SalePaymentMethod = {
 
 type SaleLinePayload = {
   sold_at: string;
+  sale_category?: string | null;
   product_id: string;
   quantity: number;
   unit_sale_price: number;
@@ -103,7 +107,8 @@ export async function insertSaleRecord(
 ) {
   const row = {
     sold_at: payload.sold_at,
-    sale_category: DEFAULT_SALE_CATEGORY,
+    sale_category:
+      parseSaleCategory(payload.sale_category ?? "") ?? DEFAULT_SALE_CATEGORY,
     product_id: payload.product_id,
     quantity: Math.round(payload.quantity),
     unit_sale_price: Math.round(payload.unit_sale_price),

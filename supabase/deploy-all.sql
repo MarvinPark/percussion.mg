@@ -297,6 +297,7 @@ create table quotes (
   quote_date date not null default current_date,
   customer_name text not null,
   business_partner text,
+  sale_category text not null default '소매' check (sale_category in ('도매', '소매', 'VIP', '중고')),
   customer_phone text,
   customer_address text,
   customer_email text,
@@ -519,3 +520,24 @@ create policy "관리자 프로필 수정"
   on profiles for update to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- ============================================================
+-- 스마트스토어 주문 → 매출 연동
+-- (schema-smartstore.sql)
+-- ============================================================
+
+alter table sales
+  add column if not exists external_source text;
+
+alter table sales
+  add column if not exists external_order_id text;
+
+create unique index if not exists sales_external_order_unique
+  on sales (external_source, external_order_id)
+  where external_order_id is not null;
+
+insert into payment_methods (name, fee_rate, sort_order)
+select '네이버페이', 3.0, 10
+where not exists (
+  select 1 from payment_methods where name = '네이버페이'
+);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
 import QuoteForm from "@/components/quote-form";
+import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { isProfileComplete } from "@/types/profile";
@@ -18,17 +19,28 @@ export default async function NewQuotePage() {
 
   const completeProfile = profile!;
 
-  const { data: products } = await supabase
-    .from("products")
-    .select(
-      "id, product_name, model_name, sku, supplier, category, brand, sale_price, purchase_price",
-    )
-    .order("model_name", { ascending: true });
+  const [{ data: products }, { data: paymentMethods }, { data: salesContacts }] =
+    await Promise.all([
+    supabase
+      .from("products")
+      .select(
+        "id, product_name, model_name, sku, supplier, category, brand, sale_price, purchase_price",
+      )
+      .order("model_name", { ascending: true }),
+    supabase
+      .from("payment_methods")
+      .select("id, name, fee_rate, sort_order")
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("sales")
+      .select(
+        "business_partner, customer_name, customer_phone, customer_address, sold_at",
+      )
+      .order("sold_at", { ascending: false })
+      .limit(1000),
+  ]);
 
-  const { data: paymentMethods } = await supabase
-    .from("payment_methods")
-    .select("id, name, fee_rate, sort_order")
-    .order("sort_order", { ascending: true });
+  const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950">
@@ -68,6 +80,7 @@ export default async function NewQuotePage() {
             <QuoteForm
               products={products}
               paymentMethods={paymentMethods ?? []}
+              contactSuggestions={contactSuggestions}
               managerName={formatManagerDisplayName(
                 completeProfile.full_name,
                 completeProfile.job_title,

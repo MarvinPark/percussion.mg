@@ -48,14 +48,6 @@ export default function ProfileEditPanel({
         <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
           내 정보 수정
         </h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-          aria-label="닫기"
-        >
-          ✕
-        </button>
       </div>
 
       <form action={formAction} className="space-y-4">

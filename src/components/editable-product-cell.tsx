@@ -7,6 +7,7 @@ import {
   type ProductInlineField,
 } from "@/app/products/actions";
 import { tableFocusRingClass } from "@/lib/product-table-navigation";
+import { formatKRW, parsePriceInput } from "@/lib/sales-calculator";
 
 const inputClass =
   "w-full min-w-0 rounded border border-blue-400 bg-white px-1 py-0.5 text-sm font-normal text-zinc-900 outline-none focus:ring-1 focus:ring-blue-500 dark:border-blue-500 dark:bg-zinc-800 dark:text-zinc-100";
@@ -17,6 +18,7 @@ type EditableProductCellProps = {
   value: string;
   displayValue?: string;
   inputType?: "text" | "number";
+  formatAsPrice?: boolean;
   className?: string;
   isEditing?: boolean;
   isFocused?: boolean;
@@ -32,6 +34,7 @@ export default function EditableProductCell({
   value,
   displayValue,
   inputType = "text",
+  formatAsPrice = false,
   className = "",
   isEditing: controlledEditing = false,
   isFocused = false,
@@ -67,7 +70,7 @@ export default function EditableProductCell({
   }, [editing]);
 
   function requestEdit() {
-    setDraft(value);
+    setDraft(formatAsPrice ? formatKRW(value) : value);
     setError(null);
     if (isControlled) {
       onRequestEdit?.();
@@ -88,14 +91,21 @@ export default function EditableProductCell({
     if (savingRef.current) return true;
 
     const trimmed = draft.trim();
-    if (trimmed === value.trim()) {
+    const normalizedDraft = formatAsPrice
+      ? String(parsePriceInput(trimmed))
+      : trimmed;
+    const normalizedValue = formatAsPrice
+      ? String(parsePriceInput(value.trim()))
+      : value.trim();
+
+    if (normalizedDraft === normalizedValue) {
       setError(null);
       return true;
     }
 
     savingRef.current = true;
 
-    const result = await updateProductField(productId, field, draft);
+    const result = await updateProductField(productId, field, normalizedDraft);
 
     savingRef.current = false;
 
@@ -126,9 +136,10 @@ export default function EditableProductCell({
     return (
       <input
         ref={inputRef}
-        type={inputType}
+        type={formatAsPrice ? "text" : inputType}
+        inputMode={formatAsPrice ? "numeric" : undefined}
         value={draft}
-        min={inputType === "number" ? 0 : undefined}
+        min={inputType === "number" && !formatAsPrice ? 0 : undefined}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => {
           if (tabbingRef.current) {

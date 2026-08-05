@@ -13,6 +13,7 @@ import { getModifierInfo, requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { parseSaleCategory } from "@/lib/sale-categories";
 import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 
@@ -109,6 +110,10 @@ function formatQuoteSaveError(error: {
     return "quotes 테이블에 거래처명(business_partner) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-business-partner.sql (또는 schema-quotes-update.sql)을 실행해 주세요.";
   }
 
+  if (message.includes("sale_category")) {
+    return "quotes 테이블에 구분(sale_category) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-sale-category.sql을 실행해 주세요.";
+  }
+
   if (
     message.includes("manager_name") ||
     message.includes("memo") ||
@@ -135,6 +140,7 @@ function formatQuoteSaveError(error: {
 function readQuoteFormFields(formData: FormData) {
   return {
     quote_date: String(formData.get("quote_date") ?? "").trim(),
+    sale_category: String(formData.get("sale_category") ?? "").trim(),
     customer_name: String(formData.get("customer_name") ?? "").trim(),
     business_partner: String(formData.get("business_partner") ?? "").trim(),
     customer_phone: String(formData.get("customer_phone") ?? "").trim(),
@@ -152,7 +158,9 @@ export async function createQuote(formData: FormData) {
   const fields = readQuoteFormFields(formData);
 
   if (!fields.quote_date) return { error: "견적일을 입력해 주세요." };
-  if (!fields.customer_name) return { error: "고객 성함을 입력해 주세요." };
+  const sale_category = parseSaleCategory(fields.sale_category);
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+  if (!fields.customer_name) return { error: "고객명을 입력해 주세요." };
 
   const parsedItems = parseQuoteItems(fields.itemsRaw);
   if ("error" in parsedItems) return { error: parsedItems.error };
@@ -177,6 +185,7 @@ export async function createQuote(formData: FormData) {
     .from("quotes")
     .insert({
       quote_date: fields.quote_date,
+      sale_category,
       customer_name: fields.customer_name,
       business_partner: fields.business_partner || null,
       customer_phone: fields.customer_phone || null,
@@ -221,7 +230,9 @@ export async function updateQuote(formData: FormData) {
   const fields = readQuoteFormFields(formData);
 
   if (!fields.quote_date) return { error: "견적일을 입력해 주세요." };
-  if (!fields.customer_name) return { error: "고객 성함을 입력해 주세요." };
+  const sale_category = parseSaleCategory(fields.sale_category);
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+  if (!fields.customer_name) return { error: "고객명을 입력해 주세요." };
 
   const parsedItems = parseQuoteItems(fields.itemsRaw);
   if ("error" in parsedItems) return { error: parsedItems.error };
@@ -246,6 +257,7 @@ export async function updateQuote(formData: FormData) {
     .from("quotes")
     .update({
       quote_date: fields.quote_date,
+      sale_category,
       customer_name: fields.customer_name,
       business_partner: fields.business_partner || null,
       customer_phone: fields.customer_phone || null,
@@ -387,6 +399,7 @@ export async function convertQuoteToSale(quoteId: string) {
 
     const saleResult = await insertSaleRecord(supabase, {
       sold_at: soldAt,
+      sale_category: quote.sale_category,
       product_id: item.product_id,
       quantity,
       unit_sale_price,

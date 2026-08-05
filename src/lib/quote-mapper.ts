@@ -1,4 +1,5 @@
 import { calculateQuoteLine, calculateQuoteTotals } from "@/lib/quote-calculator";
+import { displaySaleCategory } from "@/lib/sale-categories";
 import type { QuoteFormData, QuoteItemInput } from "@/types/quote";
 
 type DbQuoteItem = {
@@ -50,6 +51,7 @@ export function dbQuoteItemToInput(item: DbQuoteItem): QuoteItemInput {
 
 type SavedQuoteForPreview = {
   quote_date: string;
+  sale_category: string | null;
   customer_name: string;
   business_partner: string | null;
   customer_phone: string | null;
@@ -73,6 +75,7 @@ export function buildQuotePreviewFromSaved(
 
   const data: QuoteFormData = {
     quote_date: quote.quote_date,
+    sale_category: displaySaleCategory(quote.sale_category),
     customer_name: quote.customer_name,
     business_partner: quote.business_partner ?? "",
     customer_phone: quote.customer_phone ?? "",

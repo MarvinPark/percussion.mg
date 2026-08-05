@@ -6,8 +6,20 @@ import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
 } from "@/lib/quote-document-capture";
+import {
+  AMOUNT_ROUNDING_MODE_OPTIONS,
+  AMOUNT_ROUNDING_UNIT_OPTIONS,
+  CARD_FEE_PERCENT_OPTIONS,
+  calculateCardPaymentTotal,
+  calculateInvoiceDocumentTotal,
+  calculateInvoiceLinePricing,
+  type AmountRoundingMode,
+  type AmountRoundingUnit,
+  type CardFeePercent,
+} from "@/lib/quote-card-pricing";
 import { formatKoreanWonLabel } from "@/lib/korean-number";
 import { formatKRW } from "@/lib/sales-calculator";
+import { displaySaleCategory } from "@/lib/sale-categories";
 import {
   SUPPLIER_INFO,
   type QuoteFormData,
@@ -56,18 +68,28 @@ function DocumentTable({
   items,
   mode,
   totalAmount,
-  cardAmount,
+  cardFeePercent,
+  cardPaymentTotal,
   showTotal,
+  invoiceLinePricing,
+  itemStartIndex = 0,
 }: {
   items: QuoteItemInput[];
   mode: PreviewMode;
   totalAmount: number;
-  cardAmount: number;
+  cardFeePercent: CardFeePercent;
+  cardPaymentTotal: number;
   showTotal: boolean;
+  invoiceLinePricing?: Map<string, { adjustedUnitPrice: number; adjustedLineTotal: number }>;
+  itemStartIndex?: number;
 }) {
   const columnCount = mode === "quote" ? 8 : 7;
   const headCellClass = "border-y border-zinc-400 px-1 py-1";
   const bodyCellClass = "border-y border-zinc-400 px-1 py-1";
+
+  function lineKey(item: QuoteItemInput, index: number) {
+    return `${item.product_id}-${item.model_name}-${index}`;
+  }
 
   return (
     <table className="w-full border-collapse text-[11px]">
@@ -86,8 +108,20 @@ function DocumentTable({
         </tr>
       </thead>
       <tbody>
-        {items.map((item, index) => (
-          <tr key={`${item.product_id}-${index}`}>
+        {items.map((item, index) => {
+          const globalIndex = itemStartIndex + index;
+          const pricing = invoiceLinePricing?.get(lineKey(item, globalIndex));
+          const unitPrice =
+            mode === "invoice" && pricing
+              ? pricing.adjustedUnitPrice
+              : item.rounded_unit_price;
+          const lineTotal =
+            mode === "invoice" && pricing
+              ? pricing.adjustedLineTotal
+              : item.line_total;
+
+          return (
+          <tr key={lineKey(item, globalIndex)}>
             <td className={bodyCellClass}>{item.category}</td>
             <td className={bodyCellClass}>{item.brand}</td>
             <td className={bodyCellClass}>
@@ -105,13 +139,14 @@ function DocumentTable({
               </td>
             ) : null}
             <td className={`${bodyCellClass} text-right`}>
-              {formatKRW(item.rounded_unit_price)}
+              {formatKRW(unitPrice)}
             </td>
             <td className={`${bodyCellClass} text-right font-medium`}>
-              {formatKRW(item.line_total)}
+              {formatKRW(lineTotal)}
             </td>
           </tr>
-        ))}
+          );
+        })}
         {showTotal ? (
           <>
             <tr className="bg-zinc-50 font-semibold">
@@ -119,7 +154,7 @@ function DocumentTable({
                 colSpan={5}
                 className={`${bodyCellClass} text-center`}
               >
-                합계
+                {mode === "invoice" ? "최종금액" : "합계"}
               </td>
               {mode === "quote" ? (
                 <td className={`${bodyCellClass} text-right`}>
@@ -131,14 +166,16 @@ function DocumentTable({
                 {formatKRW(totalAmount)}원
               </td>
             </tr>
-            <tr>
-              <td
-                colSpan={columnCount}
-                className={`card-fee-row ${bodyCellClass} text-right text-[10px] text-zinc-600`}
-              >
-                카드결제+4%: {formatKRW(cardAmount)}원
-              </td>
-            </tr>
+            {mode === "quote" && cardFeePercent > 0 ? (
+              <tr>
+                <td
+                  colSpan={columnCount}
+                  className={`card-fee-row ${bodyCellClass} text-right text-[10px] text-zinc-600`}
+                >
+                  카드결제+{cardFeePercent}%: {formatKRW(cardPaymentTotal)}원
+                </td>
+              </tr>
+            ) : null}
           </>
         ) : null}
       </tbody>
@@ -215,8 +252,9 @@ function DocumentHeader({
         <SupplierInfoBox />
         <div className="box rounded border border-zinc-400 p-3 text-sm">
           <p className="mb-2 font-semibold">고객 정보</p>
-          <p>성함: {data.customer_name}</p>
+          <p>구분: {displaySaleCategory(data.sale_category)}</p>
           <p>거래처명: {data.business_partner || "-"}</p>
+          <p>고객명: {data.customer_name}</p>
           <p>연락처: {data.customer_phone || "-"}</p>
           <p>주소: {data.customer_address || "-"}</p>
           <p>이메일: {data.customer_email || "-"}</p>
@@ -330,6 +368,113 @@ const PRINT_STYLES = `
   .page-label { display: none; }
 `;
 
+const controlSelectClass =
+  "rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+function parseRoundingUnit(value: string): AmountRoundingUnit {
+  return value === "none" ? "none" : (Number(value) as AmountRoundingUnit);
+}
+
+function CardPricingControls({
+  mode,
+  cardFeePercent,
+  roundingUnit,
+  roundingMode,
+  onCardFeePercentChange,
+  onRoundingUnitChange,
+  onRoundingModeChange,
+}: {
+  mode: PreviewMode;
+  cardFeePercent: CardFeePercent;
+  roundingUnit: AmountRoundingUnit;
+  roundingMode: AmountRoundingMode;
+  onCardFeePercentChange: (value: CardFeePercent) => void;
+  onRoundingUnitChange: (value: AmountRoundingUnit) => void;
+  onRoundingModeChange: (value: AmountRoundingMode) => void;
+}) {
+  const roundingDisabled = cardFeePercent === 0;
+
+  return (
+    <div className="flex flex-wrap items-end gap-4 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+      <div>
+        <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+          카드 수수료
+        </label>
+        <select
+          value={cardFeePercent}
+          onChange={(event) =>
+            onCardFeePercentChange(Number(event.target.value) as CardFeePercent)
+          }
+          className={controlSelectClass}
+        >
+          {CARD_FEE_PERCENT_OPTIONS.map((percent) => (
+            <option key={percent} value={percent}>
+              {percent === 0 ? "0%" : `+${percent}%`}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label
+          className={`mb-1 block text-xs font-semibold ${
+            roundingDisabled
+              ? "text-zinc-400 dark:text-zinc-600"
+              : "text-zinc-600 dark:text-zinc-400"
+          }`}
+        >
+          금액 단위
+        </label>
+        <select
+          value={roundingUnit}
+          disabled={roundingDisabled}
+          onChange={(event) =>
+            onRoundingUnitChange(parseRoundingUnit(event.target.value))
+          }
+          className={controlSelectClass}
+        >
+          {AMOUNT_ROUNDING_UNIT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label
+          className={`mb-1 block text-xs font-semibold ${
+            roundingDisabled
+              ? "text-zinc-400 dark:text-zinc-600"
+              : "text-zinc-600 dark:text-zinc-400"
+          }`}
+        >
+          금액 처리
+        </label>
+        <select
+          value={roundingMode}
+          disabled={roundingDisabled}
+          onChange={(event) =>
+            onRoundingModeChange(event.target.value as AmountRoundingMode)
+          }
+          className={controlSelectClass}
+        >
+          {AMOUNT_ROUNDING_MODE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {cardFeePercent === 0
+          ? "카드 수수료가 없으면 금액 조정 없이 기본 금액이 표시됩니다."
+          : mode === "invoice"
+            ? "거래명세서는 선택한 수수료·단위가 각 상품 금액과 최종금액에 반영됩니다."
+            : "견적서 하단 카드결제 금액에 반영됩니다."}
+      </p>
+    </div>
+  );
+}
+
 const headerButtonClass =
   "rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
@@ -356,7 +501,57 @@ export default function QuoteDocumentPreview({
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(4);
+  const [roundingUnit, setRoundingUnit] = useState<AmountRoundingUnit>(1000);
+  const [roundingMode, setRoundingMode] = useState<AmountRoundingMode>("ceil");
   const itemPages = useMemo(() => paginateItems(data.items), [data.items]);
+
+  const cardPaymentTotal = useMemo(
+    () =>
+      calculateCardPaymentTotal(
+        totals.totalAmount,
+        cardFeePercent,
+        roundingUnit,
+        roundingMode,
+      ),
+    [totals.totalAmount, cardFeePercent, roundingUnit, roundingMode],
+  );
+
+  const invoiceLinePricing = useMemo(() => {
+    const map = new Map<
+      string,
+      { adjustedUnitPrice: number; adjustedLineTotal: number }
+    >();
+
+    data.items.forEach((item, index) => {
+      const key = `${item.product_id}-${item.model_name}-${index}`;
+      map.set(
+        key,
+        calculateInvoiceLinePricing(
+          item,
+          cardFeePercent,
+          roundingUnit,
+          roundingMode,
+        ),
+      );
+    });
+
+    return map;
+  }, [data.items, cardFeePercent, roundingUnit, roundingMode]);
+
+  const invoiceDocumentTotal = useMemo(
+    () =>
+      calculateInvoiceDocumentTotal(
+        data.items,
+        cardFeePercent,
+        roundingUnit,
+        roundingMode,
+      ),
+    [data.items, cardFeePercent, roundingUnit, roundingMode],
+  );
+
+  const documentTotalAmount =
+    mode === "invoice" ? invoiceDocumentTotal : totals.totalAmount;
 
   if (!open) return null;
 
@@ -536,11 +731,25 @@ export default function QuoteDocumentPreview({
           </p>
         ) : null}
 
+        <CardPricingControls
+          mode={mode}
+          cardFeePercent={cardFeePercent}
+          roundingUnit={roundingUnit}
+          roundingMode={roundingMode}
+          onCardFeePercentChange={setCardFeePercent}
+          onRoundingUnitChange={setRoundingUnit}
+          onRoundingModeChange={setRoundingMode}
+        />
+
         <div className="overflow-y-auto p-4">
           <div ref={printRef} className="mx-auto max-w-3xl text-zinc-900">
             {itemPages.map((pageItems, pageIndex) => {
               const isFirstPage = pageIndex === 0;
               const isLastPage = pageIndex === itemPages.length - 1;
+              const itemStartIndex =
+                pageIndex === 0
+                  ? 0
+                  : FIRST_PAGE_ROWS + (pageIndex - 1) * CONTINUATION_PAGE_ROWS;
 
               return (
                 <div
@@ -562,9 +771,14 @@ export default function QuoteDocumentPreview({
                   <DocumentTable
                     items={pageItems}
                     mode={mode}
-                    totalAmount={totals.totalAmount}
-                    cardAmount={totals.cardAmount}
+                    totalAmount={documentTotalAmount}
+                    cardFeePercent={cardFeePercent}
+                    cardPaymentTotal={cardPaymentTotal}
                     showTotal={isLastPage}
+                    invoiceLinePricing={
+                      mode === "invoice" ? invoiceLinePricing : undefined
+                    }
+                    itemStartIndex={itemStartIndex}
                   />
 
                   {isLastPage && mode === "quote" ? (

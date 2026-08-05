@@ -15,12 +15,16 @@ type SalesSellerFilterProps = {
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  showAllOption?: boolean;
+  allOptionLabel?: string;
 };
 
 export default function SalesSellerFilter({
   value,
   options,
   onChange,
+  showAllOption = false,
+  allOptionLabel = "전체 보기",
 }: SalesSellerFilterProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -57,6 +61,19 @@ export default function SalesSellerFilter({
 
       {open ? (
         <ul role="listbox" className={menuClass}>
+          {showAllOption ? (
+            <li>
+              <button
+                type="button"
+                role="option"
+                aria-selected={value === ""}
+                onClick={() => selectOption("")}
+                className={optionClass}
+              >
+                {allOptionLabel}
+              </button>
+            </li>
+          ) : null}
           {options.length === 0 ? (
             <li className="px-2 py-1.5 text-[12px] leading-none text-zinc-500 dark:text-zinc-400">
               판매자 없음
