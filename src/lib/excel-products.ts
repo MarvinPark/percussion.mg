@@ -12,7 +12,10 @@ export const EXCEL_HEADERS = [
   "사이즈",
   "매입가",
   "소비자가",
-  "현재고",
+  "3층",
+  "B1",
+  "의왕",
+  "합계",
   "최소알림",
 ] as const;
 
@@ -28,6 +31,9 @@ const EXAMPLE_ROW = [
   "",
   1500000,
   2000000,
+  2,
+  1,
+  0,
   3,
   2,
 ];
@@ -44,6 +50,9 @@ export type ExcelProductRow = {
   size: string;
   purchase_price: number;
   sale_price: number;
+  stock_floor3: number;
+  stock_b1: number;
+  stock_display: number;
   stock_quantity: number;
   min_stock_quantity: number;
 };
@@ -59,6 +68,10 @@ function cellNumber(value: unknown, fallback = 0) {
   return Number.isNaN(num) ? fallback : num;
 }
 
+function hasCellValue(value: unknown) {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
 function isEmptyRow(row: ExcelProductRow) {
   return (
     !row.supplier &&
@@ -70,12 +83,84 @@ function isEmptyRow(row: ExcelProductRow) {
   );
 }
 
+function usesLegacyStockColumn(row: Record<string, unknown>) {
+  const hasNewStockColumn =
+    hasCellValue(row["3층"]) ||
+    hasCellValue(row["B1"]) ||
+    hasCellValue(row["의왕"]) ||
+    hasCellValue(row["합계"]);
+
+  return hasCellValue(row["현재고"]) && !hasNewStockColumn;
+}
+
+export function parseExcelStockFields(
+  row: Record<string, unknown>,
+  rowNumber?: number,
+): { stock: Pick<ExcelProductRow, "stock_floor3" | "stock_b1" | "stock_display" | "stock_quantity">; error: string | null } {
+  if (usesLegacyStockColumn(row)) {
+    const stock_quantity = cellNumber(row["현재고"]);
+    return {
+      stock: {
+        stock_floor3: stock_quantity,
+        stock_b1: 0,
+        stock_display: 0,
+        stock_quantity,
+      },
+      error: null,
+    };
+  }
+
+  const stock_floor3 = cellNumber(row["3층"]);
+  const stock_b1 = cellNumber(row["B1"]);
+  const stock_display = cellNumber(row["의왕"]);
+  const locationSum = stock_floor3 + stock_b1 + stock_display;
+  const hasTotalCell = hasCellValue(row["합계"]);
+  const total = hasTotalCell ? cellNumber(row["합계"]) : locationSum;
+
+  if (hasTotalCell && locationSum > 0 && total !== locationSum) {
+    const prefix = rowNumber ? `${rowNumber}행: ` : "";
+    return {
+      stock: {
+        stock_floor3,
+        stock_b1,
+        stock_display,
+        stock_quantity: total,
+      },
+      error: `${prefix}합계(${total})와 3층+B1+의왕 합(${locationSum})이 일치하지 않습니다.`,
+    };
+  }
+
+  if (hasTotalCell && locationSum === 0) {
+    return {
+      stock: {
+        stock_floor3: total,
+        stock_b1: 0,
+        stock_display: 0,
+        stock_quantity: total,
+      },
+      error: null,
+    };
+  }
+
+  return {
+    stock: {
+      stock_floor3,
+      stock_b1,
+      stock_display,
+      stock_quantity: locationSum,
+    },
+    error: null,
+  };
+}
+
 export function createProductTemplateBuffer() {
   const worksheet = XLSX.utils.aoa_to_sheet([
     [...EXCEL_HEADERS],
     [...EXAMPLE_ROW],
   ]);
-  worksheet["!cols"] = EXCEL_HEADERS.map(() => ({ wch: 14 }));
+  worksheet["!cols"] = EXCEL_HEADERS.map((header) => ({
+    wch: header === "제품명" || header === "모델명" ? 18 : 12,
+  }));
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "제품등록");
@@ -97,8 +182,17 @@ export function parseProductExcelBuffer(buffer: ArrayBuffer) {
   });
 
   const rows: ExcelProductRow[] = [];
+  const stockErrors: string[] = [];
 
-  for (const row of jsonRows) {
+  for (let index = 0; index < jsonRows.length; index++) {
+    const row = jsonRows[index];
+    const rowNumber = index + 2;
+    const { stock, error: stockError } = parseExcelStockFields(row, rowNumber);
+
+    if (stockError) {
+      stockErrors.push(stockError);
+    }
+
     const parsed: ExcelProductRow = {
       supplier: cellValue(row["공급처"]),
       category: cellValue(row["품목"]),
@@ -111,13 +205,20 @@ export function parseProductExcelBuffer(buffer: ArrayBuffer) {
       size: cellValue(row["사이즈"]),
       purchase_price: cellNumber(row["매입가"]),
       sale_price: cellNumber(row["소비자가"] ?? row["판매가"]),
-      stock_quantity: cellNumber(row["현재고"]),
+      stock_floor3: stock.stock_floor3,
+      stock_b1: stock.stock_b1,
+      stock_display: stock.stock_display,
+      stock_quantity: stock.stock_quantity,
       min_stock_quantity: cellNumber(row["최소알림"]),
     };
 
     if (!isEmptyRow(parsed)) {
       rows.push(parsed);
     }
+  }
+
+  if (stockErrors.length) {
+    return { rows: [], error: stockErrors[0] };
   }
 
   if (!rows.length) {
@@ -135,9 +236,21 @@ export function validateExcelProductRow(row: ExcelProductRow, rowNumber: number)
   if (row.purchase_price < 0 || row.sale_price < 0) {
     return `${rowNumber}행: 가격은 0 이상이어야 합니다.`;
   }
-  if (row.stock_quantity < 0 || row.min_stock_quantity < 0) {
+  if (
+    row.stock_floor3 < 0 ||
+    row.stock_b1 < 0 ||
+    row.stock_display < 0 ||
+    row.stock_quantity < 0 ||
+    row.min_stock_quantity < 0
+  ) {
     return `${rowNumber}행: 재고 수량은 0 이상이어야 합니다.`;
   }
+
+  const locationSum = row.stock_floor3 + row.stock_b1 + row.stock_display;
+  if (locationSum !== row.stock_quantity) {
+    return `${rowNumber}행: 합계(${row.stock_quantity})와 3층+B1+의왕 합(${locationSum})이 일치하지 않습니다.`;
+  }
+
   return null;
 }
 
@@ -154,7 +267,12 @@ export function excelRowToPayload(row: ExcelProductRow) {
     size: row.size || null,
     purchase_price: row.purchase_price,
     sale_price: row.sale_price,
+    stock_floor3: row.stock_floor3,
+    stock_b1: row.stock_b1,
+    stock_display: row.stock_display,
     stock_quantity: row.stock_quantity,
     min_stock_quantity: row.min_stock_quantity,
+    stock_location: "3층",
+    is_key_stock: false,
   };
 }
