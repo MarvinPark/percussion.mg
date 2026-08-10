@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
 import DashboardLowStockAlert from "@/components/dashboard-low-stock-alert";
+import { isLowStockProduct } from "@/lib/product-stock";
 import { formatKRW, getMonthKey, getYearKey } from "@/lib/sales-calculator";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
@@ -39,9 +40,7 @@ export default async function DashboardPage() {
     ]);
 
   const lowStockProducts =
-    allProducts?.filter(
-      (item) => item.stock_quantity <= item.min_stock_quantity,
-    ) ?? [];
+    allProducts?.filter((item) => isLowStockProduct(item)) ?? [];
 
   let monthSales = 0;
   let monthMargin = 0;

@@ -83,6 +83,7 @@ type ProductsWorkspaceProps = {
   readOnly?: boolean;
   externalHighlightedIds?: Set<string>;
   searchSlot?: ReactNode;
+  listSummary?: ReactNode;
 };
 
 export default function ProductsWorkspace({
@@ -91,6 +92,7 @@ export default function ProductsWorkspace({
   readOnly = false,
   externalHighlightedIds,
   searchSlot,
+  listSummary,
 }: ProductsWorkspaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -390,7 +392,16 @@ export default function ProductsWorkspace({
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        {searchSlot ? <div className="shrink-0">{searchSlot}</div> : null}
+        {searchSlot || listSummary ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {searchSlot ? <div className="shrink-0">{searchSlot}</div> : null}
+            {listSummary ? (
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {listSummary}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {!readOnly ? (
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           <div className="flex flex-wrap gap-1">

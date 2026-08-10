@@ -9,6 +9,7 @@ import KeyStockStarToggle from "@/components/key-stock-star-toggle";
 import ResizableHeaderCell from "@/components/resizable-header-cell";
 import { useProductColumnWidths } from "@/hooks/use-product-column-widths";
 import { PRODUCT_TABLE_COLUMNS } from "@/lib/product-table-columns";
+import { isLowStockProduct } from "@/lib/product-stock";
 import {
   getNextTableFocus,
   tableFocusRingClass,
@@ -105,7 +106,7 @@ function ProductDetailModal({
     { label: "수정일", value: formatDate(product.updated_at) },
   ];
 
-  const isLowStock = product.stock_quantity <= product.min_stock_quantity;
+  const isLowStock = isLowStockProduct(product);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -565,8 +566,7 @@ export default function ProductsList({
           </thead>
           <tbody className="font-normal">
             {products.map((product) => {
-              const isLowStock =
-                product.stock_quantity <= product.min_stock_quantity;
+              const isLowStock = isLowStockProduct(product);
 
               return (
                 <tr

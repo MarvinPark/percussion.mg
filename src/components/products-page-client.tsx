@@ -101,6 +101,19 @@ export default function ProductsPageClient({
     return filteredProducts.slice(start, start + PAGE_SIZE);
   }, [filteredProducts, currentPage, isSearchActive]);
 
+  const totalStockQuantity = useMemo(
+    () =>
+      filteredProducts.reduce(
+        (sum, product) => sum + (Number(product.stock_quantity) || 0),
+        0,
+      ),
+    [filteredProducts],
+  );
+
+  const listSummary = isSearchActive
+    ? `검색 ${filteredProducts.length.toLocaleString("ko-KR")}건 · 총 수량 ${totalStockQuantity.toLocaleString("ko-KR")}개`
+    : `총 ${filteredProducts.length.toLocaleString("ko-KR")}건 · 총 수량 ${totalStockQuantity.toLocaleString("ko-KR")}개`;
+
   const applySearch = useCallback(() => {
     setAppliedQuery(draftQuery);
   }, [draftQuery]);
@@ -129,6 +142,7 @@ export default function ProductsPageClient({
         products={displayProducts}
         readOnly={readOnly}
         externalHighlightedIds={highlightedIds}
+        listSummary={listSummary}
         searchSlot={
           <ProductListSearch
             compact
