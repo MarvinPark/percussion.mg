@@ -2,11 +2,9 @@ import Link from "next/link";
 import AppHeaderNav from "@/components/app-header-nav";
 import { getNavItems, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
-import { createClient } from "@/lib/supabase/server";
 
 export default async function AppHeader() {
-  const supabase = await createClient();
-  const { profile } = await getCurrentUserProfile(supabase);
+  const { profile } = await getCurrentUserProfile();
   const role = normalizeRole(profile?.role);
   const navItems = getNavItems(role);
 

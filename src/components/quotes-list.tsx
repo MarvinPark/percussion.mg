@@ -1,10 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteQuote, convertQuoteToSale, cancelQuoteConversion } from "@/app/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
-import QuoteDocumentPreview from "@/components/quote-document-preview";
 import QuoteForm from "@/components/quote-form";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
 import { displaySaleCategory } from "@/lib/sale-categories";
@@ -12,6 +12,11 @@ import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
 import type { PaymentMethod } from "@/types/sale";
 import type { QuoteProductOption } from "@/types/quote";
+
+const QuoteDocumentPreview = dynamic(
+  () => import("@/components/quote-document-preview"),
+  { ssr: false },
+);
 
 export type QuoteListItem = {
   id: string;

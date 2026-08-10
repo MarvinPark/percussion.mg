@@ -20,7 +20,7 @@ export async function createPaymentMethod(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "managePaymentMethods");
+  const auth = await requirePermission("managePaymentMethods");
   if ("error" in auth) return { error: auth.error };
 
   const { data: lastMethod } = await supabase
@@ -61,7 +61,7 @@ export async function updatePaymentMethod(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "managePaymentMethods");
+  const auth = await requirePermission("managePaymentMethods");
   if ("error" in auth) return { error: auth.error };
 
   const { error } = await supabase
@@ -85,7 +85,7 @@ export async function deletePaymentMethod(formData: FormData) {
   if (!id) return { error: "삭제할 결제 수단을 찾을 수 없습니다." };
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "managePaymentMethods");
+  const auth = await requirePermission("managePaymentMethods");
   if ("error" in auth) return { error: auth.error };
 
   const { error } = await supabase.from("payment_methods").delete().eq("id", id);

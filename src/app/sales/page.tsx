@@ -1,50 +1,18 @@
 import Link from "next/link";
 import AppHeader from "@/components/app-header";
+import SalesImportPanels from "@/components/sales-import-panels";
 import SalesPageClient from "@/components/sales-page-client";
-import SmartstoreImportPanel from "@/components/smartstore-import-panel";
-import GmarketImportPanel from "@/components/gmarket-import-panel";
-import {
-  formatKRW,
-  getMonthKey,
-  getYearKey,
-} from "@/lib/sales-calculator";
+import { formatKRW } from "@/lib/sales-calculator";
+import { fetchSalesPeriodSummaries } from "@/lib/sales-summary";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { SaleWithProduct } from "@/types/sale";
 
-function summarizeSales(sales: SaleWithProduct[]) {
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const currentYear = String(now.getFullYear());
-
-  let monthTotal = 0;
-  let monthMargin = 0;
-  let yearTotal = 0;
-  let yearMargin = 0;
-
-  for (const sale of sales) {
-    const monthKey = getMonthKey(sale.sold_at);
-    const yearKey = getYearKey(sale.sold_at);
-
-    if (monthKey === currentMonth) {
-      monthTotal += sale.total_amount;
-      monthMargin += sale.margin_amount;
-    }
-
-    if (yearKey === currentYear) {
-      yearTotal += sale.total_amount;
-      yearMargin += sale.margin_amount;
-    }
-  }
-
-  return { monthTotal, monthMargin, yearTotal, yearMargin };
-}
-
 export default async function SalesPage() {
   const supabase = await createClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
+  const { user, profile } = await getCurrentUserProfile();
 
   if (!user) redirect("/login");
 
@@ -53,7 +21,7 @@ export default async function SalesPage() {
   const canCreateSales = hasPermission(role, "createSales");
   const canManagePaymentMethods = hasPermission(role, "managePaymentMethods");
 
-  const [{ data: sales, error }, { data: products }, { data: paymentMethods }] =
+  const [{ data: sales, error }, { data: products }, { data: paymentMethods }, summary] =
     await Promise.all([
       supabase
         .from("sales")
@@ -69,11 +37,10 @@ export default async function SalesPage() {
         .order("product_name", { ascending: true }),
       supabase
         .from("payment_methods")
-        .select("*")
+        .select("id, name, fee_rate, sort_order")
         .order("sort_order", { ascending: true }),
+      fetchSalesPeriodSummaries(supabase),
     ]);
-
-  const summary = summarizeSales((sales as SaleWithProduct[]) ?? []);
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950">
@@ -121,18 +88,10 @@ export default async function SalesPage() {
           </div>
         ) : (
           <>
-            {canCreateSales ? (
-              <div className="mt-6 space-y-4">
-                <SmartstoreImportPanel
-                  canImport={canCreateSales}
-                  products={products ?? []}
-                />
-                <GmarketImportPanel
-                  canImport={canCreateSales}
-                  products={products ?? []}
-                />
-              </div>
-            ) : null}
+            <SalesImportPanels
+              canImport={canCreateSales}
+              products={products ?? []}
+            />
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[

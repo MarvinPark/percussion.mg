@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 
 export default async function UsersSettingsPage() {
   const supabase = await createClient();
-  const { user } = await getCurrentUserProfile(supabase);
+  const { user } = await getCurrentUserProfile();
 
   if (!user) {
     redirect("/login");

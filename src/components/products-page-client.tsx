@@ -5,6 +5,7 @@ import ProductListSearch from "@/components/product-list-search";
 import ProductsWorkspace from "@/components/products-workspace";
 import { filterProducts } from "@/lib/product-search";
 import type { Product } from "@/types/product";
+import type { ProductListStats } from "@/lib/product-list-loader";
 
 const PAGE_SIZE = 10;
 const VISIBLE_PAGE_COUNT = 10;
@@ -39,12 +40,14 @@ function ensurePageInWindow(
 type ProductsPageClientProps = {
   userId: string;
   products: Product[];
+  listStats: ProductListStats;
   readOnly?: boolean;
 };
 
 export default function ProductsPageClient({
   userId,
   products,
+  listStats,
   readOnly = false,
 }: ProductsPageClientProps) {
   const [draftQuery, setDraftQuery] = useState("");
@@ -101,7 +104,8 @@ export default function ProductsPageClient({
     return filteredProducts.slice(start, start + PAGE_SIZE);
   }, [filteredProducts, currentPage, isSearchActive]);
 
-  const totalStockQuantity = useMemo(
+  const filteredCount = filteredProducts.length;
+  const filteredStockQuantity = useMemo(
     () =>
       filteredProducts.reduce(
         (sum, product) => sum + (Number(product.stock_quantity) || 0),
@@ -110,9 +114,14 @@ export default function ProductsPageClient({
     [filteredProducts],
   );
 
+  const totalCount = isSearchActive ? filteredCount : listStats.totalCount;
+  const totalStockQuantity = isSearchActive
+    ? filteredStockQuantity
+    : listStats.totalStockQuantity;
+
   const listSummary = isSearchActive
-    ? `검색 ${filteredProducts.length.toLocaleString("ko-KR")}건 · 총 수량 ${totalStockQuantity.toLocaleString("ko-KR")}개`
-    : `총 ${filteredProducts.length.toLocaleString("ko-KR")}건 · 총 수량 ${totalStockQuantity.toLocaleString("ko-KR")}개`;
+    ? `검색 ${filteredCount.toLocaleString("ko-KR")}건 · 총 수량 ${filteredStockQuantity.toLocaleString("ko-KR")}개`
+    : `총 ${totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${totalStockQuantity.toLocaleString("ko-KR")}개`;
 
   const applySearch = useCallback(() => {
     setAppliedQuery(draftQuery);

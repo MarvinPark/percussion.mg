@@ -27,7 +27,7 @@ function mapRoleUpdateError(message: string) {
 
 export async function updateUserRole(userId: string, role: UserRole) {
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageUsers");
+  const auth = await requirePermission("manageUsers");
 
   if ("error" in auth) {
     return { error: auth.error };

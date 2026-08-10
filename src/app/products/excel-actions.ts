@@ -46,7 +46,7 @@ export async function importProductsFromExcel(
   }
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageProducts");
+  const auth = await requirePermission("manageProducts");
   if ("error" in auth) return { error: auth.error };
 
   let successCount = 0;

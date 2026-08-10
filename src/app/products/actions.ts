@@ -27,7 +27,7 @@ async function recordStockMovement(
     note: string | null;
   },
 ) {
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
 
   if ("error" in modifier) {
     return modifier;
@@ -138,7 +138,7 @@ function productPayload(data: ReturnType<typeof parseProductForm>) {
 async function ensureManageProducts(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ) {
-  const auth = await requirePermission(supabase, "manageProducts");
+  const auth = await requirePermission("manageProducts");
   if ("error" in auth) return auth;
   return null;
 }

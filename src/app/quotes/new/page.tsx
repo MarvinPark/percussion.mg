@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 
 export default async function NewQuotePage() {
   const supabase = await createClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
+  const { user, profile } = await getCurrentUserProfile();
 
   if (!user) redirect("/login");
 

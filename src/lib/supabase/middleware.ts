@@ -1,7 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { canAccessPath } from "@/lib/permissions";
-import { fetchUserRole } from "@/lib/profile";
+import { canAccessPath, normalizeRole } from "@/lib/permissions";
 import { isProfileComplete } from "@/types/profile";
 
 export async function updateSession(request: NextRequest) {
@@ -65,7 +64,7 @@ export async function updateSession(request: NextRequest) {
   if (user && !isProfileSetupPage) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, job_title, phone")
+      .select("full_name, job_title, phone, role")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -75,7 +74,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const role = await fetchUserRole(supabase, user.id);
+    const role = normalizeRole(profile?.role);
     if (!canAccessPath(role, request.nextUrl.pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";

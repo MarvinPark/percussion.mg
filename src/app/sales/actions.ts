@@ -18,7 +18,7 @@ async function recordStockOutForSale(
   quantity: number,
   note: string,
 ) {
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
   if ("error" in modifier) return modifier;
 
   const { data: product } = await supabase
@@ -75,7 +75,7 @@ async function recordStockIn(
   quantity: number,
   note: string,
 ) {
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
   if ("error" in modifier) return modifier;
 
   const { data: product } = await supabase
@@ -223,7 +223,7 @@ export async function createSale(formData: FormData) {
   if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
 
   const supabase = await createClient();
-  const modifier = await requirePermission(supabase, "createSales");
+  const modifier = await requirePermission("createSales");
   if ("error" in modifier) return { error: modifier.error };
 
   const stockNote = `판매 출고${customer_name ? ` — ${customer_name}` : ""}`;
@@ -334,7 +334,7 @@ export async function updateSale(formData: FormData) {
   if (!payment_method_id) return { error: "결제 방식을 선택해 주세요." };
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageSales");
+  const auth = await requirePermission("manageSales");
   if ("error" in auth) return { error: auth.error };
 
   const { data: existingSale } = await supabase
@@ -428,7 +428,7 @@ export async function deleteSale(
   if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageSales");
+  const auth = await requirePermission("manageSales");
   if ("error" in auth) return { error: auth.error };
 
   const { data: existingSale } = await supabase

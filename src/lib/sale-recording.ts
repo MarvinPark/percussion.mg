@@ -147,7 +147,7 @@ export async function recordStockOutForSale(
   quantity: number,
   note: string,
 ) {
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
   if ("error" in modifier) return modifier;
 
   const { data: product } = await supabase
@@ -208,7 +208,7 @@ export async function recordStockIn(
   quantity: number,
   note: string,
 ) {
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
   if ("error" in modifier) return modifier;
 
   const { data: product } = await supabase

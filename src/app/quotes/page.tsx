@@ -8,13 +8,9 @@ import { redirect } from "next/navigation";
 
 export default async function QuotesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentUserProfile();
 
   if (!user) redirect("/login");
-
-  const { profile } = await getCurrentUserProfile(supabase);
 
   const [
     { data: quotes, error },
@@ -38,14 +34,18 @@ export default async function QuotesPage() {
       .from("payment_methods")
       .select("id, name, fee_rate, sort_order")
       .order("sort_order", { ascending: true }),
-    supabase.from("sales").select("quote_id").not("quote_id", "is", null),
+    supabase
+      .from("sales")
+      .select("quote_id")
+      .not("quote_id", "is", null)
+      .limit(500),
     supabase
       .from("sales")
       .select(
         "business_partner, customer_name, customer_phone, customer_address, sold_at",
       )
       .order("sold_at", { ascending: false })
-      .limit(1000),
+      .limit(300),
   ]);
 
   const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);

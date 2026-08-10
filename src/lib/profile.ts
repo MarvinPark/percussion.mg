@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isProfileComplete, type Profile, type UserRole } from "@/types/profile";
 import {
@@ -5,9 +6,10 @@ import {
   normalizeRole,
   type Permission,
 } from "@/lib/permissions";
+import { createClient } from "@/lib/supabase/server";
 
-const PROFILE_BASE_SELECT =
-  "id, full_name, job_title, phone, created_at, updated_at";
+const PROFILE_SELECT =
+  "id, full_name, job_title, phone, role, created_at, updated_at";
 
 /** role 컬럼(schema-phase7)이 없어도 기본값 employee로 동작 */
 export async function fetchUserRole(
@@ -24,7 +26,8 @@ export async function fetchUserRole(
   return normalizeRole(data.role);
 }
 
-export async function getCurrentUserProfile(supabase: SupabaseClient) {
+export const getCurrentUserProfile = cache(async () => {
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -33,17 +36,19 @@ export async function getCurrentUserProfile(supabase: SupabaseClient) {
 
   const { data: baseProfile } = await supabase
     .from("profiles")
-    .select(PROFILE_BASE_SELECT)
+    .select(PROFILE_SELECT)
     .eq("id", user.id)
     .maybeSingle();
 
   if (!baseProfile) return { user, profile: null };
 
-  const role = await fetchUserRole(supabase, user.id);
-  const profile: Profile = { ...baseProfile, role };
+  const profile: Profile = {
+    ...baseProfile,
+    role: normalizeRole(baseProfile.role),
+  };
 
   return { user, profile };
-}
+});
 
 export function formatManagerDisplayName(
   fullName: string | null | undefined,
@@ -56,8 +61,8 @@ export function formatManagerDisplayName(
   return name || title;
 }
 
-export async function getModifierInfo(supabase: SupabaseClient) {
-  const { user, profile } = await getCurrentUserProfile(supabase);
+export async function getModifierInfo() {
+  const { user, profile } = await getCurrentUserProfile();
 
   if (!user) {
     return { error: "로그인이 필요합니다." as const };
@@ -76,11 +81,8 @@ export async function getModifierInfo(supabase: SupabaseClient) {
   };
 }
 
-export async function requirePermission(
-  supabase: SupabaseClient,
-  permission: Permission,
-) {
-  const modifier = await getModifierInfo(supabase);
+export async function requirePermission(permission: Permission) {
+  const modifier = await getModifierInfo();
 
   if ("error" in modifier) {
     return modifier;
@@ -93,9 +95,7 @@ export async function requirePermission(
   return modifier;
 }
 
-export async function getUserRole(
-  supabase: SupabaseClient,
-): Promise<UserRole> {
-  const { profile } = await getCurrentUserProfile(supabase);
+export async function getUserRole(): Promise<UserRole> {
+  const { profile } = await getCurrentUserProfile();
   return normalizeRole(profile?.role);
 }

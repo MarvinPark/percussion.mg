@@ -168,9 +168,9 @@ export async function createQuote(formData: FormData) {
   const { totalAmount, cardAmount } = calculateQuoteTotals(parsedItems);
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageQuotes");
+  const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
   if ("error" in modifier) return { error: modifier.error };
 
   const paymentResult = await resolvePaymentMethod(
@@ -240,9 +240,9 @@ export async function updateQuote(formData: FormData) {
   const { totalAmount, cardAmount } = calculateQuoteTotals(parsedItems);
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageQuotes");
+  const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
   if ("error" in modifier) return { error: modifier.error };
 
   const paymentResult = await resolvePaymentMethod(
@@ -295,9 +295,9 @@ export async function convertQuoteToSale(quoteId: string) {
   if (!quoteId) return { error: "견적 ID가 없습니다." };
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageQuotes");
+  const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
-  const modifier = await getModifierInfo(supabase);
+  const modifier = await getModifierInfo();
   if ("error" in modifier) return { error: modifier.error };
 
   const { data: quote, error: quoteError } = await supabase
@@ -477,7 +477,7 @@ export async function cancelQuoteConversion(quoteId: string) {
   if (!quoteId) return { error: "견적 ID가 없습니다." };
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageQuotes");
+  const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
 
   const { data: sales, error: salesError } = await supabase
@@ -529,7 +529,7 @@ export async function deleteQuote(formData: FormData) {
   if (!quoteId) return;
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageQuotes");
+  const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return;
 
   await supabase.from("quotes").delete().eq("id", quoteId);

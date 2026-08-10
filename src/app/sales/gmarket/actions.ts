@@ -256,7 +256,7 @@ export async function previewGmarketOrders(
     }
 > {
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "createSales");
+  const auth = await requirePermission("createSales");
   if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
 
   const range = parseDateRange(fromDate, toDate);
@@ -315,7 +315,7 @@ export async function importGmarketOrders(
   const autoCreateProducts = options.autoCreateProducts ?? true;
   const manualMatches = options.manualMatches ?? {};
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "createSales");
+  const auth = await requirePermission("createSales");
   if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
 
   const range = parseDateRange(fromDate, toDate);
@@ -494,7 +494,7 @@ export async function createProductForGmarketLink(input: {
   }
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "createSales");
+  const auth = await requirePermission("createSales");
   if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
 
   const { data: existing } = await supabase

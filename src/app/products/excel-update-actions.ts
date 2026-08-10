@@ -42,7 +42,7 @@ export async function updateProductsFromExcel(
   const { file } = fileResult;
 
   const supabase = await createClient();
-  const auth = await requirePermission(supabase, "manageProducts");
+  const auth = await requirePermission("manageProducts");
   if ("error" in auth) return { error: auth.error };
 
   const { data: products, error: productsError } = await supabase
