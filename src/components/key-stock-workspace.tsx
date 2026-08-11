@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateKeyStockReserved } from "@/app/(main)/products/actions";
+import KeyStockFilterCombobox from "@/components/key-stock-filter-combobox";
 import {
   buildKeyStockBrandOptions,
   buildKeyStockCategoryOptions,
@@ -181,6 +182,12 @@ function ProductCells({
   );
 }
 
+function matchesFilterField(value: string, filterValue: string) {
+  const query = filterValue.trim();
+  if (!query) return true;
+  return value.toLowerCase().includes(query.toLowerCase());
+}
+
 function filterProducts(
   products: Product[],
   filter: KeyStockColumnFilter,
@@ -188,8 +195,8 @@ function filterProducts(
   return products.filter((product) => {
     const category = product.category?.trim() || "미분류";
     const brand = product.brand?.trim() || "미지정";
-    if (filter.category && category !== filter.category) return false;
-    if (filter.brand && brand !== filter.brand) return false;
+    if (!matchesFilterField(category, filter.category)) return false;
+    if (!matchesFilterField(brand, filter.brand)) return false;
     return true;
   });
 }
@@ -284,22 +291,9 @@ export default function KeyStockWorkspace({
     value: string,
   ) {
     setColumnFilters((prev) =>
-      prev.map((filter, index) => {
-        if (index !== columnIndex) return filter;
-
-        if (field === "category") {
-          const brandOptions = buildKeyStockBrandOptions(filterOptionRows, value);
-          const keepBrand = filter.brand && brandOptions.includes(filter.brand);
-
-          return {
-            ...filter,
-            category: value,
-            brand: keepBrand ? filter.brand : "",
-          };
-        }
-
-        return { ...filter, [field]: value };
-      }),
+      prev.map((filter, index) =>
+        index === columnIndex ? { ...filter, [field]: value } : filter,
+      ),
     );
   }
 
@@ -369,25 +363,16 @@ export default function KeyStockWorkspace({
                           >
                             품목
                           </label>
-                          <select
+                          <KeyStockFilterCombobox
                             id={`category-filter-${columnIndex}`}
                             value={filter.category}
-                            onChange={(event) =>
-                              updateColumnFilter(
-                                columnIndex,
-                                "category",
-                                event.target.value,
-                              )
+                            options={categories}
+                            placeholder="품목 검색"
+                            onChange={(value) =>
+                              updateColumnFilter(columnIndex, "category", value)
                             }
                             className={selectClass}
-                          >
-                            <option value="">전체</option>
-                            {categories.map((category) => (
-                              <option key={category} value={category}>
-                                {category}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div>
                           <label
@@ -396,25 +381,16 @@ export default function KeyStockWorkspace({
                           >
                             브랜드
                           </label>
-                          <select
+                          <KeyStockFilterCombobox
                             id={`brand-filter-${columnIndex}`}
                             value={filter.brand}
-                            onChange={(event) =>
-                              updateColumnFilter(
-                                columnIndex,
-                                "brand",
-                                event.target.value,
-                              )
+                            options={getBrandOptions(filter.category)}
+                            placeholder="브랜드 검색"
+                            onChange={(value) =>
+                              updateColumnFilter(columnIndex, "brand", value)
                             }
                             className={selectClass}
-                          >
-                            <option value="">전체</option>
-                            {getBrandOptions(filter.category).map((brand) => (
-                              <option key={brand} value={brand}>
-                                {brand}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                       <p className="mt-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">

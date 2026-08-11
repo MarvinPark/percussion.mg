@@ -79,8 +79,11 @@ export function buildKeyStockBrandOptions(
   rows: KeyStockFilterOptionRow[],
   categoryFilter = "",
 ) {
-  const filtered = categoryFilter
-    ? rows.filter((row) => row.category === categoryFilter)
+  const normalizedCategory = categoryFilter.trim().toLowerCase();
+  const filtered = normalizedCategory
+    ? rows.filter((row) =>
+        row.category.toLowerCase().includes(normalizedCategory),
+      )
     : rows;
 
   return [...new Set(filtered.map((row) => row.brand))].sort((a, b) =>
