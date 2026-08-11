@@ -392,9 +392,29 @@ export default function ProductsWorkspace({
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        {searchSlot || listSummary ? (
+        {searchSlot || listSummary || !readOnly ? (
           <div className="flex flex-wrap items-center gap-3">
             {searchSlot ? <div className="shrink-0">{searchSlot}</div> : null}
+            {!readOnly ? (
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  disabled={selectedIds.size === 0}
+                  className={toolbarButtonClass}
+                >
+                  복사
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handlePaste()}
+                  disabled={isPasting || clipboard.length === 0}
+                  className={toolbarButtonClass}
+                >
+                  {isPasting ? "붙여넣는 중..." : "붙여넣기"}
+                </button>
+              </div>
+            ) : null}
             {listSummary ? (
               <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                 {listSummary}
@@ -404,24 +424,6 @@ export default function ProductsWorkspace({
         ) : null}
         {!readOnly ? (
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <div className="flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={handleCopy}
-              disabled={selectedIds.size === 0}
-              className={toolbarButtonClass}
-            >
-              복사
-            </button>
-            <button
-              type="button"
-              onClick={() => void handlePaste()}
-              disabled={isPasting || clipboard.length === 0}
-              className={toolbarButtonClass}
-            >
-              {isPasting ? "붙여넣는 중..." : "붙여넣기"}
-            </button>
-          </div>
           <ExcelProductActions />
         </div>
         ) : null}
