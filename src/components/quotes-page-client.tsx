@@ -12,7 +12,6 @@ import {
   getUniqueQuoteSellerNames,
 } from "@/lib/quotes-search";
 import type { PaymentMethod } from "@/types/sale";
-import type { QuoteProductOption } from "@/types/quote";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 
 const buttonClass =
@@ -30,7 +29,7 @@ const DEFAULT_ROW_FONT_SIZE = 12;
 
 type QuotesPageClientProps = {
   quotes: QuoteListItem[];
-  products: QuoteProductOption[];
+  productSkus: { id: string; sku?: string | null }[];
   paymentMethods: PaymentMethod[];
   convertedQuoteIds: string[];
   contactSuggestions: SaleContactSuggestions;
@@ -40,7 +39,7 @@ type QuotesPageClientProps = {
 
 export default function QuotesPageClient({
   quotes,
-  products,
+  productSkus,
   paymentMethods,
   convertedQuoteIds,
   contactSuggestions,
@@ -52,7 +51,10 @@ export default function QuotesPageClient({
   const [appliedQuery, setAppliedQuery] = useState("");
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_ROW_FONT_SIZE);
 
-  const productSkuById = useMemo(() => buildProductSkuMap(products), [products]);
+  const productSkuById = useMemo(
+    () => buildProductSkuMap(productSkus),
+    [productSkus],
+  );
   const sellerOptions = useMemo(() => getUniqueQuoteSellerNames(quotes), [quotes]);
 
   const sellerScopedQuotes = useMemo(
@@ -157,7 +159,6 @@ export default function QuotesPageClient({
 
       <QuotesList
         quotes={filteredQuotes}
-        products={products}
         paymentMethods={paymentMethods}
         convertedQuoteIds={convertedQuoteIds}
         contactSuggestions={contactSuggestions}

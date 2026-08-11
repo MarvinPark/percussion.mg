@@ -11,7 +11,6 @@ import { displaySaleCategory } from "@/lib/sale-categories";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
 import type { PaymentMethod } from "@/types/sale";
-import type { QuoteProductOption } from "@/types/quote";
 
 const QuoteDocumentPreview = dynamic(
   () => import("@/components/quote-document-preview"),
@@ -57,7 +56,6 @@ export type QuoteListItem = {
 
 type QuotesListProps = {
   quotes: QuoteListItem[];
-  products: QuoteProductOption[];
   paymentMethods: PaymentMethod[];
   convertedQuoteIds: string[];
   contactSuggestions: SaleContactSuggestions;
@@ -87,7 +85,6 @@ const actionButtonClass =
 
 export default function QuotesList({
   quotes,
-  products,
   paymentMethods,
   convertedQuoteIds,
   contactSuggestions,
@@ -320,7 +317,6 @@ export default function QuotesList({
                   "",
                 items: editingQuote.quote_items.map(dbQuoteItemToInput),
               }}
-              products={products}
               paymentMethods={paymentMethods}
               contactSuggestions={contactSuggestions}
               managerName={managerName}

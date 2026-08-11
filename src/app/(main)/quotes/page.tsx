@@ -1,6 +1,7 @@
 import Link from "next/link";
 import QuotesPageClient from "@/components/quotes-page-client";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
+import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -13,7 +14,7 @@ export default async function QuotesPage() {
 
   const [
     { data: quotes, error },
-    { data: products },
+    productSkus,
     { data: paymentMethods },
     { data: linkedSales },
     { data: salesContacts },
@@ -23,12 +24,7 @@ export default async function QuotesPage() {
       .select("*, quote_items(*)")
       .order("created_at", { ascending: false })
       .limit(50),
-    supabase
-      .from("products")
-      .select(
-        "id, product_name, model_name, sku, supplier, category, brand, sale_price, purchase_price",
-      )
-      .order("model_name", { ascending: true }),
+    fetchAllProductSkus(supabase),
     supabase
       .from("payment_methods")
       .select("id, name, fee_rate, sort_order")
@@ -106,7 +102,7 @@ export default async function QuotesPage() {
         ) : (
           <QuotesPageClient
             quotes={quotes}
-            products={products ?? []}
+            productSkus={productSkus}
             paymentMethods={paymentMethods ?? []}
             convertedQuoteIds={convertedQuoteIds}
             contactSuggestions={contactSuggestions}

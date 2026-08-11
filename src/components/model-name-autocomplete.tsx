@@ -4,10 +4,10 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
+import { searchQuoteProductsForAutocomplete } from "@/app/(main)/quotes/actions";
 import type { QuoteProductOption } from "@/types/quote";
 import { formatKRW } from "@/lib/sales-calculator";
 
@@ -19,7 +19,6 @@ export type ModelNameAutocompleteHandle = {
 };
 
 type ModelNameAutocompleteProps = {
-  products: QuoteProductOption[];
   value: string;
   onChange: (value: string) => void;
   onSelectProduct: (product: QuoteProductOption) => void;
@@ -35,7 +34,6 @@ const ModelNameAutocomplete = forwardRef<
   ModelNameAutocompleteProps
 >(function ModelNameAutocomplete(
   {
-    products,
     value,
     onChange,
     onSelectProduct,
@@ -45,6 +43,8 @@ const ModelNameAutocomplete = forwardRef<
 ) {
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [matches, setMatches] = useState<QuoteProductOption[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -52,25 +52,24 @@ const ModelNameAutocomplete = forwardRef<
     focus: () => inputRef.current?.focus(),
   }));
 
-  const matches = useMemo(() => {
-    const query = value.trim().toLowerCase();
-    if (!query) return [];
+  useEffect(() => {
+    const query = value.trim();
+    if (!query) {
+      setMatches([]);
+      setIsSearching(false);
+      return;
+    }
 
-    return products
-      .filter((product) => {
-        const targets = [
-          product.model_name,
-          product.sku,
-          product.product_name,
-          product.brand ?? "",
-          product.supplier ?? "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        return targets.includes(query);
-      })
-      .slice(0, 8);
-  }, [products, value]);
+    setIsSearching(true);
+    const timer = window.setTimeout(() => {
+      void searchQuoteProductsForAutocomplete(query).then((response) => {
+        setMatches(response.products);
+        setIsSearching(false);
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [value]);
 
   useEffect(() => {
     setHighlightIndex(0);
@@ -127,35 +126,45 @@ const ModelNameAutocomplete = forwardRef<
         autoComplete="off"
       />
 
-      {open && value.trim() && matches.length > 0 ? (
-        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
-          {matches.map((product, index) => (
-            <li key={product.id}>
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => handleSelect(product)}
-                className={`block w-full px-3 py-2 text-left text-sm ${
-                  index === highlightIndex
-                    ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
-                    : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <span className="font-medium">
-                  {productSearchLabel(product)}
-                </span>
-                <span className="mt-0.5 block text-xs text-zinc-500">
-                  {product.supplier ? `[${product.supplier}] ` : ""}
-                  {product.product_name}
-                  {product.brand ? ` · ${product.brand}` : ""}
-                  {" · 매입가 "}
-                  {formatKRW(product.purchase_price)}원
-                  {product.sku ? ` · ${product.sku}` : ""}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      {open && value.trim() ? (
+        isSearching ? (
+          <div className="absolute z-20 mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+            검색 중…
+          </div>
+        ) : matches.length > 0 ? (
+          <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
+            {matches.map((product, index) => (
+              <li key={product.id}>
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => handleSelect(product)}
+                  className={`block w-full px-3 py-2 text-left text-sm ${
+                    index === highlightIndex
+                      ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
+                      : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <span className="font-medium">
+                    {productSearchLabel(product)}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-zinc-500">
+                    {product.supplier ? `[${product.supplier}] ` : ""}
+                    {product.product_name}
+                    {product.brand ? ` · ${product.brand}` : ""}
+                    {" · 매입가 "}
+                    {formatKRW(product.purchase_price)}원
+                    {product.sku ? ` · ${product.sku}` : ""}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="absolute z-20 mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+            검색 결과가 없습니다.
+          </div>
+        )
       ) : null}
     </div>
   );

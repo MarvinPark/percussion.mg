@@ -10,7 +10,12 @@ import {
   validateProductStock,
 } from "@/lib/sale-recording";
 import { getModifierInfo, requirePermission } from "@/lib/profile";
+import {
+  findQuoteProductByQuery,
+  searchQuoteProducts,
+} from "@/lib/quote-product-search";
 import { createClient } from "@/lib/supabase/server";
+import type { QuoteProductOption } from "@/types/quote";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseSaleCategory } from "@/lib/sale-categories";
@@ -522,6 +527,38 @@ export async function cancelQuoteConversion(quoteId: string) {
   revalidatePath("/quotes");
 
   return { success: true };
+}
+
+export async function searchQuoteProductsForAutocomplete(
+  query: string,
+): Promise<{ products: QuoteProductOption[]; error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { products: [], error: "로그인이 필요합니다." };
+  }
+
+  const products = await searchQuoteProducts(supabase, query);
+  return { products, error: null };
+}
+
+export async function findQuoteProductForAdd(
+  query: string,
+): Promise<{ product: QuoteProductOption | null; error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { product: null, error: "로그인이 필요합니다." };
+  }
+
+  const product = await findQuoteProductByQuery(supabase, query);
+  return { product, error: null };
 }
 
 export async function deleteQuote(formData: FormData) {

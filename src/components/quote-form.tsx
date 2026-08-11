@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useRef, useState } from "react";
-import { createQuote, updateQuote } from "@/app/(main)/quotes/actions";
+import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
 } from "@/components/model-name-autocomplete";
@@ -47,7 +47,6 @@ type QuoteEditInitial = {
 };
 
 type QuoteFormProps = {
-  products: QuoteProductOption[];
   paymentMethods: PaymentMethod[];
   managerName: string;
   managerPhone: string;
@@ -114,7 +113,6 @@ function recalculateItem(item: QuoteItemInput): QuoteItemInput {
 }
 
 export default function QuoteForm({
-  products,
   paymentMethods,
   managerName,
   managerPhone,
@@ -133,6 +131,7 @@ export default function QuoteForm({
     useState<QuoteProductOption | null>(null);
   const [addQuantity, setAddQuantity] = useState(1);
   const [addSalePrice, setAddSalePrice] = useState(0);
+  const [isResolvingProduct, setIsResolvingProduct] = useState(false);
   const [quoteDate, setQuoteDate] = useState(
     initialQuote?.quote_date ?? todayString(),
   );
@@ -187,29 +186,27 @@ export default function QuoteForm({
     setAddSalePrice(product.sale_price);
   }
 
-  function resolveProductForAdd(): QuoteProductOption | null {
+  async function resolveProductForAdd(): Promise<QuoteProductOption | null> {
     if (selectedProduct) return selectedProduct;
 
-    const query = modelSearch.trim().toLowerCase();
+    const query = modelSearch.trim();
     if (!query) return null;
 
-    return (
-      products.find(
-        (product) =>
-          (product.model_name || "").toLowerCase() === query ||
-          product.sku.toLowerCase() === query,
-      ) ?? null
-    );
+    const { product } = await findQuoteProductForAdd(query);
+    return product;
   }
 
-  function focusModelInput() {
-    requestAnimationFrame(() => {
-      modelInputRef.current?.focus();
-    });
-  }
+  async function addItem(): Promise<boolean> {
+    if (isResolvingProduct) return false;
 
-  function addItem(): boolean {
-    const product = resolveProductForAdd();
+    setIsResolvingProduct(true);
+    let product: QuoteProductOption | null = null;
+    try {
+      product = await resolveProductForAdd();
+    } finally {
+      setIsResolvingProduct(false);
+    }
+
     if (!product || addQuantity <= 0) {
       alert("모델명을 입력하고 목록에서 제품을 선택해 주세요.");
       return false;
@@ -247,6 +244,12 @@ export default function QuoteForm({
     setAddSalePrice(0);
     focusModelInput();
     return true;
+  }
+
+  function focusModelInput() {
+    requestAnimationFrame(() => {
+      modelInputRef.current?.focus();
+    });
   }
 
   function updateItemSalePrice(index: number, saleUnitPrice: number) {
@@ -433,7 +436,6 @@ export default function QuoteForm({
             <label className={labelClass}>모델명</label>
             <ModelNameAutocomplete
               ref={modelInputRef}
-              products={products}
               value={modelSearch}
               onChange={(value) => {
                 setModelSearch(value);
@@ -461,7 +463,7 @@ export default function QuoteForm({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  addItem();
+                  void addItem();
                 }
               }}
               className={inputClass}
@@ -469,10 +471,11 @@ export default function QuoteForm({
           </div>
           <button
             type="button"
-            onClick={addItem}
-            className="ml-auto rounded-lg bg-zinc-800 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-200 dark:text-zinc-900"
+            onClick={() => void addItem()}
+            disabled={isResolvingProduct}
+            className="ml-auto rounded-lg bg-zinc-800 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-200 dark:text-zinc-900"
           >
-            추가
+            {isResolvingProduct ? "확인 중…" : "추가"}
           </button>
         </div>
       </section>

@@ -5,7 +5,7 @@ function normalize(value: string | null | undefined) {
 }
 
 export function buildProductSkuMap(
-  products: { id: string; sku?: string }[],
+  products: { id: string; sku?: string | null }[],
 ): Map<string, string> {
   return new Map(
     products

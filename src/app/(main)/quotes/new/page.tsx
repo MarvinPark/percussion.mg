@@ -18,14 +18,11 @@ export default async function NewQuotePage() {
 
   const completeProfile = profile!;
 
-  const [{ data: products }, { data: paymentMethods }, { data: salesContacts }] =
+  const [{ count: productCount }, { data: paymentMethods }, { data: salesContacts }] =
     await Promise.all([
     supabase
       .from("products")
-      .select(
-        "id, product_name, model_name, sku, supplier, category, brand, sale_price, purchase_price",
-      )
-      .order("model_name", { ascending: true }),
+      .select("*", { count: "exact", head: true }),
     supabase
       .from("payment_methods")
       .select("id, name, fee_rate, sort_order")
@@ -59,7 +56,7 @@ export default async function NewQuotePage() {
           </p>
         </div>
 
-        {!products?.length ? (
+        {!productCount ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
               등록된 제품이 없습니다.
@@ -74,7 +71,6 @@ export default async function NewQuotePage() {
         ) : (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <QuoteForm
-              products={products}
               paymentMethods={paymentMethods ?? []}
               contactSuggestions={contactSuggestions}
               managerName={formatManagerDisplayName(
