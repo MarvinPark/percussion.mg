@@ -1,6 +1,7 @@
 "use server";
 
 import { getModifierInfo, requirePermission } from "@/lib/profile";
+import { searchProductsForDropdown } from "@/lib/product-list-loader";
 import { nextPasteSku } from "@/lib/product-sku";
 import {
   addLocationStock,
@@ -789,4 +790,18 @@ export async function toggleKeyStock(
   revalidatePath("/products/key-stock");
 
   return { is_key_stock: next };
+}
+
+export async function searchProductsForListDropdown(query: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { products: [], error: "로그인이 필요합니다." as const };
+  }
+
+  const products = await searchProductsForDropdown(supabase, query);
+  return { products, error: null };
 }

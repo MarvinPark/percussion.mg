@@ -1,17 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import ProductsPageClient from "@/components/products-page-client";
-import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
 import {
-  fetchAllProductsForList,
   fetchProductListStats,
+  fetchProductsPage,
+  PRODUCT_PAGE_SIZE,
 } from "@/lib/product-list-loader";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 
-export default async function ProductsPage() {
+type ProductsPageProps = {
+  searchParams: Promise<{ page?: string; q?: string }>;
+};
+
+export default async function ProductsPage({ searchParams }: ProductsPageProps) {
+  const params = await searchParams;
+  const searchQuery = params.q?.trim() ?? "";
+  const requestedPage = Math.max(1, Number(params.page) || 1);
+
   const supabase = await createClient();
   const { user, profile } = await getCurrentUserProfile();
 
@@ -22,10 +30,30 @@ export default async function ProductsPage() {
   const role = normalizeRole(profile?.role);
   const canManageProducts = hasPermission(role, "manageProducts");
 
-  const [{ products, error }, listStats] = await Promise.all([
-    fetchAllProductsForList(supabase),
-    fetchProductListStats(supabase),
+  const [listStats, pageData] = await Promise.all([
+    fetchProductListStats(supabase, searchQuery || undefined),
+    fetchProductsPage(supabase, {
+      page: requestedPage,
+      pageSize: PRODUCT_PAGE_SIZE,
+      searchQuery,
+    }),
   ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(listStats.totalCount / PRODUCT_PAGE_SIZE),
+  );
+  const currentPage = Math.min(requestedPage, totalPages);
+
+  if (requestedPage !== currentPage && listStats.totalCount > 0) {
+    const nextParams = new URLSearchParams();
+    if (searchQuery) nextParams.set("q", searchQuery);
+    if (currentPage > 1) nextParams.set("page", String(currentPage));
+    const suffix = nextParams.toString();
+    redirect(suffix ? `/products?${suffix}` : "/products");
+  }
+
+  const { products, error } = pageData;
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950">
@@ -80,11 +108,14 @@ export default async function ProductsPage() {
           )}
         </div>
 
-        {!error && products.length ? (
+        {!error && listStats.totalCount > 0 ? (
           <ProductsPageClient
             userId={user.id}
             products={products}
             listStats={listStats}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            searchQuery={searchQuery}
             readOnly={!canManageProducts}
           />
         ) : null}
@@ -100,7 +131,13 @@ export default async function ProductsPage() {
               파일 내용을 실행했는지 확인해 주세요.
             </p>
           </div>
-        ) : !products.length ? (
+        ) : searchQuery && listStats.totalCount === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="font-medium text-zinc-800 dark:text-zinc-200">
+              검색 결과가 없습니다.
+            </p>
+          </div>
+        ) : !listStats.totalCount ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
               아직 등록된 제품이 없습니다.

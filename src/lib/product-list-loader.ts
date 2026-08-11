@@ -2,86 +2,140 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
 import type { Product } from "@/types/product";
 
-const BATCH_SIZE = 1000;
+export const PRODUCT_PAGE_SIZE = 10;
 
 export type ProductListStats = {
   totalCount: number;
   totalStockQuantity: number;
 };
 
-async function fetchProductStockRows(
-  supabase: SupabaseClient,
-  from: number,
-  to: number,
+export type ProductPageResult = {
+  products: Product[];
+  totalCount: number;
+  error: string | null;
+};
+
+function escapeIlike(value: string) {
+  return value.replace(/[%_\\]/g, "\\$&");
+}
+
+export function applyProductSearchFilter<T extends { or: (filters: string) => T }>(
+  query: T,
+  searchQuery: string,
 ) {
-  return supabase
+  const pattern = `%${escapeIlike(searchQuery.trim())}%`;
+
+  return query.or(
+    [
+      `supplier.ilike.${pattern}`,
+      `category.ilike.${pattern}`,
+      `brand.ilike.${pattern}`,
+      `product_name.ilike.${pattern}`,
+      `model_name.ilike.${pattern}`,
+      `sku.ilike.${pattern}`,
+      `keywords.ilike.${pattern}`,
+    ].join(","),
+  );
+}
+
+async function fetchStatsViaRpc(
+  supabase: SupabaseClient,
+  searchQuery?: string,
+): Promise<ProductListStats | null> {
+  const { data, error } = await supabase.rpc("get_product_list_stats", {
+    search_query: searchQuery?.trim() || null,
+  });
+
+  if (error || !data?.[0]) return null;
+
+  return {
+    totalCount: Number(data[0].total_count) || 0,
+    totalStockQuantity: Number(data[0].total_stock_quantity) || 0,
+  };
+}
+
+async function fetchStatsFallback(
+  supabase: SupabaseClient,
+  searchQuery?: string,
+): Promise<ProductListStats> {
+  let builder = supabase
     .from("products")
-    .select("stock_quantity")
-    .order("id", { ascending: true })
-    .range(from, to);
+    .select("*", { count: "exact", head: true });
+
+  if (searchQuery?.trim()) {
+    builder = applyProductSearchFilter(builder, searchQuery);
+  }
+
+  const { count } = await builder;
+
+  return {
+    totalCount: count ?? 0,
+    totalStockQuantity: 0,
+  };
 }
 
 export async function fetchProductListStats(
   supabase: SupabaseClient,
+  searchQuery?: string,
 ): Promise<ProductListStats> {
-  const { count, error: countError } = await supabase
-    .from("products")
-    .select("*", { count: "exact", head: true });
+  const rpcStats = await fetchStatsViaRpc(supabase, searchQuery);
+  if (rpcStats) return rpcStats;
 
-  if (countError) {
-    return { totalCount: 0, totalStockQuantity: 0 };
+  return fetchStatsFallback(supabase, searchQuery);
+}
+
+export async function fetchProductsPage(
+  supabase: SupabaseClient,
+  options: {
+    page: number;
+    pageSize?: number;
+    searchQuery?: string;
+  },
+): Promise<ProductPageResult> {
+  const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
+  const page = Math.max(1, options.page);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const searchQuery = options.searchQuery?.trim() ?? "";
+
+  let builder = supabase
+    .from("products")
+    .select(PRODUCT_LIST_SELECT, { count: "exact" })
+    .order("created_at", { ascending: false });
+
+  if (searchQuery) {
+    builder = applyProductSearchFilter(builder, searchQuery);
   }
 
-  let totalStockQuantity = 0;
-  let offset = 0;
+  const { data, count, error } = await builder.range(from, to);
 
-  while (true) {
-    const { data, error } = await fetchProductStockRows(
-      supabase,
-      offset,
-      offset + BATCH_SIZE - 1,
-    );
-
-    if (error || !data?.length) break;
-
-    for (const row of data) {
-      totalStockQuantity += Number(row.stock_quantity) || 0;
-    }
-
-    if (data.length < BATCH_SIZE) break;
-    offset += BATCH_SIZE;
+  if (error) {
+    return { products: [], totalCount: 0, error: "제품 목록을 불러오지 못했습니다." };
   }
 
   return {
+    products: (data as Product[]) ?? [],
     totalCount: count ?? 0,
-    totalStockQuantity,
+    error: null,
   };
 }
 
-export async function fetchAllProductsForList(
+export async function searchProductsForDropdown(
   supabase: SupabaseClient,
-): Promise<{ products: Product[]; error: string | null }> {
-  const products: Product[] = [];
-  let offset = 0;
+  searchQuery: string,
+  limit = 40,
+): Promise<Product[]> {
+  const query = searchQuery.trim();
+  if (!query) return [];
 
-  while (true) {
-    const { data, error } = await supabase
-      .from("products")
-      .select(PRODUCT_LIST_SELECT)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + BATCH_SIZE - 1);
+  let builder = supabase
+    .from("products")
+    .select(PRODUCT_LIST_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-    if (error) {
-      return { products: [], error: "제품 목록을 불러오지 못했습니다." };
-    }
+  builder = applyProductSearchFilter(builder, query);
 
-    if (!data?.length) break;
-
-    products.push(...(data as Product[]));
-
-    if (data.length < BATCH_SIZE) break;
-    offset += BATCH_SIZE;
-  }
-
-  return { products, error: null };
+  const { data } = await builder;
+  return (data as Product[]) ?? [];
 }

@@ -38,6 +38,7 @@ export async function updateSession(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
   const isSignupPage = request.nextUrl.pathname.startsWith("/signup");
   const isAuthCallbackPage = request.nextUrl.pathname.startsWith("/auth/");
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
   const isProfileSetupPage =
     request.nextUrl.pathname.startsWith("/profile/setup");
   const isAuthPage =
@@ -61,7 +62,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && !isProfileSetupPage) {
+  if (user && !isProfileSetupPage && !isApiRoute) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name, job_title, phone, role")

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { filterProducts } from "@/lib/product-search";
+import { searchProductsForListDropdown } from "@/app/products/actions";
 import type { Product } from "@/types/product";
 
 const inputClass =
@@ -23,7 +23,6 @@ type DropdownPosition = {
 };
 
 type ProductListSearchProps = {
-  products: Product[];
   query: string;
   onQueryChange: (query: string) => void;
   onConfirm: () => void;
@@ -36,7 +35,6 @@ function displayText(value: string | null | undefined) {
 }
 
 export default function ProductListSearch({
-  products,
   query,
   onQueryChange,
   onConfirm,
@@ -49,11 +47,8 @@ export default function ProductListSearch({
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] =
     useState<DropdownPosition | null>(null);
-
-  const filteredProducts = useMemo(
-    () => filterProducts(products, query).slice(0, MAX_RESULTS),
-    [products, query],
-  );
+  const [results, setResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -66,6 +61,25 @@ export default function ProductListSearch({
       width: Math.max(rect.width, compact ? 360 : rect.width),
     });
   }
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timer = window.setTimeout(() => {
+      void searchProductsForListDropdown(trimmed).then((response) => {
+        setResults(response.products.slice(0, MAX_RESULTS));
+        setIsSearching(false);
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -117,12 +131,16 @@ export default function ProductListSearch({
         }}
         className="max-h-72 overflow-y-auto rounded-xl border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
       >
-        {filteredProducts.length === 0 ? (
+        {isSearching ? (
+          <li className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
+            검색 중...
+          </li>
+        ) : results.length === 0 ? (
           <li className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
             검색 결과가 없습니다.
           </li>
         ) : (
-          filteredProducts.map((product) => (
+          results.map((product) => (
             <li key={product.id}>
               <button
                 type="button"
@@ -224,8 +242,9 @@ export default function ProductListSearch({
       ) : null}
       {!compact && query.trim() ? (
         <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-          목록 {filteredProducts.length}건 표시
-          {filteredProducts.length >= MAX_RESULTS ? ` (최대 ${MAX_RESULTS}건)` : ""}
+          {isSearching
+            ? "검색 중..."
+            : `목록 ${results.length}건 표시${results.length >= MAX_RESULTS ? ` (최대 ${MAX_RESULTS}건)` : ""}`}
         </p>
       ) : null}
 

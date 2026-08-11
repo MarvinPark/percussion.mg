@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import ProductListSearch from "@/components/product-list-search";
 import ProductsWorkspace from "@/components/products-workspace";
-import { filterProducts } from "@/lib/product-search";
-import type { Product } from "@/types/product";
 import type { ProductListStats } from "@/lib/product-list-loader";
+import type { Product } from "@/types/product";
 
-const PAGE_SIZE = 10;
 const VISIBLE_PAGE_COUNT = 10;
 
 const pageButtonClass =
@@ -22,25 +21,21 @@ function clampPageWindowStart(start: number, totalPages: number) {
   return Math.max(1, Math.min(start, maxStart));
 }
 
-function ensurePageInWindow(
-  page: number,
-  windowStart: number,
-  totalPages: number,
-) {
-  if (totalPages <= VISIBLE_PAGE_COUNT) return 1;
-
-  if (page < windowStart) return page;
-  if (page > windowStart + VISIBLE_PAGE_COUNT - 1) {
-    return clampPageWindowStart(page - VISIBLE_PAGE_COUNT + 1, totalPages);
-  }
-
-  return windowStart;
+function buildProductsPath(page: number, searchQuery: string) {
+  const params = new URLSearchParams();
+  if (searchQuery) params.set("q", searchQuery);
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `/products?${query}` : "/products";
 }
 
 type ProductsPageClientProps = {
   userId: string;
   products: Product[];
   listStats: ProductListStats;
+  currentPage: number;
+  totalPages: number;
+  searchQuery: string;
   readOnly?: boolean;
 };
 
@@ -48,41 +43,26 @@ export default function ProductsPageClient({
   userId,
   products,
   listStats,
+  currentPage,
+  totalPages,
+  searchQuery,
   readOnly = false,
 }: ProductsPageClientProps) {
-  const [draftQuery, setDraftQuery] = useState("");
-  const [appliedQuery, setAppliedQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const router = useRouter();
+  const [draftQuery, setDraftQuery] = useState(searchQuery);
   const [pageWindowStart, setPageWindowStart] = useState(1);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
   );
 
-  const isSearchActive = appliedQuery.trim().length > 0;
-
-  const filteredProducts = useMemo(
-    () => filterProducts(products, appliedQuery),
-    [products, appliedQuery],
-  );
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredProducts.length / PAGE_SIZE),
-  );
+  const isSearchActive = searchQuery.length > 0;
 
   useEffect(() => {
-    setCurrentPage(1);
-    setPageWindowStart(1);
-  }, [appliedQuery]);
+    setDraftQuery(searchQuery);
+  }, [searchQuery]);
 
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  useEffect(() => {
-    setPageWindowStart((prev) => ensurePageInWindow(currentPage, prev, totalPages));
+    setPageWindowStart(clampPageWindowStart(currentPage, totalPages));
   }, [currentPage, totalPages]);
 
   const visiblePageStart = clampPageWindowStart(pageWindowStart, totalPages);
@@ -95,67 +75,54 @@ export default function ProductsPageClient({
   const canShiftPageWindowRight =
     visiblePageStart + VISIBLE_PAGE_COUNT - 1 < totalPages;
 
-  const displayProducts = useMemo(() => {
-    if (isSearchActive) {
-      return filteredProducts;
-    }
+  const listSummary = isSearchActive
+    ? `검색 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개`
+    : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개`;
 
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredProducts.slice(start, start + PAGE_SIZE);
-  }, [filteredProducts, currentPage, isSearchActive]);
-
-  const filteredCount = filteredProducts.length;
-  const filteredStockQuantity = useMemo(
-    () =>
-      filteredProducts.reduce(
-        (sum, product) => sum + (Number(product.stock_quantity) || 0),
-        0,
-      ),
-    [filteredProducts],
+  const navigate = useCallback(
+    (page: number, query: string) => {
+      router.push(buildProductsPath(page, query.trim()));
+    },
+    [router],
   );
 
-  const totalCount = isSearchActive ? filteredCount : listStats.totalCount;
-  const totalStockQuantity = isSearchActive
-    ? filteredStockQuantity
-    : listStats.totalStockQuantity;
-
-  const listSummary = isSearchActive
-    ? `검색 ${filteredCount.toLocaleString("ko-KR")}건 · 총 수량 ${filteredStockQuantity.toLocaleString("ko-KR")}개`
-    : `총 ${totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${totalStockQuantity.toLocaleString("ko-KR")}개`;
-
   const applySearch = useCallback(() => {
-    setAppliedQuery(draftQuery);
-  }, [draftQuery]);
+    navigate(1, draftQuery);
+  }, [draftQuery, navigate]);
 
-  const handleSelectProduct = useCallback((product: Product) => {
-    const value = product.sku || product.model_name;
-    setDraftQuery(value);
-    setAppliedQuery(value);
-    setHighlightedIds(new Set([product.id]));
+  const handleSelectProduct = useCallback(
+    (product: Product) => {
+      const value = product.sku || product.model_name;
+      setDraftQuery(value);
+      navigate(1, value);
+      setHighlightedIds(new Set([product.id]));
 
-    requestAnimationFrame(() => {
-      document
-        .getElementById(`product-row-${product.id}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`product-row-${product.id}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
 
-    window.setTimeout(() => {
-      setHighlightedIds(new Set());
-    }, 2500);
-  }, []);
+      window.setTimeout(() => {
+        setHighlightedIds(new Set());
+      }, 2500);
+    },
+    [navigate],
+  );
+
+  const pageWindowStartValue = visiblePageStart;
 
   return (
     <>
       <ProductsWorkspace
         userId={userId}
-        products={displayProducts}
+        products={products}
         readOnly={readOnly}
         externalHighlightedIds={highlightedIds}
         listSummary={listSummary}
         searchSlot={
           <ProductListSearch
             compact
-            products={products}
             query={draftQuery}
             onQueryChange={setDraftQuery}
             onConfirm={applySearch}
@@ -164,7 +131,7 @@ export default function ProductsPageClient({
         }
       />
 
-      {!isSearchActive && filteredProducts.length > 0 ? (
+      {totalPages > 1 ? (
         <nav
           aria-label="제품 목록 페이지"
           className="mt-4 flex flex-wrap items-center justify-center gap-1"
@@ -186,9 +153,9 @@ export default function ProductsPageClient({
           ) : null}
 
           {Array.from(
-            { length: visiblePageEnd - visiblePageStart + 1 },
+            { length: visiblePageEnd - pageWindowStartValue + 1 },
             (_, index) => {
-              const page = visiblePageStart + index;
+              const page = pageWindowStartValue + index;
               const isActive = page === currentPage;
 
               return (
@@ -196,7 +163,7 @@ export default function ProductsPageClient({
                   key={page}
                   type="button"
                   aria-current={isActive ? "page" : undefined}
-                  onClick={() => setCurrentPage(page)}
+                  onClick={() => navigate(page, searchQuery)}
                   className={`${pageButtonClass} ${
                     isActive
                       ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"
