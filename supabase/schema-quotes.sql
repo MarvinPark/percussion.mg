@@ -46,7 +46,10 @@ create table quote_items (
   rounded_unit_price numeric(12, 0) not null default 0,
   line_total numeric(12, 0) not null default 0,
   purchase_price numeric(12, 0) not null default 0,
-  shipping_cost numeric(12, 0) not null default 0
+  shipping_cost numeric(12, 0) not null default 0,
+  color text,
+  product_option text,
+  size text
 );
 
 create index quotes_created_at_idx on quotes (created_at desc);

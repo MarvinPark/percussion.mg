@@ -73,6 +73,9 @@ function mapItemsForInsert(quoteId: string, items: QuoteItemInput[]) {
     brand: item.brand || null,
     product_name: item.product_name,
     model_name: item.model_name,
+    color: item.color || null,
+    product_option: item.product_option || null,
+    size: item.size || null,
     quantity: item.quantity,
     consumer_price: item.consumer_price,
     sale_unit_price: item.sale_unit_price,
@@ -307,7 +310,7 @@ export async function convertQuoteToSale(quoteId: string) {
 
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
-    .select("*, quote_items(*)")
+    .select("*, quote_items(*, products(color, product_option, size))")
     .eq("id", quoteId)
     .single();
 

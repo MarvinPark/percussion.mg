@@ -3,7 +3,7 @@ import { applyProductSearchFilter } from "@/lib/product-list-loader";
 import type { QuoteProductOption } from "@/types/quote";
 
 export const QUOTE_PRODUCT_SELECT =
-  "id, product_name, model_name, sku, supplier, category, brand, sale_price, purchase_price";
+  "id, product_name, model_name, sku, supplier, category, brand, color, product_option, size, sale_price, purchase_price";
 
 export async function searchQuoteProducts(
   supabase: SupabaseClient,

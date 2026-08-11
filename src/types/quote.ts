@@ -6,6 +6,9 @@ export type QuoteItemInput = {
   brand: string;
   product_name: string;
   model_name: string;
+  color?: string | null;
+  product_option?: string | null;
+  size?: string | null;
   quantity: number;
   consumer_price: number;
   sale_unit_price: number;
@@ -67,6 +70,9 @@ export type QuoteProductOption = {
   supplier: string;
   category: string | null;
   brand: string | null;
+  color: string | null;
+  product_option: string | null;
+  size: string | null;
   sale_price: number;
   purchase_price: number;
 };

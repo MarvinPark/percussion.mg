@@ -18,6 +18,7 @@ import {
   type CardFeePercent,
 } from "@/lib/quote-card-pricing";
 import { formatKoreanWonLabel } from "@/lib/korean-number";
+import { getQuoteItemVariantLines } from "@/lib/quote-item-display";
 import { formatKRW } from "@/lib/sales-calculator";
 import { displaySaleCategory } from "@/lib/sale-categories";
 import {
@@ -62,6 +63,24 @@ function paginateItems(items: QuoteItemInput[]) {
   }
 
   return pages;
+}
+
+function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
+  const variantLines = getQuoteItemVariantLines(item);
+
+  return (
+    <div>
+      <div>{item.product_name}</div>
+      {variantLines.map((line) => (
+        <div
+          key={line.label}
+          className="mt-0.5 text-[10px] font-normal leading-snug text-zinc-500"
+        >
+          {line.label}: {line.value}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function DocumentTable({
@@ -125,7 +144,7 @@ function DocumentTable({
             <td className={bodyCellClass}>{item.category}</td>
             <td className={bodyCellClass}>{item.brand}</td>
             <td className={bodyCellClass}>
-              {item.product_name}
+              <ProductDescriptionCell item={item} />
             </td>
             <td className={`${bodyCellClass} font-medium`}>
               {item.model_name}

@@ -21,7 +21,7 @@ export default async function QuotesPage() {
   ] = await Promise.all([
     supabase
       .from("quotes")
-      .select("*, quote_items(*)")
+      .select("*, quote_items(*, products(color, product_option, size))")
       .order("created_at", { ascending: false })
       .limit(50),
     fetchAllProductSkus(supabase),

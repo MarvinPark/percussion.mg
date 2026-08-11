@@ -11,6 +11,9 @@ type DbQuoteItem = {
   brand: string | null;
   product_name: string;
   model_name: string;
+  color?: string | null;
+  product_option?: string | null;
+  size?: string | null;
   quantity: number;
   consumer_price: number;
   sale_unit_price: number;
@@ -18,7 +21,23 @@ type DbQuoteItem = {
   line_total: number;
   purchase_price: number;
   shipping_cost: number;
+  products?: {
+    color: string | null;
+    product_option: string | null;
+    size: string | null;
+  } | null;
 };
+
+function resolveQuoteItemVariant(
+  item: DbQuoteItem,
+  field: "color" | "product_option" | "size",
+): string | null {
+  const snapshot = item[field];
+  if (snapshot?.trim()) return snapshot.trim();
+
+  const fromProduct = item.products?.[field];
+  return fromProduct?.trim() ? fromProduct.trim() : null;
+}
 
 export function dbQuoteItemToInput(item: DbQuoteItem): QuoteItemInput {
   const calculated = calculateQuoteLine({
@@ -37,6 +56,9 @@ export function dbQuoteItemToInput(item: DbQuoteItem): QuoteItemInput {
     brand: item.brand ?? "",
     product_name: item.product_name,
     model_name: item.model_name,
+    color: resolveQuoteItemVariant(item, "color"),
+    product_option: resolveQuoteItemVariant(item, "product_option"),
+    size: resolveQuoteItemVariant(item, "size"),
     quantity: item.quantity,
     consumer_price: Number(item.consumer_price) || 0,
     sale_unit_price: Number(item.sale_unit_price) || 0,
