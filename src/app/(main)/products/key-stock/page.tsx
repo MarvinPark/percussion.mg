@@ -2,7 +2,6 @@ import Link from "next/link";
 import KeyStockWorkspace from "@/components/key-stock-workspace";
 import {
   fetchAllKeyStockProducts,
-  fetchKeyStockFilterOptionRows,
 } from "@/lib/key-stock-loader";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -17,10 +16,7 @@ export default async function KeyStockPage() {
     redirect("/login");
   }
 
-  const [products, filterOptionRows] = await Promise.all([
-    fetchAllKeyStockProducts(supabase),
-    fetchKeyStockFilterOptionRows(supabase),
-  ]);
+  const products = await fetchAllKeyStockProducts(supabase);
 
   return (
       <main className="mx-auto max-w-7xl px-4 py-8">
@@ -49,11 +45,7 @@ export default async function KeyStockPage() {
           </div>
         </div>
 
-        <KeyStockWorkspace
-          userId={user.id}
-          products={products}
-          filterOptionRows={filterOptionRows}
-        />
+        <KeyStockWorkspace userId={user.id} products={products} />
       </main>
   );
 }

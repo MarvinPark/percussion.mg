@@ -7,7 +7,7 @@ import KeyStockFilterCombobox from "@/components/key-stock-filter-combobox";
 import {
   buildKeyStockBrandOptions,
   buildKeyStockCategoryOptions,
-  type KeyStockFilterOptionRow,
+  productFilterRows,
 } from "@/lib/key-stock-loader";
 import {
   EMPTY_KEY_STOCK_COLUMN_FILTERS,
@@ -185,7 +185,13 @@ function ProductCells({
 function matchesFilterField(value: string, filterValue: string) {
   const query = filterValue.trim();
   if (!query) return true;
-  return value.toLowerCase().includes(query.toLowerCase());
+
+  const normalizedValue = value.toLowerCase();
+  const normalizedQuery = query.toLowerCase();
+  return (
+    normalizedValue === normalizedQuery ||
+    normalizedValue.includes(normalizedQuery)
+  );
 }
 
 function filterProducts(
@@ -204,18 +210,21 @@ function filterProducts(
 type KeyStockWorkspaceProps = {
   userId: string;
   products: Product[];
-  filterOptionRows: KeyStockFilterOptionRow[];
 };
 
 export default function KeyStockWorkspace({
   userId,
   products,
-  filterOptionRows,
 }: KeyStockWorkspaceProps) {
   const router = useRouter();
   const normalized = useMemo(
     () => products.map(normalizeProduct),
     [products],
+  );
+
+  const filterOptionRows = useMemo(
+    () => productFilterRows(normalized),
+    [normalized],
   );
 
   const categories = useMemo(

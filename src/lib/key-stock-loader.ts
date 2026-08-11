@@ -14,6 +14,13 @@ function normalizeBrand(value: string | null | undefined) {
   return value?.trim() || "미지정";
 }
 
+export function productFilterRows(products: Product[]): KeyStockFilterOptionRow[] {
+  return products.map((product) => ({
+    category: normalizeCategory(product.category),
+    brand: normalizeBrand(product.brand),
+  }));
+}
+
 export async function fetchAllKeyStockProducts(
   supabase: SupabaseClient,
 ): Promise<Product[]> {
@@ -38,35 +45,6 @@ export async function fetchAllKeyStockProducts(
   }
 
   return products;
-}
-
-export async function fetchKeyStockFilterOptionRows(
-  supabase: SupabaseClient,
-): Promise<KeyStockFilterOptionRow[]> {
-  const rows: KeyStockFilterOptionRow[] = [];
-  let offset = 0;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from("products")
-      .select("category, brand")
-      .order("id", { ascending: true })
-      .range(offset, offset + 999);
-
-    if (error || !data?.length) break;
-
-    for (const row of data) {
-      rows.push({
-        category: normalizeCategory(row.category),
-        brand: normalizeBrand(row.brand),
-      });
-    }
-
-    if (data.length < 1000) break;
-    offset += 1000;
-  }
-
-  return rows;
 }
 
 export function buildKeyStockCategoryOptions(rows: KeyStockFilterOptionRow[]) {
