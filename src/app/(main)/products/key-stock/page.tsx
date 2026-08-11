@@ -1,8 +1,11 @@
 import Link from "next/link";
 import KeyStockWorkspace from "@/components/key-stock-workspace";
+import {
+  fetchAllKeyStockProducts,
+  fetchKeyStockFilterOptionRows,
+} from "@/lib/key-stock-loader";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import type { Product } from "@/types/product";
 
 export default async function KeyStockPage() {
   const supabase = await createClient();
@@ -14,13 +17,10 @@ export default async function KeyStockPage() {
     redirect("/login");
   }
 
-  const { data: products, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("is_key_stock", true)
-    .order("category", { ascending: true })
-    .order("brand", { ascending: true })
-    .order("model_name", { ascending: true });
+  const [products, filterOptionRows] = await Promise.all([
+    fetchAllKeyStockProducts(supabase),
+    fetchKeyStockFilterOptionRows(supabase),
+  ]);
 
   return (
       <main className="mx-auto max-w-7xl px-4 py-8">
@@ -49,23 +49,11 @@ export default async function KeyStockPage() {
           </div>
         </div>
 
-        {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-            <p className="font-medium">주요 재고 목록을 불러오지 못했습니다.</p>
-            <p className="mt-2">
-              Supabase SQL Editor에서{" "}
-              <code className="rounded bg-red-100 px-1 dark:bg-red-900">
-                supabase/schema-product-stock-locations.sql
-              </code>{" "}
-              파일을 실행했는지 확인해 주세요.
-            </p>
-          </div>
-        ) : (
-          <KeyStockWorkspace
-            userId={user.id}
-            products={(products ?? []) as Product[]}
-          />
-        )}
+        <KeyStockWorkspace
+          userId={user.id}
+          products={products}
+          filterOptionRows={filterOptionRows}
+        />
       </main>
   );
 }

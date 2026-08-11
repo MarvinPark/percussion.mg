@@ -4,6 +4,11 @@ import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateKeyStockReserved } from "@/app/(main)/products/actions";
 import {
+  buildKeyStockBrandOptions,
+  buildKeyStockCategoryOptions,
+  type KeyStockFilterOptionRow,
+} from "@/lib/key-stock-loader";
+import {
   EMPTY_KEY_STOCK_COLUMN_FILTERS,
   loadKeyStockColumnFilters,
   saveKeyStockColumnFilters,
@@ -192,11 +197,13 @@ function filterProducts(
 type KeyStockWorkspaceProps = {
   userId: string;
   products: Product[];
+  filterOptionRows: KeyStockFilterOptionRow[];
 };
 
 export default function KeyStockWorkspace({
   userId,
   products,
+  filterOptionRows,
 }: KeyStockWorkspaceProps) {
   const router = useRouter();
   const normalized = useMemo(
@@ -205,20 +212,13 @@ export default function KeyStockWorkspace({
   );
 
   const categories = useMemo(
-    () =>
-      [...new Set(normalized.map((p) => p.category?.trim() || "미분류"))].sort(
-        (a, b) => a.localeCompare(b, "ko"),
-      ),
-    [normalized],
+    () => buildKeyStockCategoryOptions(filterOptionRows),
+    [filterOptionRows],
   );
 
-  const brands = useMemo(
-    () =>
-      [...new Set(normalized.map((p) => p.brand?.trim() || "미지정"))].sort(
-        (a, b) => a.localeCompare(b, "ko"),
-      ),
-    [normalized],
-  );
+  function getBrandOptions(categoryFilter: string) {
+    return buildKeyStockBrandOptions(filterOptionRows, categoryFilter);
+  }
 
   const [columnFilters, setColumnFilters] = useState<KeyStockColumnFilter[]>(
     () => EMPTY_KEY_STOCK_COLUMN_FILTERS.map((filter) => ({ ...filter })),
@@ -284,9 +284,22 @@ export default function KeyStockWorkspace({
     value: string,
   ) {
     setColumnFilters((prev) =>
-      prev.map((filter, index) =>
-        index === columnIndex ? { ...filter, [field]: value } : filter,
-      ),
+      prev.map((filter, index) => {
+        if (index !== columnIndex) return filter;
+
+        if (field === "category") {
+          const brandOptions = buildKeyStockBrandOptions(filterOptionRows, value);
+          const keepBrand = filter.brand && brandOptions.includes(filter.brand);
+
+          return {
+            ...filter,
+            category: value,
+            brand: keepBrand ? filter.brand : "",
+          };
+        }
+
+        return { ...filter, [field]: value };
+      }),
     );
   }
 
@@ -396,7 +409,7 @@ export default function KeyStockWorkspace({
                             className={selectClass}
                           >
                             <option value="">전체</option>
-                            {brands.map((brand) => (
+                            {getBrandOptions(filter.category).map((brand) => (
                               <option key={brand} value={brand}>
                                 {brand}
                               </option>
