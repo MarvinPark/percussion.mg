@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { deleteSale, updateSale } from "@/app/sales/actions";
+import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ProductSearchSelect from "@/components/product-search-select";
 import PhoneInput from "@/components/phone-input";

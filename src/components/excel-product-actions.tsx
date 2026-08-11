@@ -4,11 +4,11 @@ import { useActionState, useRef } from "react";
 import {
   importProductsFromExcel,
   type ExcelImportResult,
-} from "@/app/products/excel-actions";
+} from "@/app/(main)/products/excel-actions";
 import {
   updateProductsFromExcel,
   type ExcelUpdateResult,
-} from "@/app/products/excel-update-actions";
+} from "@/app/(main)/products/excel-update-actions";
 
 const buttonClass =
   "inline-flex items-center gap-1 rounded border border-zinc-300 px-2 py-1 text-[12px] leading-none font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";

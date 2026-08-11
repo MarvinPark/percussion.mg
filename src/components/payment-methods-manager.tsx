@@ -6,7 +6,7 @@ import {
   createPaymentMethod,
   deletePaymentMethod,
   updatePaymentMethod,
-} from "@/app/sales/payment-methods/actions";
+} from "@/app/(main)/sales/payment-methods/actions";
 import type { PaymentMethod } from "@/types/sale";
 
 const inputClass =

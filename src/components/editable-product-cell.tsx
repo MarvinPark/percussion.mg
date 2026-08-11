@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   updateProductField,
   type ProductInlineField,
-} from "@/app/products/actions";
+} from "@/app/(main)/products/actions";
 import { tableFocusRingClass } from "@/lib/product-table-navigation";
 import { formatKRW, parsePriceInput } from "@/lib/sales-calculator";
 

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { updateUserRole } from "@/app/settings/users/actions";
+import { updateUserRole } from "@/app/(main)/settings/users/actions";
 import { ROLE_LABELS, normalizeRole } from "@/lib/permissions";
 import { formatPhoneForDisplay } from "@/lib/phone-format";
 import type { Profile, UserRole } from "@/types/profile";

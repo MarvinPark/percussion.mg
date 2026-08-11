@@ -8,7 +8,7 @@ import {
   previewGmarketOrders,
   type GmarketImportPreviewItem,
   type GmarketImportResult,
-} from "@/app/sales/gmarket/actions";
+} from "@/app/(main)/sales/gmarket/actions";
 import GmarketProductCreateModal from "@/components/gmarket-product-create-modal";
 import SmartstoreProductCombobox from "@/components/smartstore-product-combobox";
 import { formatKRW } from "@/lib/sales-calculator";

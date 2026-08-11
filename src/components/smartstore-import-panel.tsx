@@ -8,7 +8,7 @@ import {
   previewSmartstoreOrders,
   type SmartstoreImportPreviewItem,
   type SmartstoreImportResult,
-} from "@/app/sales/smartstore/actions";
+} from "@/app/(main)/sales/smartstore/actions";
 import SmartstoreProductCombobox from "@/components/smartstore-product-combobox";
 import SmartstoreProductCreateModal from "@/components/smartstore-product-create-modal";
 import { formatKRW } from "@/lib/sales-calculator";

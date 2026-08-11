@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateKeyStockReserved } from "@/app/products/actions";
+import { updateKeyStockReserved } from "@/app/(main)/products/actions";
 import {
   EMPTY_KEY_STOCK_COLUMN_FILTERS,
   loadKeyStockColumnFilters,

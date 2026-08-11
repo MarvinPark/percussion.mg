@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteSale } from "@/app/sales/actions";
+import { deleteSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import SaleEditModal from "@/components/sale-edit-modal";
 import { formatKRW } from "@/lib/sales-calculator";

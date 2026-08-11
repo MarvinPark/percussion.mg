@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { registerStockMovement } from "@/app/products/actions";
+import { registerStockMovement } from "@/app/(main)/products/actions";
 import type { Product } from "@/types/product";
 
 const inputClass =

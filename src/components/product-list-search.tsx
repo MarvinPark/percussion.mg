@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { searchProductsForListDropdown } from "@/app/products/actions";
+import { searchProductsForListDropdown } from "@/app/(main)/products/actions";
 import type { Product } from "@/types/product";
 
 const inputClass =

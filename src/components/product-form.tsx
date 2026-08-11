@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createProduct, updateProduct } from "@/app/products/actions";
+import { createProduct, updateProduct } from "@/app/(main)/products/actions";
 import PriceInput from "@/components/price-input";
 import { STOCK_LOCATIONS } from "@/lib/stock-locations";
 import type { Product } from "@/types/product";

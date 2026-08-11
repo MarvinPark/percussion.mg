@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useRef, useState } from "react";
-import { createQuote, updateQuote } from "@/app/quotes/actions";
+import { createQuote, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
 } from "@/components/model-name-autocomplete";

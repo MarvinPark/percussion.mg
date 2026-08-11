@@ -6,7 +6,7 @@ import {
   deleteProductsByIds,
   pasteProducts,
   restoreProducts,
-} from "@/app/products/actions";
+} from "@/app/(main)/products/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ExcelProductActions from "@/components/excel-product-actions";
 import ProductsList from "@/components/products-list";

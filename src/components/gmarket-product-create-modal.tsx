@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createProductForGmarketLink } from "@/app/sales/gmarket/actions";
+import { createProductForGmarketLink } from "@/app/(main)/sales/gmarket/actions";
 import PriceInput from "@/components/price-input";
-import type { GmarketImportPreviewItem } from "@/app/sales/gmarket/actions";
+import type { GmarketImportPreviewItem } from "@/app/(main)/sales/gmarket/actions";
 import type { SaleProductOption } from "@/types/sale";
 
 type GmarketProductCreateModalProps = {

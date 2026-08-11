@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
-import { updateProfile } from "@/app/my-page/actions";
+import { updateProfile } from "@/app/(main)/my-page/actions";
 import PhoneInput from "@/components/phone-input";
 
 const inputClass =

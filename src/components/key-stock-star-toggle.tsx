@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { toggleKeyStock } from "@/app/products/actions";
+import { toggleKeyStock } from "@/app/(main)/products/actions";
 
 type KeyStockStarToggleProps = {
   productId: string;

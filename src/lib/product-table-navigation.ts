@@ -1,4 +1,4 @@
-import type { ProductInlineField } from "@/app/products/actions";
+import type { ProductInlineField } from "@/app/(main)/products/actions";
 
 export const TABLE_FIELD_ORDER: ProductInlineField[] = [
   "supplier",

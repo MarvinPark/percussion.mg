@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import { createSale } from "@/app/sales/actions";
+import { createSale } from "@/app/(main)/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
 import PhoneInput from "@/components/phone-input";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";

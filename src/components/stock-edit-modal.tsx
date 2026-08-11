@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { updateStock } from "@/app/products/actions";
+import { updateStock } from "@/app/(main)/products/actions";
 
 export type StockEditProduct = {
   id: string;

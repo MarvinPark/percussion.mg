@@ -1,4 +1,4 @@
-import { updateStock } from "@/app/products/actions";
+import { updateStock } from "@/app/(main)/products/actions";
 
 const inputClass =
   "w-10 rounded border border-zinc-400 bg-white px-1 py-0.5 text-[10px] font-normal text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";

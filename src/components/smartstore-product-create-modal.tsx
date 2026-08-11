@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createProductForSmartstoreLink } from "@/app/sales/smartstore/actions";
+import { createProductForSmartstoreLink } from "@/app/(main)/sales/smartstore/actions";
 import PriceInput from "@/components/price-input";
-import type { SmartstoreImportPreviewItem } from "@/app/sales/smartstore/actions";
+import type { SmartstoreImportPreviewItem } from "@/app/(main)/sales/smartstore/actions";
 import type { SaleProductOption } from "@/types/sale";
 
 type SmartstoreProductCreateModalProps = {
