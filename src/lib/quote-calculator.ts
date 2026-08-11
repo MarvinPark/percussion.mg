@@ -1,8 +1,3 @@
-export function roundUp1000(value: number) {
-  if (value <= 0) return 0;
-  return Math.ceil(value / 1000) * 1000;
-}
-
 export function calculateQuoteLine(input: {
   quantity: number;
   consumerPrice: number;
@@ -12,8 +7,8 @@ export function calculateQuoteLine(input: {
 }) {
   const quantity = input.quantity || 0;
   const consumerTotal = input.consumerPrice * quantity;
-  const roundedUnitPrice = roundUp1000(input.saleUnitPrice);
-  const lineTotal = roundedUnitPrice * quantity;
+  const unitPrice = input.saleUnitPrice;
+  const lineTotal = unitPrice * quantity;
   const purchaseTotal =
     input.purchasePrice * quantity + (input.shippingCost ?? 0);
   const margin = lineTotal - purchaseTotal;
@@ -24,7 +19,7 @@ export function calculateQuoteLine(input: {
 
   return {
     consumerTotal,
-    roundedUnitPrice,
+    roundedUnitPrice: unitPrice,
     lineTotal,
     purchaseTotal,
     margin,
@@ -40,4 +35,16 @@ export function calculateQuoteTotals(items: {
   const totalMargin = items.reduce((sum, item) => sum + (item.margin ?? 0), 0);
   const cardAmount = Math.round(totalAmount * 1.04);
   return { totalAmount, totalMargin, cardAmount };
+}
+
+export function calculateQuoteFinalMargin(
+  totalAmount: number,
+  totalMargin: number,
+  feeRate: number,
+) {
+  const paymentFeeAmount = Math.round(totalAmount * (feeRate / 100));
+  return {
+    paymentFeeAmount,
+    finalMargin: totalMargin - paymentFeeAmount,
+  };
 }

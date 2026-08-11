@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteQuote, convertQuoteToSale, cancelQuoteConversion } from "@/app/(main)/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
+import QuoteConvertDialog from "@/components/quote-convert-dialog";
 import QuoteForm from "@/components/quote-form";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
 import { displaySaleCategory } from "@/lib/sale-categories";
@@ -54,6 +55,11 @@ export type QuoteListItem = {
   }[];
 };
 
+type StaffOption = {
+  id: string;
+  full_name: string;
+};
+
 type QuotesListProps = {
   quotes: QuoteListItem[];
   paymentMethods: PaymentMethod[];
@@ -61,6 +67,8 @@ type QuotesListProps = {
   contactSuggestions: SaleContactSuggestions;
   managerName: string;
   managerPhone: string;
+  currentUserName: string;
+  staffOptions: StaffOption[];
   rowFontSize?: number;
   emptyMessage?: string;
 };
@@ -90,6 +98,8 @@ export default function QuotesList({
   contactSuggestions,
   managerName,
   managerPhone,
+  currentUserName,
+  staffOptions,
   rowFontSize = 12,
   emptyMessage,
 }: QuotesListProps) {
@@ -116,12 +126,17 @@ export default function QuotesList({
     router.refresh();
   }
 
-  function handleConfirmConvert() {
+  function handleConfirmConvert(seller?: { userId: string; name: string }) {
     if (!convertingQuote) return;
 
     startConvert(async () => {
       setActionError(null);
-      const result = await convertQuoteToSale(convertingQuote.id);
+      const result = await convertQuoteToSale(
+        convertingQuote.id,
+        seller
+          ? { sellerUserId: seller.userId, sellerName: seller.name }
+          : undefined,
+      );
       if (result.error) {
         setActionError(result.error);
         setConvertingQuote(null);
@@ -130,6 +145,12 @@ export default function QuotesList({
       setConvertingQuote(null);
       router.refresh();
     });
+  }
+
+  function isOthersQuote(quote: QuoteListItem) {
+    const creator = quote.created_by_name?.trim();
+    if (!creator) return false;
+    return creator !== currentUserName.trim();
   }
 
   function handleConfirmCancel() {
@@ -337,14 +358,34 @@ export default function QuotesList({
       ) : null}
 
       {convertingQuote ? (
-        <ConfirmDialog
-          title="매출기록하겠습니까?"
-          description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
-          onConfirm={handleConfirmConvert}
-          onCancel={() => {
-            if (!isConverting) setConvertingQuote(null);
-          }}
-        />
+        isOthersQuote(convertingQuote) ? (
+          <QuoteConvertDialog
+            title="매출기록하겠습니까?"
+            description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
+            staffOptions={staffOptions}
+            defaultSellerName={
+              convertingQuote.created_by_name?.trim() ||
+              currentUserName ||
+              staffOptions[0]?.full_name ||
+              ""
+            }
+            showSellerPicker
+            isPending={isConverting}
+            onConfirm={handleConfirmConvert}
+            onCancel={() => {
+              if (!isConverting) setConvertingQuote(null);
+            }}
+          />
+        ) : (
+          <ConfirmDialog
+            title="매출기록하겠습니까?"
+            description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
+            onConfirm={() => handleConfirmConvert()}
+            onCancel={() => {
+              if (!isConverting) setConvertingQuote(null);
+            }}
+          />
+        )
       ) : null}
 
       {cancellingQuote ? (

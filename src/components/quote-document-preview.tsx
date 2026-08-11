@@ -760,8 +760,8 @@ export default function QuoteDocumentPreview({
           onRoundingModeChange={setRoundingMode}
         />
 
-        <div className="overflow-y-auto p-4">
-          <div ref={printRef} className="mx-auto max-w-3xl text-zinc-900">
+        <div className="overflow-x-auto overflow-y-auto p-4">
+          <div ref={printRef} className="mx-auto min-w-[794px] max-w-3xl text-zinc-900">
             {itemPages.map((pageItems, pageIndex) => {
               const isFirstPage = pageIndex === 0;
               const isLastPage = pageIndex === itemPages.length - 1;

@@ -15,6 +15,7 @@ import SaleTextAutocomplete from "@/components/sale-text-autocomplete";
 import {
   calculateQuoteLine,
   calculateQuoteTotals,
+  calculateQuoteFinalMargin,
 } from "@/lib/quote-calculator";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { displaySaleCategory, type SaleCategory } from "@/lib/sale-categories";
@@ -28,6 +29,9 @@ import { QUOTE_MAX_ITEMS } from "@/types/quote";
 
 const inputClass =
   "w-full rounded border border-zinc-400 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+const mobileInputClass =
+  "w-full rounded border border-zinc-400 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none focus:border-blue-500 sm:px-2 sm:py-1.5 sm:text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
 
 const labelClass = "text-xs font-semibold text-zinc-700 dark:text-zinc-300";
 
@@ -183,6 +187,20 @@ export default function QuoteForm({
   );
 
   const totals = useMemo(() => calculateQuoteTotals(items), [items]);
+
+  const selectedPaymentMethod = useMemo(
+    () => paymentMethods.find((method) => method.id === paymentMethodId),
+    [paymentMethods, paymentMethodId],
+  );
+
+  const paymentFeeMargin = useMemo(() => {
+    if (!selectedPaymentMethod) return null;
+    return calculateQuoteFinalMargin(
+      totals.totalAmount,
+      totals.totalMargin,
+      selectedPaymentMethod.fee_rate,
+    );
+  }, [totals.totalAmount, totals.totalMargin, selectedPaymentMethod]);
 
   function handleProductPick(product: QuoteProductOption) {
     setSelectedProduct(product);
@@ -426,6 +444,17 @@ export default function QuoteForm({
             <p className="mt-1 text-xl font-bold text-orange-700 dark:text-orange-300">
               {formatKRW(totals.cardAmount)}원
             </p>
+            {paymentFeeMargin && selectedPaymentMethod ? (
+              <div className="mt-3 border-t border-orange-200 pt-3 dark:border-orange-800">
+                <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                  최종마진 ({selectedPaymentMethod.name}{" "}
+                  {selectedPaymentMethod.fee_rate}% 수수료 반영)
+                </p>
+                <p className="mt-1 text-xl font-bold text-blue-700 dark:text-blue-300">
+                  {formatKRW(paymentFeeMargin.finalMargin)}원
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -442,22 +471,34 @@ export default function QuoteForm({
               value={modelSearch}
               onChange={(value) => {
                 setModelSearch(value);
-                setSelectedProduct(null);
+                setSelectedProduct((prev) => {
+                  if (!prev) return null;
+                  const label = (prev.model_name || prev.sku).trim();
+                  return value.trim() === label ? prev : null;
+                });
               }}
               onSelectProduct={handleProductPick}
             />
           </div>
-          <div className="w-20">
+          <div className="w-12 shrink-0 sm:w-20">
             <label className={labelClass}>수량</label>
             <input
               type="number"
               min={1}
               value={addQuantity}
               onChange={(e) => setAddQuantity(Number(e.target.value) || 1)}
-              className={inputClass}
+              className={`${mobileInputClass} text-center tabular-nums`}
             />
           </div>
-          <div className="w-32">
+          <div className="w-28 shrink-0 sm:w-32">
+            <label className={labelClass}>매입가</label>
+            <div className="flex h-[42px] items-center rounded border border-zinc-300 bg-zinc-50 px-2 text-sm tabular-nums text-zinc-700 sm:h-[34px] sm:text-xs dark:border-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+              {selectedProduct
+                ? `${formatKRW(selectedProduct.purchase_price)}원`
+                : "-"}
+            </div>
+          </div>
+          <div className="w-36 sm:w-32">
             <label className={labelClass}>판매가</label>
             <PriceInput
               min={0}
@@ -469,7 +510,7 @@ export default function QuoteForm({
                   void addItem();
                 }
               }}
-              className={inputClass}
+              className={mobileInputClass}
             />
           </div>
           <button
@@ -483,8 +524,8 @@ export default function QuoteForm({
         </div>
       </section>
 
-      <section className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-        <table className="min-w-full text-xs">
+      <section className="-mx-1 overflow-x-auto rounded-xl border border-zinc-200 px-1 dark:border-zinc-700 sm:mx-0 sm:px-0">
+        <table className="min-w-[980px] w-full text-xs whitespace-nowrap">
           <thead className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
               <th className="px-2 py-2">공급처</th>
@@ -493,6 +534,7 @@ export default function QuoteForm({
               <th className="px-2 py-2">수량</th>
               <th className="px-2 py-2">판매단가</th>
               <th className="px-2 py-2">총 판매가</th>
+              <th className="px-2 py-2">매입가</th>
               <th className="px-2 py-2">마진</th>
               <th className="px-2 py-2">마진율</th>
               <th className="px-2 py-2"></th>
@@ -502,7 +544,7 @@ export default function QuoteForm({
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={10}
                   className="px-4 py-8 text-center text-sm text-zinc-500"
                 >
                   제품을 추가해 주세요.
@@ -516,7 +558,9 @@ export default function QuoteForm({
                 >
                   <td className="px-2 py-2">{item.supplier || "-"}</td>
                   <td className="px-2 py-2 font-medium">{item.model_name}</td>
-                  <td className="px-2 py-2">{item.product_name}</td>
+                  <td className="max-w-[180px] truncate px-2 py-2">
+                    {item.product_name}
+                  </td>
                   <td className="px-2 py-2">
                     <input
                       type="number"
@@ -525,7 +569,7 @@ export default function QuoteForm({
                       onChange={(e) =>
                         updateItemQuantity(index, Number(e.target.value) || 1)
                       }
-                      className={`${inputClass} w-16`}
+                      className={`${mobileInputClass} w-32 text-center tabular-nums sm:w-16`}
                     />
                   </td>
                   <td className="px-2 py-2">
@@ -535,11 +579,14 @@ export default function QuoteForm({
                       onChange={(saleUnitPrice) =>
                         updateItemSalePrice(index, saleUnitPrice)
                       }
-                      className={`${inputClass} w-28`}
+                      className={`${mobileInputClass} w-32 sm:w-28`}
                     />
                   </td>
                   <td className="px-2 py-2 font-semibold">
                     {formatKRW(item.line_total)}
+                  </td>
+                  <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">
+                    {formatKRW(item.purchase_price)}
                   </td>
                   <td className="px-2 py-2 font-semibold text-green-700 dark:text-green-300">
                     {formatKRW(item.margin)}

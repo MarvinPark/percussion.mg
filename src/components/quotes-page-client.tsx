@@ -27,6 +27,11 @@ const MIN_ROW_FONT_SIZE = 9;
 const MAX_ROW_FONT_SIZE = 16;
 const DEFAULT_ROW_FONT_SIZE = 12;
 
+export type StaffOption = {
+  id: string;
+  full_name: string;
+};
+
 type QuotesPageClientProps = {
   quotes: QuoteListItem[];
   productSkus: { id: string; sku?: string | null }[];
@@ -35,6 +40,8 @@ type QuotesPageClientProps = {
   contactSuggestions: SaleContactSuggestions;
   managerName: string;
   managerPhone: string;
+  currentUserName: string;
+  staffOptions: StaffOption[];
 };
 
 export default function QuotesPageClient({
@@ -45,6 +52,8 @@ export default function QuotesPageClient({
   contactSuggestions,
   managerName,
   managerPhone,
+  currentUserName,
+  staffOptions,
 }: QuotesPageClientProps) {
   const [sellerFilter, setSellerFilter] = useState("");
   const [draftQuery, setDraftQuery] = useState("");
@@ -164,6 +173,8 @@ export default function QuotesPageClient({
         contactSuggestions={contactSuggestions}
         managerName={managerName}
         managerPhone={managerPhone}
+        currentUserName={currentUserName}
+        staffOptions={staffOptions}
         rowFontSize={rowFontSize}
         emptyMessage={
           hasActiveFilter || draftQuery.trim()

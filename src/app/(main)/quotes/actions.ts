@@ -4,10 +4,10 @@ import { calculateQuoteLine, calculateQuoteTotals } from "@/lib/quote-calculator
 import {
   buildSaleAmountsForLine,
   deleteSaleRecord,
+  getProductForSale,
   insertSaleRecord,
   recordStockIn,
   recordStockOutForSale,
-  validateProductStock,
 } from "@/lib/sale-recording";
 import { getModifierInfo, requirePermission } from "@/lib/profile";
 import {
@@ -299,7 +299,10 @@ export async function updateQuote(formData: FormData) {
   return { success: true };
 }
 
-export async function convertQuoteToSale(quoteId: string) {
+export async function convertQuoteToSale(
+  quoteId: string,
+  options?: { sellerUserId?: string; sellerName?: string },
+) {
   if (!quoteId) return { error: "견적 ID가 없습니다." };
 
   const supabase = await createClient();
@@ -307,6 +310,9 @@ export async function convertQuoteToSale(quoteId: string) {
   if ("error" in auth) return { error: auth.error };
   const modifier = await getModifierInfo();
   if ("error" in modifier) return { error: modifier.error };
+
+  const sellerUserId = options?.sellerUserId?.trim() || modifier.userId;
+  const sellerName = options?.sellerName?.trim() || modifier.name;
 
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
@@ -364,7 +370,7 @@ export async function convertQuoteToSale(quoteId: string) {
   const completed: {
     saleId: string;
     productId: string;
-    quantity: number;
+    stockOutQuantity: number;
   }[] = [];
 
   for (let index = 0; index < quote.quote_items.length; index += 1) {
@@ -386,14 +392,17 @@ export async function convertQuoteToSale(quoteId: string) {
       };
     }
 
-    const stockCheck = await validateProductStock(
-      supabase,
-      item.product_id,
-      quantity,
-    );
-    if ("error" in stockCheck) {
+    const productResult = await getProductForSale(supabase, item.product_id);
+    if ("error" in productResult) {
       return {
-        error: `${lineNumber}번째 줄 (${item.model_name}): ${stockCheck.error}`,
+        error: `${lineNumber}번째 줄 (${item.model_name}): ${productResult.error}`,
+      };
+    }
+
+    const stockQuantity = productResult.product.stock_quantity;
+    if (stockQuantity > 0 && stockQuantity < quantity) {
+      return {
+        error: `${lineNumber}번째 줄 (${item.model_name}): 재고가 부족합니다. (현재 ${stockQuantity}개, 판매 ${quantity}개)`,
       };
     }
 
@@ -401,7 +410,7 @@ export async function convertQuoteToSale(quoteId: string) {
       buildSaleAmountsForLine(
         quantity,
         unit_sale_price,
-        stockCheck.product.purchase_price,
+        productResult.product.purchase_price,
         paymentMethod,
       );
 
@@ -411,7 +420,7 @@ export async function convertQuoteToSale(quoteId: string) {
       product_id: item.product_id,
       quantity,
       unit_sale_price,
-      unit_purchase_price: stockCheck.product.purchase_price,
+      unit_purchase_price: productResult.product.purchase_price,
       customer_name: quote.customer_name || null,
       business_partner: quote.business_partner || null,
       customer_phone: quote.customer_phone || null,
@@ -422,53 +431,62 @@ export async function convertQuoteToSale(quoteId: string) {
       total_amount: totalAmount,
       margin_amount: marginAmount,
       note: saleNote,
-      created_by_user_id: modifier.userId,
-      created_by_name: modifier.name,
+      created_by_user_id: sellerUserId,
+      created_by_name: sellerName,
       quote_id: quoteId,
     });
 
     if ("error" in saleResult) {
       for (const done of completed.reverse()) {
         await deleteSaleRecord(supabase, done.saleId);
-        await recordStockIn(
-          supabase,
-          done.productId,
-          done.quantity,
-          `${stockNote} (매출전환 롤백)`,
-        );
+        if (done.stockOutQuantity > 0) {
+          await recordStockIn(
+            supabase,
+            done.productId,
+            done.stockOutQuantity,
+            `${stockNote} (매출전환 롤백)`,
+          );
+        }
       }
       return {
         error: `${lineNumber}번째 줄 (${item.model_name}) 매출 기록 실패: ${saleResult.error}`,
       };
     }
 
-    const stockResult = await recordStockOutForSale(
-      supabase,
-      item.product_id,
-      quantity,
-      stockNote,
-    );
+    const stockOutQuantity =
+      stockQuantity > 0 ? Math.min(quantity, stockQuantity) : 0;
 
-    if ("error" in stockResult) {
-      await deleteSaleRecord(supabase, saleResult.saleId);
-      for (const done of completed.reverse()) {
-        await deleteSaleRecord(supabase, done.saleId);
-        await recordStockIn(
-          supabase,
-          done.productId,
-          done.quantity,
-          `${stockNote} (매출전환 롤백)`,
-        );
+    if (stockOutQuantity > 0) {
+      const stockResult = await recordStockOutForSale(
+        supabase,
+        item.product_id,
+        stockOutQuantity,
+        stockNote,
+      );
+
+      if ("error" in stockResult) {
+        await deleteSaleRecord(supabase, saleResult.saleId);
+        for (const done of completed.reverse()) {
+          await deleteSaleRecord(supabase, done.saleId);
+          if (done.stockOutQuantity > 0) {
+            await recordStockIn(
+              supabase,
+              done.productId,
+              done.stockOutQuantity,
+              `${stockNote} (매출전환 롤백)`,
+            );
+          }
+        }
+        return {
+          error: `${lineNumber}번째 줄 (${item.model_name}): ${stockResult.error}`,
+        };
       }
-      return {
-        error: `${lineNumber}번째 줄 (${item.model_name}): ${stockResult.error}`,
-      };
     }
 
     completed.push({
       saleId: saleResult.saleId,
       productId: item.product_id,
-      quantity,
+      stockOutQuantity,
     });
   }
 
@@ -508,16 +526,28 @@ export async function cancelQuoteConversion(quoteId: string) {
   }
 
   for (const sale of sales) {
-    const stockNote = `견적 매출취소${sale.customer_name ? ` — ${sale.customer_name}` : ""}`;
-    const stockResult = await recordStockIn(
-      supabase,
-      sale.product_id,
-      sale.quantity,
-      stockNote,
-    );
+    const stockNote = `견적 매출전환${sale.customer_name ? ` — ${sale.customer_name}` : ""}`;
+    const { data: stockOutMovement } = await supabase
+      .from("stock_movements")
+      .select("quantity")
+      .eq("product_id", sale.product_id)
+      .eq("movement_type", "out")
+      .eq("note", stockNote)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if ("error" in stockResult) {
-      return { error: stockResult.error };
+    if (stockOutMovement?.quantity) {
+      const stockResult = await recordStockIn(
+        supabase,
+        sale.product_id,
+        stockOutMovement.quantity,
+        `견적 매출취소${sale.customer_name ? ` — ${sale.customer_name}` : ""}`,
+      );
+
+      if ("error" in stockResult) {
+        return { error: stockResult.error };
+      }
     }
 
     await deleteSaleRecord(supabase, sale.id);

@@ -77,6 +77,24 @@ export async function validateProductStock(
   productId: string,
   quantity: number,
 ) {
+  const productResult = await getProductForSale(supabase, productId);
+  if ("error" in productResult) {
+    return productResult;
+  }
+
+  if (productResult.product.stock_quantity < quantity) {
+    return {
+      error: `재고가 부족합니다. (현재 ${productResult.product.stock_quantity}개, 판매 ${quantity}개)` as const,
+    };
+  }
+
+  return { product: productResult.product };
+}
+
+export async function getProductForSale(
+  supabase: SupabaseClient,
+  productId: string,
+) {
   const { data: product } = await supabase
     .from("products")
     .select("stock_quantity, purchase_price, product_name")
@@ -87,14 +105,9 @@ export async function validateProductStock(
     return { error: "제품을 찾을 수 없습니다." as const };
   }
 
-  if (product.stock_quantity < quantity) {
-    return {
-      error: `재고가 부족합니다. (현재 ${product.stock_quantity}개, 판매 ${quantity}개)` as const,
-    };
-  }
-
   return {
     product: {
+      stock_quantity: Number(product.stock_quantity) || 0,
       purchase_price: Number(product.purchase_price) || 0,
       product_name: product.product_name as string,
     },

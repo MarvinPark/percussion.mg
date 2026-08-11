@@ -18,6 +18,7 @@ export default async function QuotesPage() {
     { data: paymentMethods },
     { data: linkedSales },
     { data: salesContacts },
+    { data: staffProfiles },
   ] = await Promise.all([
     supabase
       .from("quotes")
@@ -41,7 +42,19 @@ export default async function QuotesPage() {
       )
       .order("sold_at", { ascending: false })
       .limit(300),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .not("full_name", "is", null)
+      .order("full_name"),
   ]);
+
+  const staffOptions = (staffProfiles ?? [])
+    .filter((profile) => profile.full_name?.trim())
+    .map((profile) => ({
+      id: profile.id,
+      full_name: profile.full_name.trim(),
+    }));
 
   const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
 
@@ -111,6 +124,8 @@ export default async function QuotesPage() {
               profile?.job_title,
             )}
             managerPhone={profile?.phone ?? ""}
+            currentUserName={profile?.full_name?.trim() ?? ""}
+            staffOptions={staffOptions}
           />
         )}
       </main>
