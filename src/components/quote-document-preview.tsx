@@ -41,6 +41,7 @@ type QuoteDocumentPreviewProps = {
   };
 };
 
+const DOCUMENT_PREVIEW_WIDTH_PX = 794;
 const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
 
@@ -111,7 +112,7 @@ function DocumentTable({
   }
 
   return (
-    <table className="w-full border-collapse text-[11px]">
+    <table className="w-full min-w-full table-fixed border-collapse text-[11px]">
       <thead>
         <tr className="bg-zinc-100">
           <th className={headCellClass}>분류</th>
@@ -267,7 +268,7 @@ function DocumentHeader({
         </span>
       </div>
 
-      <div className="grid-2 mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid-2 mb-3 grid grid-cols-2 gap-3">
         <SupplierInfoBox />
         <div className="box rounded border border-zinc-400 p-3 text-sm">
           <p className="mb-2 font-semibold">고객 정보</p>
@@ -760,8 +761,12 @@ export default function QuoteDocumentPreview({
           onRoundingModeChange={setRoundingMode}
         />
 
-        <div className="overflow-x-auto overflow-y-auto p-4">
-          <div ref={printRef} className="mx-auto min-w-[794px] max-w-3xl text-zinc-900">
+        <div className="overflow-x-auto overflow-y-auto overscroll-x-contain p-4">
+          <div
+            ref={printRef}
+            className="mx-auto shrink-0 bg-white text-zinc-900"
+            style={{ width: DOCUMENT_PREVIEW_WIDTH_PX }}
+          >
             {itemPages.map((pageItems, pageIndex) => {
               const isFirstPage = pageIndex === 0;
               const isLastPage = pageIndex === itemPages.length - 1;
