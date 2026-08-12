@@ -23,15 +23,9 @@ create table if not exists products (
   updated_at timestamptz not null default now()
 );
 
--- 같은 SKU + 공급처 + 옵션 조합은 중복 불가
-create unique index if not exists products_unique_variant
-  on products (
-    sku,
-    supplier,
-    coalesce(color, ''),
-    coalesce(product_option, ''),
-    coalesce(size, '')
-  );
+-- SKU 기준 중복 불가
+create unique index if not exists products_unique_sku
+  on products (sku);
 
 alter table products enable row level security;
 

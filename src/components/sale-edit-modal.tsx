@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ProductSearchSelect from "@/components/product-search-select";
@@ -13,6 +13,7 @@ import {
   formatKRW,
 } from "@/lib/sales-calculator";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
+import type { StaffOption } from "@/components/sales-page-client";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400";
@@ -24,6 +25,7 @@ type SaleEditModalProps = {
   sale: SaleWithProduct;
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  staffOptions: StaffOption[];
   onClose: () => void;
 };
 
@@ -39,12 +41,25 @@ export default function SaleEditModal({
   sale,
   products,
   paymentMethods,
+  staffOptions,
   onClose,
 }: SaleEditModalProps) {
   const router = useRouter();
   const initialProduct = products.find((item) => item.id === sale.product_id);
 
+  const sellerNameOptions = useMemo(() => {
+    const names = staffOptions.map((staff) => staff.full_name);
+    const currentName = sale.created_by_name?.trim();
+    if (currentName && !names.includes(currentName)) {
+      return [currentName, ...names];
+    }
+    return names;
+  }, [staffOptions, sale.created_by_name]);
+
   const [selectedProductId, setSelectedProductId] = useState(sale.product_id);
+  const [sellerName, setSellerName] = useState(
+    sale.created_by_name?.trim() || sellerNameOptions[0] || "",
+  );
   const [quantity, setQuantity] = useState(sale.quantity);
   const [unitSalePrice, setUnitSalePrice] = useState(Number(sale.unit_sale_price));
   const [unitPurchasePrice, setUnitPurchasePrice] = useState(
@@ -62,6 +77,15 @@ export default function SaleEditModal({
   const [isDeleting, startDeleteTransition] = useTransition();
   const [isSaving, startSaveTransition] = useTransition();
 
+  const selectedSellerUserId = useMemo(() => {
+    const matchedStaff = staffOptions.find((staff) => staff.full_name === sellerName);
+    if (matchedStaff) return matchedStaff.id;
+    if (sellerName === sale.created_by_name?.trim()) {
+      return sale.created_by_user_id ?? "";
+    }
+    return "";
+  }, [staffOptions, sellerName, sale.created_by_name, sale.created_by_user_id]);
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaveError(null);
@@ -71,8 +95,15 @@ export default function SaleEditModal({
       return;
     }
 
+    if (!sellerName.trim()) {
+      setSaveError("담당자를 선택해 주세요.");
+      return;
+    }
+
     const formData = new FormData(event.currentTarget);
     formData.set("product_id", selectedProductId);
+    formData.set("created_by_name", sellerName.trim());
+    formData.set("created_by_user_id", selectedSellerUserId);
 
     startSaveTransition(async () => {
       const result = await updateSale(formData);
@@ -123,6 +154,23 @@ export default function SaleEditModal({
     });
   }
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (isSaving || isDeleting) return;
+
+      if (showDeleteConfirm) {
+        setShowDeleteConfirm(false);
+        return;
+      }
+
+      onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, showDeleteConfirm, isSaving, isDeleting]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
@@ -144,15 +192,33 @@ export default function SaleEditModal({
 
           <div>
             <label htmlFor="edit_created_by_name" className={labelClass}>
-              판매자
+              담당자 <span className="text-red-500">*</span>
             </label>
-            <input
-              id="edit_created_by_name"
-              type="text"
-              readOnly
-              value={sale.created_by_name ?? "-"}
-              className={`${inputClass} cursor-not-allowed bg-zinc-100 text-zinc-600 dark:bg-zinc-800/80 dark:text-zinc-400`}
-            />
+            {sellerNameOptions.length > 0 ? (
+              <select
+                id="edit_created_by_name"
+                value={sellerName}
+                onChange={(event) => setSellerName(event.target.value)}
+                className={inputClass}
+                required
+              >
+                {sellerNameOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="edit_created_by_name"
+                name="created_by_name"
+                type="text"
+                required
+                value={sellerName}
+                onChange={(event) => setSellerName(event.target.value)}
+                className={inputClass}
+              />
+            )}
           </div>
 
           <div>

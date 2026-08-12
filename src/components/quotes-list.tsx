@@ -71,6 +71,8 @@ type QuotesListProps = {
   staffOptions: StaffOption[];
   rowFontSize?: number;
   emptyMessage?: string;
+  highlightedQuoteIds?: Set<string>;
+  onCopyQuote?: (quote: QuoteListItem) => void;
 };
 
 function formatDate(value: string) {
@@ -102,6 +104,8 @@ export default function QuotesList({
   staffOptions,
   rowFontSize = 12,
   emptyMessage,
+  highlightedQuoteIds,
+  onCopyQuote,
 }: QuotesListProps) {
   const router = useRouter();
   const convertedQuoteIdSet = new Set(convertedQuoteIds);
@@ -185,6 +189,7 @@ export default function QuotesList({
         ) : null}
         {quotes.map((quote) => {
           const isConverted = convertedQuoteIdSet.has(quote.id);
+          const isHighlighted = highlightedQuoteIds?.has(quote.id) ?? false;
 
           return (
           <div
@@ -199,6 +204,8 @@ export default function QuotesList({
               }
             }}
             className={`cursor-pointer rounded-lg border px-2 py-1 transition ${
+              isHighlighted ? "paste-row-highlight" : ""
+            } ${
               isConverted
                 ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
                 : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
@@ -214,6 +221,22 @@ export default function QuotesList({
                   }`}
                   style={{ fontSize: `${rowFontSize}px` }}
                 >
+                  {quote.manager_name ? (
+                    <>
+                      <span
+                        className={
+                          isConverted
+                            ? "font-medium text-zinc-500 dark:text-zinc-400"
+                            : "font-medium text-black dark:text-zinc-100"
+                        }
+                      >
+                        {quote.manager_name}
+                      </span>
+                      <span className="mx-1.5 font-normal text-zinc-400 dark:text-zinc-500">
+                        ·
+                      </span>
+                    </>
+                  ) : null}
                   {quote.customer_name}
                   <span
                     className={`ml-2 font-bold ${
@@ -241,6 +264,13 @@ export default function QuotesList({
                 className="flex w-full shrink-0 flex-wrap items-center justify-center gap-1 md:w-auto md:self-center"
                 onClick={(event) => event.stopPropagation()}
               >
+                <button
+                  type="button"
+                  onClick={() => onCopyQuote?.(quote)}
+                  className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+                >
+                  복사
+                </button>
                 <button
                   type="button"
                   onClick={() => setPreview({ quote, mode: "quote" })}

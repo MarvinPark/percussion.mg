@@ -46,7 +46,6 @@ export async function createProductFromGmarketOrder(
     .from("products")
     .select("id, sku, product_name, model_name, purchase_price, sale_price")
     .eq("sku", sku)
-    .eq("supplier", GMARKET_SUPPLIER)
     .maybeSingle();
 
   if (existing) {
@@ -89,7 +88,6 @@ export async function createProductFromGmarketOrder(
         .from("products")
         .select("id, sku, product_name, model_name, purchase_price, sale_price")
         .eq("sku", sku)
-        .eq("supplier", GMARKET_SUPPLIER)
         .maybeSingle();
 
       if (retryExisting) {

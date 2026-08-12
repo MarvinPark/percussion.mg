@@ -14,6 +14,7 @@ import {
   insertSaleRecord,
 } from "@/lib/sale-recording";
 import { createClient } from "@/lib/supabase/server";
+import { DUPLICATE_SKU_MESSAGE } from "@/lib/product-duplicate";
 import { revalidatePath } from "next/cache";
 
 const SMARTSTORE_SOURCE = "smartstore";
@@ -520,7 +521,7 @@ export async function createProductForSmartstoreLink(input: {
 
   if (error) {
     if (error.code === "23505") {
-      return { error: "같은 SKU와 공급처 조합의 제품이 이미 있습니다." };
+      return { error: DUPLICATE_SKU_MESSAGE };
     }
     return { error: "제품 등록에 실패했습니다." };
   }

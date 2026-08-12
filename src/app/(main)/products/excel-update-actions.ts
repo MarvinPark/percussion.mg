@@ -1,6 +1,7 @@
 "use server";
 
 import { requirePermission } from "@/lib/profile";
+import { DUPLICATE_SKU_MESSAGE } from "@/lib/product-duplicate";
 import { parseAndMatchProductUpdates } from "@/lib/excel-product-update";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -81,7 +82,7 @@ export async function updateProductsFromExcel(
 
     if (dbError) {
       if (dbError.code === "23505") {
-        errors.push(`${item.rowNumber}행: 중복 조합 때문에 수정하지 못했습니다.`);
+        errors.push(`${item.rowNumber}행: ${DUPLICATE_SKU_MESSAGE}`);
       } else {
         errors.push(`${item.rowNumber}행: 수정에 실패했습니다.`);
       }

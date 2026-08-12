@@ -7,7 +7,12 @@ import {
   PRODUCT_PAGE_SIZE,
   searchProductsForDropdown,
 } from "@/lib/product-list-loader";
-import { nextPasteSku } from "@/lib/product-sku";
+import {
+  createRegistrationSkuContext,
+  DUPLICATE_SKU_MESSAGE,
+  findProductBySku,
+  resolveRegistrationSku,
+} from "@/lib/product-duplicate";
 import {
   addLocationStock,
   deductLocationStock,
@@ -158,15 +163,23 @@ export async function createProduct(formData: FormData) {
   const denied = await ensureManageProducts(supabase);
   if (denied) return denied;
 
+  const registrationContext = await createRegistrationSkuContext(supabase);
+  const resolved = resolveRegistrationSku(
+    { sku: data.sku, purchase_price: data.purchase_price },
+    registrationContext,
+  );
+  if ("error" in resolved) {
+    return { error: resolved.error };
+  }
+
   const { error: dbError } = await supabase
     .from("products")
-    .insert(productPayload(data));
+    .insert({ ...productPayload(data), sku: resolved.sku });
 
   if (dbError) {
     if (dbError.code === "23505") {
       return {
-        error:
-          "같은 SKU, 공급처, 색상/옵션/사이즈 조합이 이미 등록되어 있습니다.",
+        error: DUPLICATE_SKU_MESSAGE,
       };
     }
     return { error: "제품 등록에 실패했습니다. 잠시 후 다시 시도해 주세요." };
@@ -189,6 +202,11 @@ export async function updateProduct(formData: FormData) {
   const denied = await ensureManageProducts(supabase);
   if (denied) return denied;
 
+  const duplicate = await findProductBySku(supabase, data.sku, id);
+  if (duplicate) {
+    return { error: DUPLICATE_SKU_MESSAGE };
+  }
+
   const { error: dbError } = await supabase
     .from("products")
     .update({ ...productPayload(data), updated_at: new Date().toISOString() })
@@ -197,8 +215,7 @@ export async function updateProduct(formData: FormData) {
   if (dbError) {
     if (dbError.code === "23505") {
       return {
-        error:
-          "같은 SKU, 공급처, 색상/옵션/사이즈 조합이 이미 등록되어 있습니다.",
+        error: DUPLICATE_SKU_MESSAGE,
       };
     }
     return { error: "제품 수정에 실패했습니다. 잠시 후 다시 시도해 주세요." };
@@ -279,6 +296,10 @@ export async function updateProductField(
     case "sku": {
       const sku = rawValue.trim();
       if (!sku) return { error: "SKU(모델번호)를 입력해 주세요." };
+      if (sku !== product.sku) {
+        const duplicate = await findProductBySku(supabase, sku, productId);
+        if (duplicate) return { error: DUPLICATE_SKU_MESSAGE };
+      }
       updateData.sku = sku;
       break;
     }
@@ -373,8 +394,7 @@ export async function updateProductField(
   if (dbError) {
     if (dbError.code === "23505") {
       return {
-        error:
-          "같은 SKU, 공급처, 색상/옵션/사이즈 조합이 이미 등록되어 있습니다.",
+        error: DUPLICATE_SKU_MESSAGE,
       };
     }
     return { error: "수정에 실패했습니다. 잠시 후 다시 시도해 주세요." };
@@ -562,6 +582,58 @@ export async function deleteProductsByIds(
   return {};
 }
 
+export async function bulkUpdateProductFields(
+  ids: string[],
+  fields: {
+    supplier?: string;
+    category?: string;
+    brand?: string;
+  },
+): Promise<{ error?: string }> {
+  if (!ids.length) {
+    return { error: "수정할 제품이 없습니다." };
+  }
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
+  const updateData: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (fields.supplier !== undefined) {
+    const supplier = fields.supplier.trim();
+    if (!supplier) return { error: "공급처를 입력해 주세요." };
+    updateData.supplier = supplier;
+  }
+  if (fields.category !== undefined) {
+    updateData.category = fields.category.trim() || null;
+  }
+  if (fields.brand !== undefined) {
+    updateData.brand = fields.brand.trim() || null;
+  }
+
+  if (Object.keys(updateData).length <= 1) {
+    return { error: "수정할 항목을 입력해 주세요." };
+  }
+
+  const { error } = await supabase
+    .from("products")
+    .update(updateData)
+    .in("id", ids);
+
+  if (error) {
+    console.error("bulkUpdateProductFields error:", error);
+    return { error: "일괄 수정에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+  }
+
+  revalidatePath("/products");
+  revalidatePath("/dashboard");
+
+  return {};
+}
+
 export async function restoreProducts(
   products: {
     id: string;
@@ -650,24 +722,22 @@ export async function pasteProducts(
   if (denied) return denied;
 
   const ids: string[] = [];
+  const registrationContext = await createRegistrationSkuContext(supabase);
 
-  const { data: existingProducts } = await supabase
-    .from("products")
-    .select("sku");
+  for (const item of items) {
+    const resolved = resolveRegistrationSku(
+      { sku: item.sku, purchase_price: item.purchase_price },
+      registrationContext,
+    );
 
-  const existingSkus = new Set(
-    (existingProducts ?? []).map((product) => product.sku),
-  );
-  const batchUsed = new Map<string, number>();
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const pasteSku = nextPasteSku(item.sku, existingSkus, batchUsed);
+    if ("error" in resolved) {
+      return { error: resolved.error };
+    }
 
     const { data, error: dbError } = await supabase
       .from("products")
       .insert({
-        sku: pasteSku,
+        sku: resolved.sku,
         product_name: item.product_name,
         model_name: item.model_name,
         brand: item.brand || null,
@@ -689,13 +759,12 @@ export async function pasteProducts(
       return {
         error:
           dbError?.code === "23505"
-            ? "같은 SKU 조합이 이미 있어 붙여넣기에 실패했습니다."
+            ? DUPLICATE_SKU_MESSAGE
             : "제품 붙여넣기에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       };
     }
 
     ids.push(data.id);
-    existingSkus.add(pasteSku);
   }
 
   revalidatePath("/products");
@@ -814,6 +883,7 @@ export async function searchProductsForListDropdown(query: string) {
 export async function loadProductsListView(input: {
   page: number;
   searchQuery?: string;
+  pageSize?: number;
 }) {
   const supabase = await createClient();
   const { user } = await getCurrentUserProfile();
@@ -824,12 +894,13 @@ export async function loadProductsListView(input: {
 
   const searchQuery = input.searchQuery?.trim() ?? "";
   const requestedPage = Math.max(1, input.page);
+  const pageSize = input.pageSize ?? PRODUCT_PAGE_SIZE;
 
   const [listStats, pageData] = await Promise.all([
     fetchProductListStats(supabase, searchQuery || undefined),
     fetchProductsPage(supabase, {
       page: requestedPage,
-      pageSize: PRODUCT_PAGE_SIZE,
+      pageSize,
       searchQuery,
     }),
   ]);
@@ -840,7 +911,7 @@ export async function loadProductsListView(input: {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(listStats.totalCount / PRODUCT_PAGE_SIZE),
+    Math.ceil(listStats.totalCount / pageSize),
   );
   const currentPage = Math.min(requestedPage, totalPages);
 
@@ -850,6 +921,7 @@ export async function loadProductsListView(input: {
     currentPage,
     totalPages,
     searchQuery,
+    pageSize,
     error: null,
   };
 }

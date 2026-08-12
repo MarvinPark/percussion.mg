@@ -34,7 +34,6 @@ export async function createProductFromSmartstoreOrder(
     .from("products")
     .select("id, sku, product_name, model_name, purchase_price, sale_price")
     .eq("sku", sku)
-    .eq("supplier", SMARTSTORE_SUPPLIER)
     .maybeSingle();
 
   if (existing) {
@@ -77,7 +76,6 @@ export async function createProductFromSmartstoreOrder(
         .from("products")
         .select("id, sku, product_name, model_name, purchase_price, sale_price")
         .eq("sku", sku)
-        .eq("supplier", SMARTSTORE_SUPPLIER)
         .maybeSingle();
 
       if (retryExisting) {

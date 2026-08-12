@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { pasteQuote } from "@/app/(main)/quotes/actions";
 import QuotesList, { type QuoteListItem } from "@/components/quotes-list";
 import QuotesListSearch from "@/components/quotes-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
+import {
+  quoteToCopiedPayload,
+  type CopiedQuotePayload,
+} from "@/lib/quote-clipboard";
 import {
   buildProductSkuMap,
   filterQuotes,
@@ -26,6 +32,14 @@ const fontControlButtonClass =
 const MIN_ROW_FONT_SIZE = 9;
 const MAX_ROW_FONT_SIZE = 16;
 const DEFAULT_ROW_FONT_SIZE = 12;
+
+function ActionToast({ message }: { message: string }) {
+  return (
+    <div className="pointer-events-none fixed bottom-6 left-1/2 z-[90] -translate-x-1/2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
+      {message}
+    </div>
+  );
+}
 
 export type StaffOption = {
   id: string;
@@ -55,10 +69,61 @@ export default function QuotesPageClient({
   currentUserName,
   staffOptions,
 }: QuotesPageClientProps) {
+  const router = useRouter();
   const [sellerFilter, setSellerFilter] = useState("");
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_ROW_FONT_SIZE);
+  const [clipboard, setClipboard] = useState<CopiedQuotePayload | null>(null);
+  const [highlightedQuoteIds, setHighlightedQuoteIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [toast, setToast] = useState<string | null>(null);
+  const [pasteError, setPasteError] = useState<string | null>(null);
+  const [isPasting, startPaste] = useTransition();
+  const clipboardRef = useRef<CopiedQuotePayload | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(message);
+    toastTimerRef.current = setTimeout(() => setToast(null), 1500);
+  }, []);
+
+  const handleCopyQuote = useCallback(
+    (quote: QuoteListItem) => {
+      const copied = quoteToCopiedPayload(quote);
+      clipboardRef.current = copied;
+      setClipboard(copied);
+      showToast("복사");
+    },
+    [showToast],
+  );
+
+  const handlePasteQuote = useCallback(() => {
+    const payload = clipboardRef.current;
+    if (!payload || isPasting) return;
+
+    setPasteError(null);
+    startPaste(async () => {
+      const result = await pasteQuote(payload);
+      if (result.error) {
+        setPasteError(result.error);
+        return;
+      }
+
+      showToast("붙여넣기");
+      if (result.quoteId) {
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        setHighlightedQuoteIds(new Set([result.quoteId]));
+        highlightTimerRef.current = setTimeout(() => {
+          setHighlightedQuoteIds(new Set());
+        }, 2000);
+      }
+      router.refresh();
+    });
+  }, [isPasting, router, showToast]);
 
   const productSkuById = useMemo(
     () => buildProductSkuMap(productSkus),
@@ -106,6 +171,14 @@ export default function QuotesPageClient({
 
   return (
     <>
+      {toast ? <ActionToast message={toast} /> : null}
+
+      {pasteError ? (
+        <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          {pasteError}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex flex-wrap items-center gap-2">
           <SalesSellerFilter
@@ -137,6 +210,15 @@ export default function QuotesPageClient({
             }
           >
             전체보기
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handlePasteQuote()}
+            disabled={isPasting || !clipboard}
+            className={buttonClass}
+          >
+            {isPasting ? "붙여넣는 중..." : "붙여넣기"}
           </button>
         </div>
 
@@ -176,6 +258,8 @@ export default function QuotesPageClient({
         currentUserName={currentUserName}
         staffOptions={staffOptions}
         rowFontSize={rowFontSize}
+        highlightedQuoteIds={highlightedQuoteIds}
+        onCopyQuote={handleCopyQuote}
         emptyMessage={
           hasActiveFilter || draftQuery.trim()
             ? "검색 조건에 맞는 견적 기록이 없습니다."

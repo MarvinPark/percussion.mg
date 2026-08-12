@@ -34,6 +34,20 @@ const actionButtonClass =
 const deleteButtonClass =
   "rounded bg-red-600 px-1.5 py-0.5 text-[12px] leading-none font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
 
+const stickyTableHeaderCornerClass =
+  "sticky left-0 z-30 bg-zinc-50 dark:bg-zinc-800";
+const stickyTableHeaderKeyStockClass =
+  "sticky left-[44px] z-30 bg-zinc-50 dark:bg-zinc-800";
+const stickyTableHeaderCellClass =
+  "bg-zinc-50 dark:bg-zinc-800";
+
+const tableClassName =
+  "w-full text-sm max-md:min-w-[720px] md:table-fixed";
+const horizontalScrollClass =
+  "overflow-x-auto overscroll-x-contain";
+const hiddenScrollbarClass =
+  "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
+
 type ProductsListProps = {
   userId: string;
   products: Product[];
@@ -332,6 +346,9 @@ export default function ProductsList({
   const checkboxRefs = useRef(new Map<string, HTMLInputElement>());
   const editRefs = useRef(new Map<string, HTMLAnchorElement>());
   const deleteRefs = useRef(new Map<string, HTMLButtonElement>());
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
+  const syncingScrollRef = useRef(false);
   const { widths, startResize, tableMinWidth } = useProductColumnWidths(userId);
   const tableColumns = useMemo(
     () =>
@@ -348,6 +365,34 @@ export default function ProductsList({
     },
     [products],
   );
+
+  const syncBodyScroll = useCallback(() => {
+    if (
+      syncingScrollRef.current ||
+      !headerScrollRef.current ||
+      !bodyScrollRef.current
+    ) {
+      return;
+    }
+
+    syncingScrollRef.current = true;
+    bodyScrollRef.current.scrollLeft = headerScrollRef.current.scrollLeft;
+    syncingScrollRef.current = false;
+  }, []);
+
+  const syncHeaderScroll = useCallback(() => {
+    if (
+      syncingScrollRef.current ||
+      !headerScrollRef.current ||
+      !bodyScrollRef.current
+    ) {
+      return;
+    }
+
+    syncingScrollRef.current = true;
+    headerScrollRef.current.scrollLeft = bodyScrollRef.current.scrollLeft;
+    syncingScrollRef.current = false;
+  }, []);
 
   useEffect(() => {
     if (!focusTarget || focusTarget.kind === "field") return;
@@ -490,81 +535,105 @@ export default function ProductsList({
     "px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100 max-md:min-w-[9rem] max-md:whitespace-nowrap";
 
   const headerCellClass =
-    "px-3 py-2 font-semibold max-md:whitespace-nowrap";
+    "whitespace-nowrap px-3 py-2 font-semibold";
   const priceHeaderCellClass =
-    "px-3 py-2 font-normal max-md:whitespace-nowrap";
+    "whitespace-nowrap px-3 py-2 font-normal";
+
+  const tableStyle = { minWidth: tableMinWidth };
+
+  const colGroup = (
+    <colgroup className="max-md:hidden">
+      {tableColumns.map((column) => (
+        <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
+      ))}
+    </colgroup>
+  );
+
+  const headerRow = (
+    <tr>
+      {tableColumns.map((column) => {
+        if (column.id === "checkbox") {
+          return (
+            <ResizableHeaderCell
+              key={column.id}
+              columnId={column.id}
+              label=""
+              resizable={column.resizable}
+              className={`${stickyTableHeaderCornerClass} px-2 py-2 font-semibold shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)]`}
+              onResizeStart={startResize}
+            >
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={(input) => {
+                  if (input) input.indeterminate = someSelected;
+                }}
+                onChange={(event) => onSelectAll(event.target.checked)}
+                className="h-4 w-4 rounded border-zinc-300"
+                aria-label="전체 선택"
+              />
+            </ResizableHeaderCell>
+          );
+        }
+
+        if (column.id === "key_stock") {
+          return (
+            <ResizableHeaderCell
+              key={column.id}
+              columnId={column.id}
+              label=""
+              resizable={column.resizable}
+              className={`${stickyTableHeaderKeyStockClass} px-1 py-2 font-semibold shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)]`}
+              onResizeStart={startResize}
+            />
+          );
+        }
+
+        const isPriceColumn =
+          column.id === "purchase_price" || column.id === "sale_price";
+
+        return (
+          <ResizableHeaderCell
+            key={column.id}
+            columnId={column.id}
+            label={column.label}
+            resizable={column.resizable}
+            className={`${stickyTableHeaderCellClass} shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)] ${
+              isPriceColumn ? priceHeaderCellClass : headerCellClass
+            }`}
+            onResizeStart={startResize}
+          />
+        );
+      })}
+    </tr>
+  );
 
   return (
     <>
-      <div className="overflow-x-auto overscroll-x-contain rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-        <table
-          className="w-full text-sm max-md:min-w-[720px] md:table-fixed"
-          style={{ minWidth: tableMinWidth }}
+      <div className="max-w-full rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="sticky top-[var(--app-header-height)] z-20 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
+          <div
+            ref={headerScrollRef}
+            onScroll={syncBodyScroll}
+            className={`${horizontalScrollClass} ${hiddenScrollbarClass}`}
+          >
+            <table className={tableClassName} style={tableStyle}>
+              {colGroup}
+              <thead className="text-left text-zinc-800 dark:text-zinc-200">
+                {headerRow}
+              </thead>
+            </table>
+          </div>
+        </div>
+
+        <div
+          ref={bodyScrollRef}
+          onScroll={syncHeaderScroll}
+          className={horizontalScrollClass}
         >
-          <colgroup className="max-md:hidden">
-            {tableColumns.map((column) => (
-              <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
-            ))}
-          </colgroup>
-          <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-            <tr>
-              {PRODUCT_TABLE_COLUMNS.map((column) => {
-                if (column.id === "checkbox") {
-                  return (
-                    <ResizableHeaderCell
-                      key={column.id}
-                      columnId={column.id}
-                      label=""
-                      resizable={column.resizable}
-                      className="sticky left-0 z-20 bg-zinc-50 px-2 py-2 font-semibold dark:bg-zinc-800"
-                      onResizeStart={startResize}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        ref={(input) => {
-                          if (input) input.indeterminate = someSelected;
-                        }}
-                        onChange={(event) => onSelectAll(event.target.checked)}
-                        className="h-4 w-4 rounded border-zinc-300"
-                        aria-label="전체 선택"
-                      />
-                    </ResizableHeaderCell>
-                  );
-                }
-
-                if (column.id === "key_stock") {
-                  return (
-                    <ResizableHeaderCell
-                      key={column.id}
-                      columnId={column.id}
-                      label=""
-                      resizable={column.resizable}
-                      className="sticky left-[44px] z-20 bg-zinc-50 px-1 py-2 font-semibold dark:bg-zinc-800"
-                      onResizeStart={startResize}
-                    />
-                  );
-                }
-
-                const isPriceColumn =
-                  column.id === "purchase_price" || column.id === "sale_price";
-
-                return (
-                  <ResizableHeaderCell
-                    key={column.id}
-                    columnId={column.id}
-                    label={column.label}
-                    resizable={column.resizable}
-                    className={
-                      isPriceColumn ? priceHeaderCellClass : headerCellClass
-                    }
-                    onResizeStart={startResize}
-                  />
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody className="font-normal">
+          <table className={tableClassName} style={tableStyle}>
+            {colGroup}
+            <tbody className="font-normal">
             {products.map((product) => {
               const isLowStock = isLowStockProduct(product);
 
@@ -863,6 +932,7 @@ export default function ProductsList({
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {contextMenu ? (

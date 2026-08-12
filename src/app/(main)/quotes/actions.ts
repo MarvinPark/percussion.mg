@@ -21,6 +21,7 @@ import { redirect } from "next/navigation";
 import { parseSaleCategory } from "@/lib/sale-categories";
 import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
+import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
 
 function parseQuoteItems(raw: string): QuoteItemInput[] | { error: string } {
   try {
@@ -229,6 +230,104 @@ export async function createQuote(formData: FormData) {
 
   revalidatePath("/quotes");
   redirect("/quotes");
+}
+
+function normalizePastedQuoteItems(items: QuoteItemInput[]) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { error: "견적 제품을 1개 이상 추가해 주세요." as const };
+  }
+  if (items.length > QUOTE_MAX_ITEMS) {
+    return {
+      error: `견적 제품은 최대 ${QUOTE_MAX_ITEMS}개까지 가능합니다.` as const,
+    };
+  }
+
+  const parsedItems = items.map((item) => {
+    const calculated = calculateQuoteLine({
+      quantity: item.quantity,
+      consumerPrice: item.consumer_price,
+      saleUnitPrice: item.sale_unit_price,
+      purchasePrice: item.purchase_price,
+      shippingCost: item.shipping_cost,
+    });
+
+    return {
+      ...item,
+      rounded_unit_price: calculated.roundedUnitPrice,
+      line_total: calculated.lineTotal,
+      margin: calculated.margin,
+      margin_rate: calculated.marginRate,
+    };
+  });
+
+  return { items: parsedItems };
+}
+
+export async function pasteQuote(payload: CopiedQuotePayload) {
+  const customer_name = payload.customer_name?.trim();
+  if (!customer_name) return { error: "고객명이 없습니다." };
+
+  const sale_category = parseSaleCategory(payload.sale_category ?? "");
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+
+  const parsed = normalizePastedQuoteItems(payload.items);
+  if ("error" in parsed) return { error: parsed.error };
+
+  const { totalAmount, cardAmount } = calculateQuoteTotals(parsed.items);
+  const quote_date = new Date().toISOString().slice(0, 10);
+
+  const supabase = await createClient();
+  const auth = await requirePermission("manageQuotes");
+  if ("error" in auth) return { error: auth.error };
+  const modifier = await getModifierInfo();
+  if ("error" in modifier) return { error: modifier.error };
+
+  const payment_method_id = payload.payment_method_id?.trim() ?? "";
+  const paymentResult = await resolvePaymentMethod(supabase, payment_method_id);
+  if ("error" in paymentResult) return { error: paymentResult.error };
+
+  const { paymentMethod } = paymentResult;
+
+  const { data: quote, error: quoteError } = await supabase
+    .from("quotes")
+    .insert({
+      quote_date,
+      sale_category,
+      customer_name,
+      business_partner: payload.business_partner?.trim() || null,
+      customer_phone: payload.customer_phone?.trim() || null,
+      customer_address: payload.customer_address?.trim() || null,
+      customer_email: payload.customer_email?.trim() || null,
+      customer_note: payload.customer_note?.trim() || null,
+      memo: payload.memo?.trim() || null,
+      manager_name: payload.manager_name?.trim() || modifier.name,
+      payment_method_id: paymentMethod.id,
+      payment_method: paymentMethod.name,
+      total_amount: totalAmount,
+      card_amount: cardAmount,
+      created_by_user_id: modifier.userId,
+      created_by_name: modifier.name,
+    })
+    .select("id")
+    .single();
+
+  if (quoteError || !quote) {
+    return {
+      error: formatQuoteSaveError(quoteError ?? {}),
+    };
+  }
+
+  const { error: itemsError } = await supabase
+    .from("quote_items")
+    .insert(mapItemsForInsert(quote.id, parsed.items));
+
+  if (itemsError) {
+    await supabase.from("quotes").delete().eq("id", quote.id);
+    return { error: "견적 항목 저장에 실패했습니다." };
+  }
+
+  revalidatePath("/quotes");
+  return { success: true as const, quoteId: quote.id as string };
 }
 
 export async function updateQuote(formData: FormData) {

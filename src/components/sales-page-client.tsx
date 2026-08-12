@@ -24,10 +24,16 @@ const MIN_ROW_FONT_SIZE = 9;
 const MAX_ROW_FONT_SIZE = 16;
 const DEFAULT_ROW_FONT_SIZE = 12;
 
+export type StaffOption = {
+  id: string;
+  full_name: string;
+};
+
 type SalesPageClientProps = {
   sales: SaleWithProduct[];
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  staffOptions: StaffOption[];
   canManageSales?: boolean;
 };
 
@@ -35,6 +41,7 @@ export default function SalesPageClient({
   sales,
   products,
   paymentMethods,
+  staffOptions,
   canManageSales = true,
 }: SalesPageClientProps) {
   const [sellerFilter, setSellerFilter] = useState("");
@@ -150,6 +157,7 @@ export default function SalesPageClient({
         sales={filteredSales}
         products={products}
         paymentMethods={paymentMethods}
+        staffOptions={staffOptions}
         rowFontSize={rowFontSize}
         canManageSales={canManageSales}
         emptyMessage={

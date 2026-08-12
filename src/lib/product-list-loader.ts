@@ -3,6 +3,22 @@ import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
 import type { Product } from "@/types/product";
 
 export const PRODUCT_PAGE_SIZE = 10;
+export const PRODUCT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+
+export type ProductPageSize =
+  (typeof PRODUCT_PAGE_SIZE_OPTIONS)[number];
+
+export function parseProductPageSize(
+  value: string | undefined,
+): ProductPageSize {
+  const parsed = Number(value);
+  if (
+    PRODUCT_PAGE_SIZE_OPTIONS.includes(parsed as ProductPageSize)
+  ) {
+    return parsed as ProductPageSize;
+  }
+  return PRODUCT_PAGE_SIZE;
+}
 
 export type ProductListStats = {
   totalCount: number;

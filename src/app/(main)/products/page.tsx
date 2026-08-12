@@ -4,6 +4,7 @@ import ProductsPageClient from "@/components/products-page-client";
 import {
   fetchProductListStats,
   fetchProductsPage,
+  parseProductPageSize,
   PRODUCT_PAGE_SIZE,
 } from "@/lib/product-list-loader";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
@@ -11,13 +12,14 @@ import { getCurrentUserProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 
 type ProductsPageProps = {
-  searchParams: Promise<{ page?: string; q?: string }>;
+  searchParams: Promise<{ page?: string; q?: string; limit?: string }>;
 };
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const params = await searchParams;
   const searchQuery = params.q?.trim() ?? "";
   const requestedPage = Math.max(1, Number(params.page) || 1);
+  const pageSize = parseProductPageSize(params.limit);
 
   const supabase = await createClient();
   const { user, profile } = await getCurrentUserProfile();
@@ -33,14 +35,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     fetchProductListStats(supabase, searchQuery || undefined),
     fetchProductsPage(supabase, {
       page: requestedPage,
-      pageSize: PRODUCT_PAGE_SIZE,
+      pageSize,
       searchQuery,
     }),
   ]);
 
   const totalPages = Math.max(
     1,
-    Math.ceil(listStats.totalCount / PRODUCT_PAGE_SIZE),
+    Math.ceil(listStats.totalCount / pageSize),
   );
   const currentPage = Math.min(requestedPage, totalPages);
 
@@ -48,6 +50,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     const nextParams = new URLSearchParams();
     if (searchQuery) nextParams.set("q", searchQuery);
     if (currentPage > 1) nextParams.set("page", String(currentPage));
+    if (pageSize !== PRODUCT_PAGE_SIZE) {
+      nextParams.set("limit", String(pageSize));
+    }
     const suffix = nextParams.toString();
     redirect(suffix ? `/products?${suffix}` : "/products");
   }
@@ -112,6 +117,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             currentPage={currentPage}
             totalPages={totalPages}
             searchQuery={searchQuery}
+            pageSize={pageSize}
             readOnly={!canManageProducts}
           />
         ) : null}

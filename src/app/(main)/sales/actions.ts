@@ -324,8 +324,11 @@ export async function updateSale(formData: FormData) {
   const customer_address = String(formData.get("customer_address") ?? "").trim();
   const payment_method_id = String(formData.get("payment_method_id") ?? "");
   const note = String(formData.get("note") ?? "").trim();
+  const created_by_name = String(formData.get("created_by_name") ?? "").trim();
+  const created_by_user_id = String(formData.get("created_by_user_id") ?? "").trim();
 
   if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
+  if (!created_by_name) return { error: "담당자를 선택해 주세요." };
   if (!sale_category) return { error: "구분을 선택해 주세요." };
   if (!product_id) return { error: "제품을 선택해 주세요." };
   if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
@@ -403,6 +406,8 @@ export async function updateSale(formData: FormData) {
       total_amount: totalAmount,
       margin_amount: marginAmount,
       note: note || null,
+      created_by_name,
+      created_by_user_id: created_by_user_id || null,
     })
     .eq("id", sale_id);
 

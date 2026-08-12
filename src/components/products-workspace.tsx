@@ -9,6 +9,7 @@ import {
 } from "@/app/(main)/products/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ExcelProductActions from "@/components/excel-product-actions";
+import ProductsBulkEditModal from "@/components/products-bulk-edit-modal";
 import ProductsList from "@/components/products-list";
 import type { CopiedProduct, Product } from "@/types/product";
 
@@ -103,6 +104,7 @@ export default function ProductsWorkspace({
   const [toast, setToast] = useState<string | null>(null);
   const [isPasting, setIsPasting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Product[] | null>(null);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const clipboardRef = useRef<CopiedProduct[]>([]);
   const pastingRef = useRef(false);
   const historyBusyRef = useRef(false);
@@ -389,6 +391,17 @@ export default function ProductsWorkspace({
     }
   }
 
+  const selectedProducts = useMemo(
+    () => products.filter((product) => selectedIds.has(product.id)),
+    [products, selectedIds],
+  );
+
+  function handleBulkEditSaved() {
+    setSelectedIds(new Set());
+    showToast("일괄 수정 완료");
+    router.refresh();
+  }
+
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -413,6 +426,22 @@ export default function ProductsWorkspace({
                 >
                   {isPasting ? "붙여넣는 중..." : "붙여넣기"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleRequestDelete(selectedProducts)}
+                  disabled={selectedIds.size === 0}
+                  className={toolbarButtonClass}
+                >
+                  삭제
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkEditOpen(true)}
+                  disabled={selectedIds.size === 0}
+                  className={toolbarButtonClass}
+                >
+                  일괄수정
+                </button>
               </div>
             ) : null}
             {listSummary ? (
@@ -436,6 +465,14 @@ export default function ProductsWorkspace({
           count={pendingDelete.length}
           onConfirm={handleConfirmDelete}
           onCancel={() => setPendingDelete(null)}
+        />
+      ) : null}
+
+      {bulkEditOpen ? (
+        <ProductsBulkEditModal
+          productIds={Array.from(selectedIds)}
+          onClose={() => setBulkEditOpen(false)}
+          onSaved={handleBulkEditSaved}
         />
       ) : null}
 

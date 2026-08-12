@@ -8,6 +8,7 @@ import SaleEditModal from "@/components/sale-edit-modal";
 import { formatKRW } from "@/lib/sales-calculator";
 import { displaySaleCategory } from "@/lib/sale-categories";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
+import type { StaffOption } from "@/components/sales-page-client";
 
 function formatDateCompact(value: string) {
   const date = new Date(value);
@@ -30,6 +31,7 @@ type SalesTableProps = {
   sales: SaleWithProduct[];
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  staffOptions: StaffOption[];
   rowFontSize?: number;
   emptyMessage?: string;
   canManageSales?: boolean;
@@ -39,6 +41,7 @@ export default function SalesTable({
   sales,
   products,
   paymentMethods,
+  staffOptions,
   rowFontSize = 12,
   emptyMessage,
   canManageSales = true,
@@ -210,6 +213,7 @@ export default function SalesTable({
           sale={editingSale}
           products={products}
           paymentMethods={paymentMethods}
+          staffOptions={staffOptions}
           onClose={() => setEditingSale(null)}
         />
       ) : null}

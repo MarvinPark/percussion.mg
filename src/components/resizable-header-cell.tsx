@@ -20,7 +20,7 @@ export default function ResizableHeaderCell({
   children,
 }: ResizableHeaderCellProps) {
   return (
-    <th className={`relative select-none ${className}`}>
+    <th className={`relative select-none align-middle ${className}`}>
       <div className="flex items-center pr-2">
         {children ?? (
           <span className="truncate">{label}</span>

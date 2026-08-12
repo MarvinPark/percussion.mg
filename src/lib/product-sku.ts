@@ -1,19 +1,29 @@
 export function getBaseSku(sku: string) {
-  return sku.replace(/-\d+$/, "") || sku;
+  const normalized = sku.trim();
+  return normalized.replace(/-\d+$/, "") || normalized;
 }
 
-export function nextPasteSku(
-  originalSku: string,
-  existingSkus: Set<string>,
-  batchUsed: Map<string, number>,
-) {
-  const base = getBaseSku(originalSku);
-  let n = batchUsed.get(base) ?? 1;
+export function belongsToSkuFamily(baseSku: string, sku: string) {
+  const normalized = sku.trim();
+  if (normalized === baseSku) return true;
 
-  while (existingSkus.has(`${base}-${n}`)) {
-    n++;
+  if (!normalized.startsWith(`${baseSku}-`)) return false;
+
+  const suffix = normalized.slice(baseSku.length);
+  return /^-\d+$/.test(suffix);
+}
+
+export function nextVariantSku(
+  baseSku: string,
+  reservedSkus: Set<string>,
+  batchCounters?: Map<string, number>,
+) {
+  let n = batchCounters?.get(baseSku) ?? 1;
+
+  while (reservedSkus.has(`${baseSku}-${n}`)) {
+    n += 1;
   }
 
-  batchUsed.set(base, n + 1);
-  return `${base}-${n}`;
+  batchCounters?.set(baseSku, n + 1);
+  return `${baseSku}-${n}`;
 }

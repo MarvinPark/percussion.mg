@@ -1,7 +1,7 @@
 "use client";
 
 import { jsPDF } from "jspdf";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
@@ -44,6 +44,11 @@ type QuoteDocumentPreviewProps = {
 const DOCUMENT_PREVIEW_WIDTH_PX = 794;
 const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
+const TABLE_COL_WIDTH_4_KOR = "4em";
+const TABLE_COL_WIDTH_16_KOR = "16em";
+const TABLE_COL_WIDTH_6_KOR = "6em";
+const TABLE_COL_WIDTH_3_DIGITS = "3ch";
+const TABLE_COL_WIDTH_PRICE = "10ch";
 
 function formatDisplayDate(value: string) {
   if (!value) return "";
@@ -84,6 +89,23 @@ function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
   );
 }
 
+function DocumentTableColGroup({ mode }: { mode: PreviewMode }) {
+  return (
+    <colgroup>
+      <col style={{ width: TABLE_COL_WIDTH_4_KOR }} />
+      <col style={{ width: TABLE_COL_WIDTH_4_KOR }} />
+      <col style={{ width: TABLE_COL_WIDTH_16_KOR }} />
+      <col style={{ width: TABLE_COL_WIDTH_6_KOR }} />
+      <col style={{ width: TABLE_COL_WIDTH_3_DIGITS }} />
+      {mode === "quote" ? (
+        <col style={{ width: TABLE_COL_WIDTH_PRICE }} />
+      ) : null}
+      <col style={{ width: TABLE_COL_WIDTH_PRICE }} />
+      <col style={{ width: TABLE_COL_WIDTH_PRICE }} />
+    </colgroup>
+  );
+}
+
 function DocumentTable({
   items,
   mode,
@@ -105,7 +127,11 @@ function DocumentTable({
 }) {
   const columnCount = mode === "quote" ? 8 : 7;
   const headCellClass = "border-y border-zinc-400 px-1 py-1";
+  const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
   const bodyCellClass = "border-y border-zinc-400 px-1 py-1";
+  const narrowTextCellClass = `${bodyCellClass} overflow-hidden text-ellipsis whitespace-nowrap`;
+  const descriptionCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug`;
+  const priceCellClass = `${bodyCellClass} tabular-nums text-right whitespace-nowrap`;
 
   function lineKey(item: QuoteItemInput, index: number) {
     return `${item.product_id}-${item.model_name}-${index}`;
@@ -113,18 +139,19 @@ function DocumentTable({
 
   return (
     <table className="w-full min-w-full table-fixed border-collapse text-[11px]">
+      <DocumentTableColGroup mode={mode} />
       <thead>
         <tr className="bg-zinc-100">
           <th className={headCellClass}>분류</th>
           <th className={headCellClass}>브랜드</th>
           <th className={headCellClass}>제품 설명</th>
           <th className={headCellClass}>모델명</th>
-          <th className={headCellClass}>수량</th>
+          <th className={headCellNowrapClass}>수량</th>
           {mode === "quote" ? (
-            <th className={headCellClass}>소비자가</th>
+            <th className={headCellNowrapClass}>소비자가</th>
           ) : null}
-          <th className={headCellClass}>판매단가</th>
-          <th className={headCellClass}>총 판매가</th>
+          <th className={headCellNowrapClass}>판매단가</th>
+          <th className={headCellNowrapClass}>총 판매가</th>
         </tr>
       </thead>
       <tbody>
@@ -142,26 +169,26 @@ function DocumentTable({
 
           return (
           <tr key={lineKey(item, globalIndex)}>
-            <td className={bodyCellClass}>{item.category}</td>
-            <td className={bodyCellClass}>{item.brand}</td>
-            <td className={bodyCellClass}>
+            <td className={narrowTextCellClass}>{item.category}</td>
+            <td className={narrowTextCellClass}>{item.brand}</td>
+            <td className={descriptionCellClass}>
               <ProductDescriptionCell item={item} />
             </td>
-            <td className={`${bodyCellClass} font-medium`}>
+            <td className={`${narrowTextCellClass} font-medium`}>
               {item.model_name}
             </td>
-            <td className={`${bodyCellClass} text-center`}>
+            <td className={`${bodyCellClass} text-center tabular-nums`}>
               {item.quantity}
             </td>
             {mode === "quote" ? (
-              <td className={`${bodyCellClass} text-right`}>
+              <td className={priceCellClass}>
                 {formatKRW(item.consumer_price)}
               </td>
             ) : null}
-            <td className={`${bodyCellClass} text-right`}>
+            <td className={priceCellClass}>
               {formatKRW(unitPrice)}
             </td>
-            <td className={`${bodyCellClass} text-right font-medium`}>
+            <td className={`${priceCellClass} font-medium`}>
               {formatKRW(lineTotal)}
             </td>
           </tr>
@@ -174,15 +201,12 @@ function DocumentTable({
                 colSpan={5}
                 className={`${bodyCellClass} text-center`}
               >
-                {mode === "invoice" ? "최종금액" : "합계"}
+                {mode === "invoice" ? "최종금액" : "합계 (부가세포함)"}
               </td>
-              {mode === "quote" ? (
-                <td className={`${bodyCellClass} text-right`}>
-                  (부가세포함)
-                </td>
-              ) : null}
-              <td className={bodyCellClass}>&nbsp;</td>
-              <td className={`total-amount ${bodyCellClass} py-2 text-right text-base font-bold text-red-600`}>
+              <td
+                colSpan={mode === "quote" ? 3 : 2}
+                className={`total-amount ${bodyCellClass} whitespace-nowrap py-2 text-right text-base font-bold text-red-600`}
+              >
                 {formatKRW(totalAmount)}원
               </td>
             </tr>
@@ -190,7 +214,7 @@ function DocumentTable({
               <tr>
                 <td
                   colSpan={columnCount}
-                  className={`card-fee-row ${bodyCellClass} text-right text-[10px] text-zinc-600`}
+                  className={`card-fee-row ${bodyCellClass} py-1.5 text-right text-[12px] font-medium text-black`}
                 >
                   카드결제+{cardFeePercent}%: {formatKRW(cardPaymentTotal)}원
                 </td>
@@ -260,9 +284,16 @@ function DocumentHeader({
       <div className="title text-center text-2xl font-bold tracking-[0.25em]">
         {title}
       </div>
-      <div className="mb-3 flex justify-between text-sm">
-        {mode === "quote" ? <span>담당 {data.manager_name}</span> : <span />}
-        <span>
+      <div className="doc-meta mb-3 flex items-baseline justify-between gap-4 text-sm">
+        {mode === "quote" ? (
+          <span className="doc-meta-manager min-w-0 whitespace-nowrap">
+            담당 {data.manager_name}
+            {data.manager_phone ? ` ${data.manager_phone}` : ""}
+          </span>
+        ) : (
+          <span />
+        )}
+        <span className="doc-meta-date shrink-0 whitespace-nowrap text-right">
           {mode === "quote" ? "견적일" : "거래일"}{" "}
           {formatDisplayDate(data.quote_date)}
         </span>
@@ -288,10 +319,14 @@ function DocumentHeader({
 function QuoteAmountBar({ totalAmount }: { totalAmount: number }) {
   return (
     <div className="amount-box mb-3 rounded border border-zinc-400 bg-[#fff2cc] p-3">
-      <div className="amount-line-full flex w-full items-baseline justify-between gap-3 text-sm font-semibold">
-        <span>견적금액</span>
-        <span>{formatKoreanWonLabel(totalAmount)}</span>
-        <span className="text-xl font-bold">{formatKRW(totalAmount)}원</span>
+      <div className="amount-line-full grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-2 text-sm font-semibold">
+        <span className="shrink-0">견적금액</span>
+        <span className="min-w-0 truncate text-center">
+          {formatKoreanWonLabel(totalAmount)}
+        </span>
+        <span className="amount-value shrink-0 whitespace-nowrap text-xl font-bold tabular-nums">
+          {formatKRW(totalAmount)}원
+        </span>
       </div>
     </div>
   );
@@ -352,6 +387,9 @@ const PRINT_STYLES = `
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
   th, td { border-top: 1px solid #666; border-bottom: 1px solid #666; border-left: 0; border-right: 0; padding: 4px; }
   .title { text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 0.3em; margin-bottom: 16px; }
+  .doc-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-size: 14px; margin-bottom: 12px; }
+  .doc-meta-manager { white-space: nowrap; min-width: 0; }
+  .doc-meta-date { white-space: nowrap; flex-shrink: 0; text-align: right; }
   .box { border: 1px solid #666; padding: 8px; }
   .supplier-company-line { position: relative; display: inline-block; max-width: 100%; }
   .supplier-seal {
@@ -372,10 +410,10 @@ const PRINT_STYLES = `
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .amount-line-full { display: flex; width: 100%; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 600; }
-  .amount-line-full span:last-child { font-size: 20px; font-weight: bold; }
+  .amount-line-full { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; }
+  .amount-line-full .amount-value { font-size: 20px; font-weight: bold; white-space: nowrap; flex-shrink: 0; }
   .total-amount { color: #dc2626 !important; font-size: 16px; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .card-fee-row { font-size: 10px; color: #666; text-align: right; }
+  .card-fee-row { font-size: 12px; font-weight: 500; color: #111 !important; text-align: right; }
   .center-divider { display: flex; justify-content: center; padding: 8px 0; }
   .center-divider span { display: block; width: 60%; height: 1px; background: #666; }
   .footer { margin-top: 8px; font-size: 11px; white-space: pre-line; }
@@ -393,6 +431,30 @@ const controlSelectClass =
 
 function parseRoundingUnit(value: string): AmountRoundingUnit {
   return value === "none" ? "none" : (Number(value) as AmountRoundingUnit);
+}
+
+function DocumentDateControl({
+  mode,
+  value,
+  onChange,
+}: {
+  mode: PreviewMode;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+      <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+        {mode === "quote" ? "견적일" : "거래일"}
+      </label>
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={controlSelectClass}
+      />
+    </div>
+  );
 }
 
 function CardPricingControls({
@@ -521,9 +583,20 @@ export default function QuoteDocumentPreview({
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [documentDate, setDocumentDate] = useState(data.quote_date);
   const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(4);
   const [roundingUnit, setRoundingUnit] = useState<AmountRoundingUnit>(1000);
   const [roundingMode, setRoundingMode] = useState<AmountRoundingMode>("ceil");
+
+  useEffect(() => {
+    setDocumentDate(data.quote_date);
+  }, [data.quote_date, mode, open]);
+
+  const previewData = useMemo(
+    () => ({ ...data, quote_date: documentDate }),
+    [data, documentDate],
+  );
+
   const itemPages = useMemo(() => paginateItems(data.items), [data.items]);
 
   const cardPaymentTotal = useMemo(
@@ -642,7 +715,7 @@ export default function QuoteDocumentPreview({
       });
 
       pdf.save(
-        `${buildDocumentFileName(mode, data.customer_name, data.quote_date)}.pdf`,
+        `${buildDocumentFileName(mode, data.customer_name, documentDate)}.pdf`,
       );
 
       setActionMessage("PDF 파일을 저장했습니다.");
@@ -690,7 +763,7 @@ export default function QuoteDocumentPreview({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${buildDocumentFileName(mode, data.customer_name, data.quote_date)}.png`;
+      link.download = `${buildDocumentFileName(mode, data.customer_name, documentDate)}.png`;
       link.click();
       URL.revokeObjectURL(url);
       setActionMessage("클립보드 복사를 지원하지 않아 PNG 파일로 저장했습니다.");
@@ -751,6 +824,12 @@ export default function QuoteDocumentPreview({
           </p>
         ) : null}
 
+        <DocumentDateControl
+          mode={mode}
+          value={documentDate}
+          onChange={setDocumentDate}
+        />
+
         <CardPricingControls
           mode={mode}
           cardFeePercent={cardFeePercent}
@@ -781,7 +860,7 @@ export default function QuoteDocumentPreview({
                   className={`print-page bg-white p-4 ${pageIndex > 0 ? "mt-8 border-t-4 border-dashed border-zinc-300 pt-8" : ""}`}
                 >
                   {isFirstPage ? (
-                    <DocumentHeader mode={mode} data={data} />
+                    <DocumentHeader mode={mode} data={previewData} />
                   ) : (
                     <div className="mb-3 text-right text-xs text-zinc-500">
                       {title} (계속) · {pageIndex + 1}/{itemPages.length}페이지

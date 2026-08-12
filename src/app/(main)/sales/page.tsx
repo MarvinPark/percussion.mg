@@ -20,7 +20,7 @@ export default async function SalesPage() {
   const canCreateSales = hasPermission(role, "createSales");
   const canManagePaymentMethods = hasPermission(role, "managePaymentMethods");
 
-  const [{ data: sales, error }, { data: products }, { data: paymentMethods }, summary] =
+  const [{ data: sales, error }, { data: products }, { data: paymentMethods }, { data: staffProfiles }, summary] =
     await Promise.all([
       supabase
         .from("sales")
@@ -38,8 +38,20 @@ export default async function SalesPage() {
         .from("payment_methods")
         .select("id, name, fee_rate, sort_order")
         .order("sort_order", { ascending: true }),
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .not("full_name", "is", null)
+        .order("full_name"),
       fetchSalesPeriodSummaries(supabase),
     ]);
+
+  const staffOptions = (staffProfiles ?? [])
+    .filter((profile) => profile.full_name?.trim())
+    .map((profile) => ({
+      id: profile.id,
+      full_name: profile.full_name.trim(),
+    }));
 
   return (
       <main className="mx-auto max-w-5xl px-4 py-8">
@@ -127,6 +139,7 @@ export default async function SalesPage() {
                 sales={sales as SaleWithProduct[]}
                 products={products ?? []}
                 paymentMethods={paymentMethods ?? []}
+                staffOptions={staffOptions}
                 canManageSales={canManageSales}
               />
             )}

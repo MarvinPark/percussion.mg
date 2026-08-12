@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   importProductsFromExcel,
   type ExcelImportResult,
@@ -9,6 +9,9 @@ import {
   updateProductsFromExcel,
   type ExcelUpdateResult,
 } from "@/app/(main)/products/excel-update-actions";
+import ProductRegistrationReportModal, {
+  type ProductRegistrationReport,
+} from "@/components/product-registration-report-modal";
 
 const buttonClass =
   "inline-flex items-center gap-1 rounded border border-zinc-300 px-2 py-1 text-[12px] leading-none font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
@@ -45,62 +48,71 @@ function ExcelIcon() {
   );
 }
 
-function ResultMessage({
+function buildImportReport(state: ExcelImportResult): ProductRegistrationReport {
+  const hasPartialSuccess = !!state.successCount && !!state.errors?.length;
+
+  return {
+    title: hasPartialSuccess ? "엑셀 등록 일부 실패" : "엑셀 등록 실패",
+    description: hasPartialSuccess
+      ? "일부 행은 등록되었지만, 아래 문제는 확인이 필요합니다."
+      : "엑셀 파일을 확인한 뒤 다시 등록해 주세요.",
+    successCount: state.successCount,
+    successLabel: "{count}개 제품이 등록되었습니다.",
+    error: state.error,
+    errors: state.errors,
+  };
+}
+
+function buildUpdateReport(state: ExcelUpdateResult): ProductRegistrationReport {
+  const hasPartialSuccess = !!state.successCount && !!state.errors?.length;
+
+  return {
+    title: hasPartialSuccess ? "엑셀 수정 일부 실패" : "엑셀 수정 실패",
+    description: hasPartialSuccess
+      ? "일부 행은 수정되었지만, 아래 문제는 확인이 필요합니다."
+      : "엑셀 파일을 확인한 뒤 다시 수정해 주세요.",
+    successCount: state.successCount,
+    successLabel: "{count}개 제품이 수정되었습니다.",
+    error: state.error,
+    errors: state.errors,
+    usedAi: state.usedAi,
+  };
+}
+
+function shouldOpenReport(
+  state: ExcelImportResult | ExcelUpdateResult | null,
+) {
+  if (!state) return false;
+  return !!state.error || !!state.errors?.length;
+}
+
+function SuccessMessage({
   state,
   successLabel,
 }: {
   state: ExcelImportResult | ExcelUpdateResult | null;
   successLabel: string;
 }) {
-  if (!state) return null;
-
-  if (state.error) {
-    return (
-      <p className="max-w-md rounded bg-red-50 px-2 py-1 text-right text-[10px] text-red-700 dark:bg-red-950 dark:text-red-300">
-        {state.error}
-        {state.errors?.length ? (
-          <span className="mt-1 block text-left">
-            {state.errors.slice(0, 5).map((message) => (
-              <span key={message} className="block">
-                {message}
-              </span>
-            ))}
-            {state.errors.length > 5 ? `외 ${state.errors.length - 5}건` : null}
-          </span>
-        ) : null}
-      </p>
-    );
+  if (!state?.successCount || state.error || state.errors?.length) {
+    return null;
   }
 
-  if (state.successCount) {
-    return (
-      <p className="max-w-md rounded bg-green-50 px-2 py-1 text-right text-[10px] text-green-700 dark:bg-green-950 dark:text-green-300">
-        {successLabel.replace("{count}", String(state.successCount))}
-        {"usedAi" in state && state.usedAi ? (
-          <span className="mt-1 block text-left text-blue-700 dark:text-blue-300">
-            AI가 수입사 엑셀 형식을 분석해 매칭했습니다.
-          </span>
-        ) : null}
-        {state.errors?.length ? (
-          <span className="mt-1 block text-left text-amber-700 dark:text-amber-300">
-            일부 행은 처리되지 않았습니다.
-            {state.errors.slice(0, 5).map((message) => (
-              <span key={message} className="block">
-                {message}
-              </span>
-            ))}
-          </span>
-        ) : null}
-      </p>
-    );
-  }
-
-  return null;
+  return (
+    <p className="max-w-md rounded bg-green-50 px-2 py-1 text-right text-[10px] text-green-700 dark:bg-green-950 dark:text-green-300">
+      {successLabel.replace("{count}", String(state.successCount))}
+      {"usedAi" in state && state.usedAi ? (
+        <span className="mt-1 block text-left text-blue-700 dark:text-blue-300">
+          AI가 수입사 엑셀 형식을 분석해 매칭했습니다.
+        </span>
+      ) : null}
+    </p>
+  );
 }
 
 export default function ExcelProductActions() {
   const importInputRef = useRef<HTMLInputElement>(null);
   const updateInputRef = useRef<HTMLInputElement>(null);
+  const [report, setReport] = useState<ProductRegistrationReport | null>(null);
 
   const [importState, importAction, importPending] = useActionState<
     ExcelImportResult | null,
@@ -112,71 +124,102 @@ export default function ExcelProductActions() {
     FormData
   >(updateProductsFromExcel, null);
 
+  useEffect(() => {
+    if (importPending || !importState || !shouldOpenReport(importState)) {
+      return;
+    }
+
+    setReport(buildImportReport(importState));
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+    }
+  }, [importPending, importState]);
+
+  useEffect(() => {
+    if (updatePending || !updateState || !shouldOpenReport(updateState)) {
+      return;
+    }
+
+    setReport(buildUpdateReport(updateState));
+    if (updateInputRef.current) {
+      updateInputRef.current.value = "";
+    }
+  }, [updatePending, updateState]);
+
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex flex-wrap justify-end gap-1">
-        <a href="/api/products/excel-template" className={buttonClass}>
-          <ExcelIcon />
-          엑셀양식 다운로드
-        </a>
-
-        <form action={importAction} className="inline-flex">
-          <input
-            ref={importInputRef}
-            type="file"
-            name="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(event) => {
-              if (event.target.files?.[0]) {
-                event.target.form?.requestSubmit();
-              }
-            }}
-          />
-          <button
-            type="button"
-            disabled={importPending}
-            onClick={() => importInputRef.current?.click()}
-            className={buttonClass}
-          >
+    <>
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
+          <a href="/api/products/excel-template" className={buttonClass}>
             <ExcelIcon />
-            {importPending ? "등록 중..." : "엑셀 등록"}
-          </button>
-        </form>
+            엑셀양식 다운로드
+          </a>
 
-        <form action={updateAction} className="inline-flex">
-          <input
-            ref={updateInputRef}
-            type="file"
-            name="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(event) => {
-              if (event.target.files?.[0]) {
-                event.target.form?.requestSubmit();
-              }
-            }}
-          />
-          <button
-            type="button"
-            disabled={updatePending}
-            onClick={() => updateInputRef.current?.click()}
-            className={buttonClass}
-          >
-            <ExcelIcon />
-            {updatePending ? "수정 중..." : "엑셀 수정"}
-          </button>
-        </form>
+          <form action={importAction} className="inline-flex">
+            <input
+              ref={importInputRef}
+              type="file"
+              name="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(event) => {
+                if (event.target.files?.[0]) {
+                  event.target.form?.requestSubmit();
+                }
+              }}
+            />
+            <button
+              type="button"
+              disabled={importPending}
+              onClick={() => importInputRef.current?.click()}
+              className={buttonClass}
+            >
+              <ExcelIcon />
+              {importPending ? "등록 중..." : "엑셀 등록"}
+            </button>
+          </form>
+
+          <form action={updateAction} className="inline-flex">
+            <input
+              ref={updateInputRef}
+              type="file"
+              name="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(event) => {
+                if (event.target.files?.[0]) {
+                  event.target.form?.requestSubmit();
+                }
+              }}
+            />
+            <button
+              type="button"
+              disabled={updatePending}
+              onClick={() => updateInputRef.current?.click()}
+              className={buttonClass}
+            >
+              <ExcelIcon />
+              {updatePending ? "수정 중..." : "엑셀 수정"}
+            </button>
+          </form>
+        </div>
+
+        <SuccessMessage
+          state={importState}
+          successLabel="{count}개 제품이 등록되었습니다."
+        />
+        <SuccessMessage
+          state={updateState}
+          successLabel="{count}개 제품이 수정되었습니다."
+        />
       </div>
 
-      <ResultMessage
-        state={importState}
-        successLabel="{count}개 제품이 등록되었습니다."
-      />
-      <ResultMessage
-        state={updateState}
-        successLabel="{count}개 제품이 수정되었습니다."
-      />
-    </div>
+      {report ? (
+        <ProductRegistrationReportModal
+          report={report}
+          onClose={() => setReport(null)}
+        />
+      ) : null}
+    </>
   );
 }

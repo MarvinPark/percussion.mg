@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { createProduct, updateProduct } from "@/app/(main)/products/actions";
 import PriceInput from "@/components/price-input";
+import ProductRegistrationReportModal from "@/components/product-registration-report-modal";
 import { STOCK_LOCATIONS } from "@/lib/stock-locations";
 import type { Product } from "@/types/product";
 
@@ -18,6 +19,7 @@ type ProductFormProps = {
 
 export default function ProductForm({ product }: ProductFormProps) {
   const isEdit = !!product;
+  const [reportOpen, setReportOpen] = useState(false);
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
@@ -29,6 +31,12 @@ export default function ProductForm({ product }: ProductFormProps) {
     },
     null,
   );
+
+  useEffect(() => {
+    if (state?.error) {
+      setReportOpen(true);
+    }
+  }, [state]);
 
   return (
     <form action={formAction} className="space-y-6">
@@ -67,7 +75,7 @@ export default function ProductForm({ product }: ProductFormProps) {
               className={inputClass}
             />
             <p className="mt-1 text-xs font-medium text-zinc-700 dark:text-zinc-400">
-              제품을 구분하는 고유 번호입니다.
+              같은 SKU라도 매입가가 다르면 SKU 뒤에 -1, -2처럼 번호가 붙어 등록됩니다. 매입가가 같으면 등록되지 않습니다.
             </p>
           </div>
 
@@ -123,9 +131,6 @@ export default function ProductForm({ product }: ProductFormProps) {
               placeholder="예: A사, B사"
               className={inputClass}
             />
-            <p className="mt-1 text-xs font-medium text-zinc-700 dark:text-zinc-400">
-              같은 제품이라도 공급처가 다르면 따로 등록합니다.
-            </p>
           </div>
 
           <div>
@@ -353,7 +358,7 @@ export default function ProductForm({ product }: ProductFormProps) {
         </div>
       </section>
 
-      {state?.error ? (
+      {state?.error && !reportOpen ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {state.error}
         </p>
@@ -372,6 +377,17 @@ export default function ProductForm({ product }: ProductFormProps) {
             ? "수정 저장"
             : "제품 등록"}
       </button>
+
+      {reportOpen && state?.error ? (
+        <ProductRegistrationReportModal
+          report={{
+            title: isEdit ? "제품 수정 실패" : "제품 등록 실패",
+            description: "입력 내용을 확인한 뒤 다시 시도해 주세요.",
+            error: state.error,
+          }}
+          onClose={() => setReportOpen(false)}
+        />
+      ) : null}
     </form>
   );
 }

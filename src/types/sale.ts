@@ -23,6 +23,7 @@ export type Sale = {
   total_amount: number;
   margin_amount: number;
   note: string | null;
+  created_by_user_id: string | null;
   created_by_name: string | null;
   created_at: string;
 };

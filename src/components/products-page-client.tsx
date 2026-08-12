@@ -4,7 +4,11 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import ProductListSearch from "@/components/product-list-search";
 import ProductsWorkspace from "@/components/products-workspace";
-import type { ProductListStats } from "@/lib/product-list-loader";
+import type {
+  ProductListStats,
+  ProductPageSize,
+} from "@/lib/product-list-loader";
+import { PRODUCT_PAGE_SIZE_OPTIONS } from "@/lib/product-list-loader";
 import type { Product } from "@/types/product";
 
 const VISIBLE_PAGE_COUNT = 10;
@@ -21,10 +25,15 @@ function clampPageWindowStart(start: number, totalPages: number) {
   return Math.max(1, Math.min(start, maxStart));
 }
 
-function syncProductsUrl(page: number, searchQuery: string) {
+function syncProductsUrl(
+  page: number,
+  searchQuery: string,
+  pageSize: ProductPageSize,
+) {
   const params = new URLSearchParams();
   if (searchQuery) params.set("q", searchQuery);
   if (page > 1) params.set("page", String(page));
+  if (pageSize !== 10) params.set("limit", String(pageSize));
   const query = params.toString();
   const nextUrl = query ? `/products?${query}` : "/products";
   window.history.replaceState(null, "", nextUrl);
@@ -37,6 +46,7 @@ type ProductsPageClientProps = {
   currentPage: number;
   totalPages: number;
   searchQuery: string;
+  pageSize: ProductPageSize;
   readOnly?: boolean;
 };
 
@@ -47,6 +57,7 @@ export default function ProductsPageClient({
   currentPage: initialCurrentPage,
   totalPages: initialTotalPages,
   searchQuery: initialSearchQuery,
+  pageSize: initialPageSize,
   readOnly = false,
 }: ProductsPageClientProps) {
   const [isPending, startTransition] = useTransition();
@@ -55,6 +66,7 @@ export default function ProductsPageClient({
   const [currentPage, setCurrentPage] = useState(initialCurrentPage);
   const [totalPages, setTotalPages] = useState(initialTotalPages);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [draftQuery, setDraftQuery] = useState(initialSearchQuery);
   const [pageWindowStart, setPageWindowStart] = useState(1);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
@@ -69,6 +81,7 @@ export default function ProductsPageClient({
     setCurrentPage(initialCurrentPage);
     setTotalPages(initialTotalPages);
     setSearchQuery(initialSearchQuery);
+    setPageSize(initialPageSize);
     setDraftQuery(initialSearchQuery);
   }, [
     initialProducts,
@@ -76,6 +89,7 @@ export default function ProductsPageClient({
     initialCurrentPage,
     initialTotalPages,
     initialSearchQuery,
+    initialPageSize,
   ]);
 
   useEffect(() => {
@@ -96,11 +110,13 @@ export default function ProductsPageClient({
     ? `검색 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개`
     : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개`;
 
-  const loadView = useCallback((page: number, query: string) => {
+  const loadView = useCallback(
+    (page: number, query: string, nextPageSize: ProductPageSize = pageSize) => {
     startTransition(async () => {
       const result = await loadProductsListView({
         page,
         searchQuery: query,
+        pageSize: nextPageSize,
       });
 
       if ("error" in result && result.error) {
@@ -116,20 +132,35 @@ export default function ProductsPageClient({
       setCurrentPage(result.currentPage);
       setTotalPages(result.totalPages);
       setSearchQuery(result.searchQuery);
+      setPageSize(result.pageSize ?? nextPageSize);
       setDraftQuery(result.searchQuery);
-      syncProductsUrl(result.currentPage, result.searchQuery);
+      syncProductsUrl(
+        result.currentPage,
+        result.searchQuery,
+        result.pageSize ?? nextPageSize,
+      );
     });
-  }, []);
+  },
+    [pageSize],
+  );
 
   const applySearch = useCallback(() => {
-    loadView(1, draftQuery);
-  }, [draftQuery, loadView]);
+    loadView(1, draftQuery, pageSize);
+  }, [draftQuery, loadView, pageSize]);
+
+  const handlePageSizeChange = useCallback(
+    (nextPageSize: ProductPageSize) => {
+      setPageSize(nextPageSize);
+      loadView(1, searchQuery, nextPageSize);
+    },
+    [loadView, searchQuery],
+  );
 
   const handleSelectProduct = useCallback(
     (product: Product) => {
       const value = product.sku || product.model_name;
       setDraftQuery(value);
-      loadView(1, value);
+      loadView(1, value, pageSize);
       setHighlightedIds(new Set([product.id]));
 
       requestAnimationFrame(() => {
@@ -142,8 +173,11 @@ export default function ProductsPageClient({
         setHighlightedIds(new Set());
       }, 2500);
     },
-    [loadView],
+    [loadView, pageSize],
   );
+
+  const pageSizeSelectClass =
+    "h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200";
 
   return (
     <>
@@ -155,13 +189,35 @@ export default function ProductsPageClient({
           externalHighlightedIds={highlightedIds}
           listSummary={listSummary}
           searchSlot={
-            <ProductListSearch
-              compact
-              query={draftQuery}
-              onQueryChange={setDraftQuery}
-              onConfirm={applySearch}
-              onSelectProduct={handleSelectProduct}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <ProductListSearch
+                compact
+                query={draftQuery}
+                onQueryChange={setDraftQuery}
+                onConfirm={applySearch}
+                onSelectProduct={handleSelectProduct}
+              />
+              <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                <span className="shrink-0">표시</span>
+                <select
+                  value={pageSize}
+                  disabled={isPending}
+                  onChange={(event) =>
+                    handlePageSizeChange(
+                      Number(event.target.value) as ProductPageSize,
+                    )
+                  }
+                  className={pageSizeSelectClass}
+                  aria-label="페이지당 표시 개수"
+                >
+                  {PRODUCT_PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           }
         />
       </div>
@@ -199,7 +255,7 @@ export default function ProductsPageClient({
                   type="button"
                   aria-current={isActive ? "page" : undefined}
                   disabled={isPending}
-                  onClick={() => loadView(page, searchQuery)}
+                  onClick={() => loadView(page, searchQuery, pageSize)}
                   className={`${pageButtonClass} ${
                     isActive
                       ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"

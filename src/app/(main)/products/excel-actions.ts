@@ -5,6 +5,12 @@ import {
   parseProductExcelBuffer,
   validateExcelProductRow,
 } from "@/lib/excel-products";
+import {
+  createRegistrationSkuContext,
+  duplicatePurchasePriceRowMessage,
+  previewRegistrationSku,
+  registerResolvedSku,
+} from "@/lib/product-duplicate";
 import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -51,6 +57,7 @@ export async function importProductsFromExcel(
 
   let successCount = 0;
   const errors: string[] = [];
+  const registrationContext = await createRegistrationSkuContext(supabase);
 
   for (let index = 0; index < rows.length; index++) {
     const rowNumber = index + 2;
@@ -62,21 +69,31 @@ export async function importProductsFromExcel(
       continue;
     }
 
-    const { error: dbError } = await supabase
-      .from("products")
-      .insert(excelRowToPayload(row));
+    const resolved = previewRegistrationSku(
+      { sku: row.sku, purchase_price: row.purchase_price },
+      registrationContext,
+    );
+
+    if ("error" in resolved) {
+      errors.push(duplicatePurchasePriceRowMessage(rowNumber));
+      continue;
+    }
+
+    const payload = excelRowToPayload(row);
+    payload.sku = resolved.sku;
+
+    const { error: dbError } = await supabase.from("products").insert(payload);
 
     if (dbError) {
       if (dbError.code === "23505") {
-        errors.push(
-          `${rowNumber}행: 같은 SKU, 공급처, 색상/옵션/사이즈 조합이 이미 있습니다.`,
-        );
+        errors.push(`${rowNumber}행: SKU를 사용할 수 없습니다.`);
       } else {
         errors.push(`${rowNumber}행: 등록에 실패했습니다.`);
       }
       continue;
     }
 
+    registerResolvedSku(registrationContext, resolved.sku, row.purchase_price);
     successCount++;
   }
 
