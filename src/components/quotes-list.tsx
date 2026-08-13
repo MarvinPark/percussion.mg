@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { deleteQuote, convertQuoteToSale, cancelQuoteConversion } from "@/app/(main)/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
 import QuoteConvertDialog from "@/components/quote-convert-dialog";
@@ -129,6 +129,19 @@ export default function QuotesList({
     setEditingQuote(null);
     router.refresh();
   }
+
+  useEffect(() => {
+    if (!editingQuote) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setEditingQuote(null);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [editingQuote]);
 
   function handleConfirmConvert(seller?: { userId: string; name: string }) {
     if (!convertingQuote) return;

@@ -584,12 +584,16 @@ export default function QuoteDocumentPreview({
   const [isCopying, setIsCopying] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [documentDate, setDocumentDate] = useState(data.quote_date);
-  const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(4);
+  const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(0);
   const [roundingUnit, setRoundingUnit] = useState<AmountRoundingUnit>(1000);
   const [roundingMode, setRoundingMode] = useState<AmountRoundingMode>("ceil");
 
   useEffect(() => {
+    if (!open) return;
     setDocumentDate(data.quote_date);
+    setCardFeePercent(0);
+    setRoundingUnit(1000);
+    setRoundingMode("ceil");
   }, [data.quote_date, mode, open]);
 
   const previewData = useMemo(

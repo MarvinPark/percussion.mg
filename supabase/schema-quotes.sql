@@ -75,3 +75,9 @@ create policy "로그인 사용자 견적 항목 조회"
 
 create policy "로그인 사용자 견적 항목 등록"
   on quote_items for insert to authenticated with check (true);
+
+create policy "로그인 사용자 견적 항목 수정"
+  on quote_items for update to authenticated using (true);
+
+create policy "로그인 사용자 견적 항목 삭제"
+  on quote_items for delete to authenticated using (true);

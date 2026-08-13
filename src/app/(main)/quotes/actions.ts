@@ -126,6 +126,13 @@ function formatQuoteSaveError(error: {
     return "quote_items 테이블에 출고지(fulfillment_location) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quote-items-fulfillment.sql을 실행해 주세요.";
   }
 
+  if (
+    message.includes("quote_items") &&
+    (error.code === "42501" || message.includes("row-level security"))
+  ) {
+    return "quote_items 삭제/수정 권한이 없습니다. Supabase SQL Editor에서 supabase/schema-quote-items-rls.sql을 실행해 주세요.";
+  }
+
   if (message.includes("business_partner")) {
     return "quotes 테이블에 거래처명(business_partner) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-business-partner.sql (또는 schema-quotes-update.sql)을 실행해 주세요.";
   }
@@ -397,7 +404,16 @@ export async function updateQuote(formData: FormData) {
     return { error: formatQuoteSaveError(quoteError) };
   }
 
-  await supabase.from("quote_items").delete().eq("quote_id", quoteId);
+  const { error: deleteItemsError } = await supabase
+    .from("quote_items")
+    .delete()
+    .eq("quote_id", quoteId);
+
+  if (deleteItemsError) {
+    return {
+      error: formatQuoteSaveError(deleteItemsError),
+    };
+  }
 
   const { error: itemsError } = await supabase
     .from("quote_items")
