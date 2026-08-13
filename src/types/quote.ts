@@ -1,5 +1,8 @@
+import type { FulfillmentLocation } from "@/lib/quote-fulfillment";
+
 export type QuoteItemInput = {
   product_id: string;
+  fulfillment_location: FulfillmentLocation;
   supplier: string;
   purchase_source: string;
   category: string;

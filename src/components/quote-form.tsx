@@ -17,6 +17,11 @@ import {
   calculateQuoteTotals,
   calculateQuoteFinalMargin,
 } from "@/lib/quote-calculator";
+import {
+  DEFAULT_FULFILLMENT_LOCATION,
+  FULFILLMENT_LOCATIONS,
+  type FulfillmentLocation,
+} from "@/lib/quote-fulfillment";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { displaySaleCategory, type SaleCategory } from "@/lib/sale-categories";
 import { formatKRW } from "@/lib/sales-calculator";
@@ -80,6 +85,7 @@ function buildItemFromProduct(
 
   return {
     product_id: product.id,
+    fulfillment_location: DEFAULT_FULFILLMENT_LOCATION,
     supplier: product.supplier,
     purchase_source: product.supplier,
     category: product.category ?? "",
@@ -287,6 +293,37 @@ export default function QuoteForm({
     setItems((prev) =>
       prev.map((item, i) =>
         i === index ? recalculateItem({ ...item, quantity }) : item,
+      ),
+    );
+  }
+
+  function updateItemPurchaseSource(index: number, purchaseSource: string) {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === index ? { ...item, purchase_source: purchaseSource } : item,
+      ),
+    );
+  }
+
+  function updateItemPurchasePrice(index: number, purchasePrice: number) {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? recalculateItem({ ...item, purchase_price: purchasePrice })
+          : item,
+      ),
+    );
+  }
+
+  function updateItemFulfillmentLocation(
+    index: number,
+    fulfillmentLocation: FulfillmentLocation,
+  ) {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? { ...item, fulfillment_location: fulfillmentLocation }
+          : item,
       ),
     );
   }
@@ -525,10 +562,12 @@ export default function QuoteForm({
       </section>
 
       <section className="-mx-1 overflow-x-auto rounded-xl border border-zinc-200 px-1 dark:border-zinc-700 sm:mx-0 sm:px-0">
-        <table className="min-w-[980px] w-full text-xs whitespace-nowrap">
+        <table className="min-w-[1180px] w-full text-xs whitespace-nowrap">
           <thead className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
+              <th className="px-2 py-2">출고지</th>
               <th className="px-2 py-2">공급처</th>
+              <th className="px-2 py-2">매입처</th>
               <th className="px-2 py-2">모델명</th>
               <th className="px-2 py-2">제품 설명</th>
               <th className="px-2 py-2">수량</th>
@@ -544,7 +583,7 @@ export default function QuoteForm({
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={12}
                   className="px-4 py-8 text-center text-sm text-zinc-500"
                 >
                   제품을 추가해 주세요.
@@ -556,7 +595,38 @@ export default function QuoteForm({
                   key={`${item.product_id}-${index}`}
                   className="border-t border-zinc-200 dark:border-zinc-700"
                 >
-                  <td className="px-2 py-2">{item.supplier || "-"}</td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={item.fulfillment_location}
+                      onChange={(e) =>
+                        updateItemFulfillmentLocation(
+                          index,
+                          e.target.value as FulfillmentLocation,
+                        )
+                      }
+                      className={`${mobileInputClass} w-24 sm:w-20`}
+                    >
+                      {FULFILLMENT_LOCATIONS.map((location) => (
+                        <option key={location} value={location}>
+                          {location}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">
+                    {item.supplier || "-"}
+                  </td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="text"
+                      value={item.purchase_source}
+                      onChange={(e) =>
+                        updateItemPurchaseSource(index, e.target.value)
+                      }
+                      placeholder="매입처"
+                      className={`${mobileInputClass} w-28 sm:w-24`}
+                    />
+                  </td>
                   <td className="px-2 py-2 font-medium">{item.model_name}</td>
                   <td className="max-w-[180px] truncate px-2 py-2">
                     {item.product_name}
@@ -585,8 +655,15 @@ export default function QuoteForm({
                   <td className="px-2 py-2 font-semibold">
                     {formatKRW(item.line_total)}
                   </td>
-                  <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">
-                    {formatKRW(item.purchase_price)}
+                  <td className="px-2 py-2">
+                    <PriceInput
+                      min={0}
+                      value={item.purchase_price}
+                      onChange={(purchasePrice) =>
+                        updateItemPurchasePrice(index, purchasePrice)
+                      }
+                      className={`${mobileInputClass} w-32 sm:w-28`}
+                    />
                   </td>
                   <td className="px-2 py-2 font-semibold text-green-700 dark:text-green-300">
                     {formatKRW(item.margin)}

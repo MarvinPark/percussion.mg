@@ -9,6 +9,12 @@ import type {
   ProductPageSize,
 } from "@/lib/product-list-loader";
 import { PRODUCT_PAGE_SIZE_OPTIONS } from "@/lib/product-list-loader";
+import {
+  cycleProductListSort,
+  productListSortToSearchParams,
+  type ProductListSort,
+  type ProductSortColumn,
+} from "@/lib/product-list-sort";
 import type { Product } from "@/types/product";
 
 const VISIBLE_PAGE_COUNT = 10;
@@ -29,11 +35,15 @@ function syncProductsUrl(
   page: number,
   searchQuery: string,
   pageSize: ProductPageSize,
+  sort: ProductListSort,
 ) {
   const params = new URLSearchParams();
   if (searchQuery) params.set("q", searchQuery);
   if (page > 1) params.set("page", String(page));
   if (pageSize !== 10) params.set("limit", String(pageSize));
+  const sortParams = productListSortToSearchParams(sort);
+  if (sortParams.sort) params.set("sort", sortParams.sort);
+  if (sortParams.order) params.set("order", sortParams.order);
   const query = params.toString();
   const nextUrl = query ? `/products?${query}` : "/products";
   window.history.replaceState(null, "", nextUrl);
@@ -47,6 +57,7 @@ type ProductsPageClientProps = {
   totalPages: number;
   searchQuery: string;
   pageSize: ProductPageSize;
+  sort: ProductListSort;
   readOnly?: boolean;
 };
 
@@ -58,6 +69,7 @@ export default function ProductsPageClient({
   totalPages: initialTotalPages,
   searchQuery: initialSearchQuery,
   pageSize: initialPageSize,
+  sort: initialSort,
   readOnly = false,
 }: ProductsPageClientProps) {
   const [isPending, startTransition] = useTransition();
@@ -67,6 +79,7 @@ export default function ProductsPageClient({
   const [totalPages, setTotalPages] = useState(initialTotalPages);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [pageSize, setPageSize] = useState(initialPageSize);
+  const [sort, setSort] = useState(initialSort);
   const [draftQuery, setDraftQuery] = useState(initialSearchQuery);
   const [pageWindowStart, setPageWindowStart] = useState(1);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
@@ -82,6 +95,7 @@ export default function ProductsPageClient({
     setTotalPages(initialTotalPages);
     setSearchQuery(initialSearchQuery);
     setPageSize(initialPageSize);
+    setSort(initialSort);
     setDraftQuery(initialSearchQuery);
   }, [
     initialProducts,
@@ -90,6 +104,7 @@ export default function ProductsPageClient({
     initialTotalPages,
     initialSearchQuery,
     initialPageSize,
+    initialSort,
   ]);
 
   useEffect(() => {
@@ -111,12 +126,18 @@ export default function ProductsPageClient({
     : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개`;
 
   const loadView = useCallback(
-    (page: number, query: string, nextPageSize: ProductPageSize = pageSize) => {
+    (
+      page: number,
+      query: string,
+      nextPageSize: ProductPageSize = pageSize,
+      nextSort: ProductListSort = sort,
+    ) => {
     startTransition(async () => {
       const result = await loadProductsListView({
         page,
         searchQuery: query,
         pageSize: nextPageSize,
+        sort: nextSort,
       });
 
       if ("error" in result && result.error) {
@@ -127,40 +148,53 @@ export default function ProductsPageClient({
         return;
       }
 
+      const resolvedPageSize = (result.pageSize ?? nextPageSize) as ProductPageSize;
+
       setProducts(result.products);
       setListStats(result.listStats);
       setCurrentPage(result.currentPage);
       setTotalPages(result.totalPages);
       setSearchQuery(result.searchQuery);
-      setPageSize(result.pageSize ?? nextPageSize);
+      setPageSize(resolvedPageSize);
+      setSort(nextSort);
       setDraftQuery(result.searchQuery);
       syncProductsUrl(
         result.currentPage,
         result.searchQuery,
-        result.pageSize ?? nextPageSize,
+        resolvedPageSize,
+        nextSort,
       );
     });
   },
-    [pageSize],
+    [pageSize, sort],
   );
 
   const applySearch = useCallback(() => {
-    loadView(1, draftQuery, pageSize);
-  }, [draftQuery, loadView, pageSize]);
+    loadView(1, draftQuery, pageSize, sort);
+  }, [draftQuery, loadView, pageSize, sort]);
 
   const handlePageSizeChange = useCallback(
     (nextPageSize: ProductPageSize) => {
       setPageSize(nextPageSize);
-      loadView(1, searchQuery, nextPageSize);
+      loadView(1, searchQuery, nextPageSize, sort);
     },
-    [loadView, searchQuery],
+    [loadView, searchQuery, sort],
+  );
+
+  const handleSortColumn = useCallback(
+    (column: ProductSortColumn) => {
+      const nextSort = cycleProductListSort(sort, column);
+      setSort(nextSort);
+      loadView(1, searchQuery, pageSize, nextSort);
+    },
+    [loadView, pageSize, searchQuery, sort],
   );
 
   const handleSelectProduct = useCallback(
     (product: Product) => {
       const value = product.sku || product.model_name;
       setDraftQuery(value);
-      loadView(1, value, pageSize);
+      loadView(1, value, pageSize, sort);
       setHighlightedIds(new Set([product.id]));
 
       requestAnimationFrame(() => {
@@ -173,7 +207,7 @@ export default function ProductsPageClient({
         setHighlightedIds(new Set());
       }, 2500);
     },
-    [loadView, pageSize],
+    [loadView, pageSize, sort],
   );
 
   const pageSizeSelectClass =
@@ -186,6 +220,8 @@ export default function ProductsPageClient({
           userId={userId}
           products={products}
           readOnly={readOnly}
+          sort={sort}
+          onSortColumn={handleSortColumn}
           externalHighlightedIds={highlightedIds}
           listSummary={listSummary}
           searchSlot={
@@ -255,7 +291,7 @@ export default function ProductsPageClient({
                   type="button"
                   aria-current={isActive ? "page" : undefined}
                   disabled={isPending}
-                  onClick={() => loadView(page, searchQuery, pageSize)}
+                  onClick={() => loadView(page, searchQuery, pageSize, sort)}
                   className={`${pageButtonClass} ${
                     isActive
                       ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"

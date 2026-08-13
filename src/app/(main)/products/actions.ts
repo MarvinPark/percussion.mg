@@ -7,6 +7,7 @@ import {
   PRODUCT_PAGE_SIZE,
   searchProductsForDropdown,
 } from "@/lib/product-list-loader";
+import type { ProductListSort } from "@/lib/product-list-sort";
 import {
   createRegistrationSkuContext,
   DUPLICATE_SKU_MESSAGE,
@@ -866,6 +867,38 @@ export async function toggleKeyStock(
   return { is_key_stock: next };
 }
 
+export async function applyKeyStockToProducts(
+  ids: string[],
+): Promise<{ error?: string; updatedCount?: number }> {
+  if (!ids.length) {
+    return { error: "적용할 제품이 없습니다." };
+  }
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
+  const { data, error } = await supabase
+    .from("products")
+    .update({
+      is_key_stock: true,
+      updated_at: new Date().toISOString(),
+    })
+    .in("id", ids)
+    .select("id");
+
+  if (error) {
+    console.error("applyKeyStockToProducts error:", error);
+    return { error: "주요 재고 적용에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+  }
+
+  revalidatePath("/products");
+  revalidatePath("/products/key-stock");
+  revalidatePath("/dashboard");
+
+  return { updatedCount: data?.length ?? ids.length };
+}
+
 export async function searchProductsForListDropdown(query: string) {
   const supabase = await createClient();
   const {
@@ -884,6 +917,7 @@ export async function loadProductsListView(input: {
   page: number;
   searchQuery?: string;
   pageSize?: number;
+  sort?: ProductListSort;
 }) {
   const supabase = await createClient();
   const { user } = await getCurrentUserProfile();
@@ -902,6 +936,7 @@ export async function loadProductsListView(input: {
       page: requestedPage,
       pageSize,
       searchQuery,
+      sort: input.sort,
     }),
   ]);
 

@@ -2,6 +2,10 @@
 
 import { calculateQuoteLine, calculateQuoteTotals } from "@/lib/quote-calculator";
 import {
+  parseFulfillmentLocation,
+  isStoreFulfillment,
+} from "@/lib/quote-fulfillment";
+import {
   buildSaleAmountsForLine,
   deleteSaleRecord,
   getProductForSale,
@@ -53,6 +57,8 @@ function parseQuoteItems(raw: string): QuoteItemInput[] | { error: string } {
 
       return {
         ...item,
+        purchase_source: item.purchase_source ?? "",
+        fulfillment_location: parseFulfillmentLocation(item.fulfillment_location),
         rounded_unit_price: calculated.roundedUnitPrice,
         line_total: calculated.lineTotal,
         margin: calculated.margin,
@@ -70,6 +76,7 @@ function mapItemsForInsert(quoteId: string, items: QuoteItemInput[]) {
     product_id: item.product_id || null,
     supplier: item.supplier || null,
     purchase_source: item.purchase_source || null,
+    fulfillment_location: parseFulfillmentLocation(item.fulfillment_location),
     category: item.category || null,
     brand: item.brand || null,
     product_name: item.product_name,
@@ -114,6 +121,10 @@ function formatQuoteSaveError(error: {
   details?: string;
 }) {
   const message = error.message ?? "";
+
+  if (message.includes("fulfillment_location")) {
+    return "quote_items 테이블에 출고지(fulfillment_location) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quote-items-fulfillment.sql을 실행해 주세요.";
+  }
 
   if (message.includes("business_partner")) {
     return "quotes 테이블에 거래처명(business_partner) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-business-partner.sql (또는 schema-quotes-update.sql)을 실행해 주세요.";
@@ -253,6 +264,8 @@ function normalizePastedQuoteItems(items: QuoteItemInput[]) {
 
     return {
       ...item,
+      purchase_source: item.purchase_source ?? "",
+      fulfillment_location: parseFulfillmentLocation(item.fulfillment_location),
       rounded_unit_price: calculated.roundedUnitPrice,
       line_total: calculated.lineTotal,
       margin: calculated.margin,
@@ -484,6 +497,8 @@ export async function convertQuoteToSale(
 
     const quantity = Math.round(Number(item.quantity) || 0);
     const unit_sale_price = Math.round(Number(item.sale_unit_price) || 0);
+    const unit_purchase_price = Math.round(Number(item.purchase_price) || 0);
+    const fromStore = isStoreFulfillment(item.fulfillment_location);
 
     if (quantity <= 0) {
       return {
@@ -499,7 +514,7 @@ export async function convertQuoteToSale(
     }
 
     const stockQuantity = productResult.product.stock_quantity;
-    if (stockQuantity > 0 && stockQuantity < quantity) {
+    if (fromStore && stockQuantity > 0 && stockQuantity < quantity) {
       return {
         error: `${lineNumber}번째 줄 (${item.model_name}): 재고가 부족합니다. (현재 ${stockQuantity}개, 판매 ${quantity}개)`,
       };
@@ -509,9 +524,15 @@ export async function convertQuoteToSale(
       buildSaleAmountsForLine(
         quantity,
         unit_sale_price,
-        productResult.product.purchase_price,
+        unit_purchase_price,
         paymentMethod,
       );
+
+    const purchaseSourceNote = item.purchase_source?.trim()
+      ? `매입처: ${item.purchase_source.trim()}`
+      : null;
+    const fulfillmentNote = fromStore ? null : "출고: 직발송";
+    const lineNote = [purchaseSourceNote, fulfillmentNote].filter(Boolean).join(" / ");
 
     const saleResult = await insertSaleRecord(supabase, {
       sold_at: soldAt,
@@ -519,7 +540,7 @@ export async function convertQuoteToSale(
       product_id: item.product_id,
       quantity,
       unit_sale_price,
-      unit_purchase_price: productResult.product.purchase_price,
+      unit_purchase_price,
       customer_name: quote.customer_name || null,
       business_partner: quote.business_partner || null,
       customer_phone: quote.customer_phone || null,
@@ -529,7 +550,7 @@ export async function convertQuoteToSale(
       payment_fee_amount: paymentFeeAmount,
       total_amount: totalAmount,
       margin_amount: marginAmount,
-      note: saleNote,
+      note: [saleNote, lineNote].filter(Boolean).join("\n") || null,
       created_by_user_id: sellerUserId,
       created_by_name: sellerName,
       quote_id: quoteId,
@@ -553,7 +574,7 @@ export async function convertQuoteToSale(
     }
 
     const stockOutQuantity =
-      stockQuantity > 0 ? Math.min(quantity, stockQuantity) : 0;
+      fromStore && stockQuantity > 0 ? Math.min(quantity, stockQuantity) : 0;
 
     if (stockOutQuantity > 0) {
       const stockResult = await recordStockOutForSale(

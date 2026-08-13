@@ -1,4 +1,5 @@
 import { calculateQuoteLine, calculateQuoteTotals } from "@/lib/quote-calculator";
+import { parseFulfillmentLocation } from "@/lib/quote-fulfillment";
 import { displaySaleCategory } from "@/lib/sale-categories";
 import type { QuoteFormData, QuoteItemInput } from "@/types/quote";
 
@@ -7,6 +8,7 @@ type DbQuoteItem = {
   product_id: string | null;
   supplier: string | null;
   purchase_source: string | null;
+  fulfillment_location?: string | null;
   category: string | null;
   brand: string | null;
   product_name: string;
@@ -52,6 +54,7 @@ export function dbQuoteItemToInput(item: DbQuoteItem): QuoteItemInput {
     product_id: item.product_id ?? "",
     supplier: item.supplier ?? "",
     purchase_source: item.purchase_source ?? "",
+    fulfillment_location: parseFulfillmentLocation(item.fulfillment_location),
     category: item.category ?? "",
     brand: item.brand ?? "",
     product_name: item.product_name,

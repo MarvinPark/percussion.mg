@@ -6,11 +6,13 @@ import {
   deleteProductsByIds,
   pasteProducts,
   restoreProducts,
+  applyKeyStockToProducts,
 } from "@/app/(main)/products/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ExcelProductActions from "@/components/excel-product-actions";
 import ProductsBulkEditModal from "@/components/products-bulk-edit-modal";
 import ProductsList from "@/components/products-list";
+import type { ProductListSort, ProductSortColumn } from "@/lib/product-list-sort";
 import type { CopiedProduct, Product } from "@/types/product";
 
 const toolbarButtonClass =
@@ -85,6 +87,8 @@ type ProductsWorkspaceProps = {
   externalHighlightedIds?: Set<string>;
   searchSlot?: ReactNode;
   listSummary?: ReactNode;
+  sort: ProductListSort;
+  onSortColumn: (column: ProductSortColumn) => void;
 };
 
 export default function ProductsWorkspace({
@@ -94,6 +98,8 @@ export default function ProductsWorkspace({
   externalHighlightedIds,
   searchSlot,
   listSummary,
+  sort,
+  onSortColumn,
 }: ProductsWorkspaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -105,6 +111,7 @@ export default function ProductsWorkspace({
   const [isPasting, setIsPasting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Product[] | null>(null);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [isApplyingKeyStock, setIsApplyingKeyStock] = useState(false);
   const clipboardRef = useRef<CopiedProduct[]>([]);
   const pastingRef = useRef(false);
   const historyBusyRef = useRef(false);
@@ -402,6 +409,26 @@ export default function ProductsWorkspace({
     router.refresh();
   }
 
+  const handleApplyKeyStock = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length || isApplyingKeyStock) return;
+
+    setIsApplyingKeyStock(true);
+    try {
+      const result = await applyKeyStockToProducts(ids);
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+
+      setSelectedIds(new Set());
+      showToast(`주요 재고 ${result.updatedCount ?? ids.length}건 적용`);
+      router.refresh();
+    } finally {
+      setIsApplyingKeyStock(false);
+    }
+  }, [isApplyingKeyStock, router, selectedIds, showToast]);
+
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -442,6 +469,14 @@ export default function ProductsWorkspace({
                 >
                   일괄수정
                 </button>
+                <button
+                  type="button"
+                  onClick={() => void handleApplyKeyStock()}
+                  disabled={selectedIds.size === 0 || isApplyingKeyStock}
+                  className={toolbarButtonClass}
+                >
+                  {isApplyingKeyStock ? "적용 중..." : "주요재고 적용"}
+                </button>
               </div>
             ) : null}
             {listSummary ? (
@@ -480,6 +515,8 @@ export default function ProductsWorkspace({
         userId={userId}
         products={products}
         readOnly={readOnly}
+        sort={sort}
+        onSortColumn={onSortColumn}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
         highlightedIds={mergedHighlightedIds}

@@ -315,6 +315,7 @@ create table quote_items (
   product_id uuid references products(id) on delete set null,
   supplier text,
   purchase_source text,
+  fulfillment_location text not null default '매장' check (fulfillment_location in ('직발송', '매장')),
   category text,
   brand text,
   product_name text not null,

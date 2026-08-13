@@ -9,6 +9,12 @@ import KeyStockStarToggle from "@/components/key-stock-star-toggle";
 import ResizableHeaderCell from "@/components/resizable-header-cell";
 import { useProductColumnWidths } from "@/hooks/use-product-column-widths";
 import { PRODUCT_TABLE_COLUMNS } from "@/lib/product-table-columns";
+import {
+  getSortDirectionForColumn,
+  isSortableProductColumn,
+  type ProductListSort,
+  type ProductSortColumn,
+} from "@/lib/product-list-sort";
 import { isLowStockProduct } from "@/lib/product-stock";
 import {
   getNextTableFocus,
@@ -63,6 +69,8 @@ type ProductsListProps = {
   hasClipboard: boolean;
   isPasting: boolean;
   readOnly?: boolean;
+  sort: ProductListSort;
+  onSortColumn: (column: ProductSortColumn) => void;
 };
 
 type ContextMenuState = {
@@ -339,6 +347,8 @@ export default function ProductsList({
   hasClipboard,
   isPasting,
   readOnly = false,
+  sort,
+  onSortColumn,
 }: ProductsListProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -591,13 +601,34 @@ export default function ProductsList({
 
         const isPriceColumn =
           column.id === "purchase_price" || column.id === "sale_price";
+        const columnId = column.id;
+
+        if (!isSortableProductColumn(columnId)) {
+          return (
+            <ResizableHeaderCell
+              key={columnId}
+              columnId={columnId}
+              label={column.label}
+              resizable={column.resizable}
+              className={`${stickyTableHeaderCellClass} shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)] ${
+                isPriceColumn ? priceHeaderCellClass : headerCellClass
+              }`}
+              onResizeStart={startResize}
+            />
+          );
+        }
+
+        const sortDirection = getSortDirectionForColumn(sort, columnId);
 
         return (
           <ResizableHeaderCell
-            key={column.id}
-            columnId={column.id}
+            key={columnId}
+            columnId={columnId}
             label={column.label}
             resizable={column.resizable}
+            sortable
+            sortDirection={sortDirection}
+            onSortClick={() => onSortColumn(columnId)}
             className={`${stickyTableHeaderCellClass} shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)] ${
               isPriceColumn ? priceHeaderCellClass : headerCellClass
             }`}

@@ -10,6 +10,7 @@ export const EXCEL_HEADERS = [
   "색상",
   "옵션",
   "사이즈",
+  "키워드",
   "매입가",
   "소비자가",
   "3층",
@@ -29,6 +30,7 @@ const EXAMPLE_ROW = [
   "레드",
   "",
   "",
+  "컴플렉스, complex",
   1500000,
   2000000,
   2,
@@ -48,6 +50,7 @@ export type ExcelProductRow = {
   color: string;
   product_option: string;
   size: string;
+  keywords: string;
   purchase_price: number;
   sale_price: number;
   stock_floor3: number;
@@ -159,7 +162,12 @@ export function createProductTemplateBuffer() {
     [...EXAMPLE_ROW],
   ]);
   worksheet["!cols"] = EXCEL_HEADERS.map((header) => ({
-    wch: header === "제품명" || header === "모델명" ? 18 : 12,
+    wch:
+      header === "제품명" || header === "모델명"
+        ? 18
+        : header === "키워드"
+          ? 24
+          : 12,
   }));
 
   const workbook = XLSX.utils.book_new();
@@ -203,6 +211,7 @@ export function parseProductExcelBuffer(buffer: ArrayBuffer) {
       color: cellValue(row["색상"]),
       product_option: cellValue(row["옵션"]),
       size: cellValue(row["사이즈"]),
+      keywords: cellValue(row["키워드"]),
       purchase_price: cellNumber(row["매입가"]),
       sale_price: cellNumber(row["소비자가"] ?? row["판매가"]),
       stock_floor3: stock.stock_floor3,
@@ -265,6 +274,7 @@ export function excelRowToPayload(row: ExcelProductRow) {
     color: row.color || null,
     product_option: row.product_option || null,
     size: row.size || null,
+    keywords: row.keywords || null,
     purchase_price: row.purchase_price,
     sale_price: row.sale_price,
     stock_floor3: row.stock_floor3,

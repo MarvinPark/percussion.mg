@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
+import {
+  DEFAULT_PRODUCT_LIST_SORT,
+  type ProductListSort,
+} from "@/lib/product-list-sort";
 import type { Product } from "@/types/product";
 
 export const PRODUCT_PAGE_SIZE = 10;
@@ -106,6 +110,7 @@ export async function fetchProductsPage(
     page: number;
     pageSize?: number;
     searchQuery?: string;
+    sort?: ProductListSort;
   },
 ): Promise<ProductPageResult> {
   const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
@@ -113,11 +118,19 @@ export async function fetchProductsPage(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   const searchQuery = options.searchQuery?.trim() ?? "";
+  const sort = options.sort ?? DEFAULT_PRODUCT_LIST_SORT;
 
   let builder = supabase
     .from("products")
-    .select(PRODUCT_LIST_SELECT, { count: "exact" })
-    .order("created_at", { ascending: false });
+    .select(PRODUCT_LIST_SELECT, { count: "exact" });
+
+  if (sort.column) {
+    builder = builder
+      .order(sort.column, { ascending: sort.direction === "asc" })
+      .order("created_at", { ascending: false });
+  } else {
+    builder = builder.order("created_at", { ascending: false });
+  }
 
   if (searchQuery) {
     builder = applyProductSearchFilter(builder, searchQuery);

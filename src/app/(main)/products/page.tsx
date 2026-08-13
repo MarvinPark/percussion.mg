@@ -7,12 +7,19 @@ import {
   parseProductPageSize,
   PRODUCT_PAGE_SIZE,
 } from "@/lib/product-list-loader";
+import { parseProductListSort } from "@/lib/product-list-sort";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 
 type ProductsPageProps = {
-  searchParams: Promise<{ page?: string; q?: string; limit?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    q?: string;
+    limit?: string;
+    sort?: string;
+    order?: string;
+  }>;
 };
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
@@ -20,6 +27,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const searchQuery = params.q?.trim() ?? "";
   const requestedPage = Math.max(1, Number(params.page) || 1);
   const pageSize = parseProductPageSize(params.limit);
+  const sort = parseProductListSort(params.sort, params.order);
 
   const supabase = await createClient();
   const { user, profile } = await getCurrentUserProfile();
@@ -37,6 +45,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       page: requestedPage,
       pageSize,
       searchQuery,
+      sort,
     }),
   ]);
 
@@ -52,6 +61,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     if (currentPage > 1) nextParams.set("page", String(currentPage));
     if (pageSize !== PRODUCT_PAGE_SIZE) {
       nextParams.set("limit", String(pageSize));
+    }
+    if (sort.column) {
+      nextParams.set("sort", sort.column);
+      nextParams.set("order", sort.direction);
     }
     const suffix = nextParams.toString();
     redirect(suffix ? `/products?${suffix}` : "/products");
@@ -118,6 +131,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             totalPages={totalPages}
             searchQuery={searchQuery}
             pageSize={pageSize}
+            sort={sort}
             readOnly={!canManageProducts}
           />
         ) : null}
