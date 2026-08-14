@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { btnPrimary, inputBase } from "@/lib/ui-classes";
 import { login } from "./actions";
 
 export default function LoginForm({ authError }: { authError?: string }) {
@@ -27,7 +28,7 @@ export default function LoginForm({ authError }: { authError?: string }) {
           required
           autoComplete="email"
           placeholder="example@company.com"
-          className="w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:focus:border-zinc-300 dark:focus:ring-zinc-300"
+          className={`w-full ${inputBase} py-2.5`}
         />
       </div>
 
@@ -45,7 +46,7 @@ export default function LoginForm({ authError }: { authError?: string }) {
           required
           autoComplete="current-password"
           placeholder="비밀번호 입력"
-          className="w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:focus:border-zinc-300 dark:focus:ring-zinc-300"
+          className={`w-full ${inputBase} py-2.5`}
         />
       </div>
 
@@ -64,7 +65,7 @@ export default function LoginForm({ authError }: { authError?: string }) {
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
+        className={`w-full ${btnPrimary} py-2.5`}
       >
         {isPending ? "로그인 중..." : "로그인"}
       </button>

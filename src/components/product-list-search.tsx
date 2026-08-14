@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { searchProductsForListDropdown } from "@/app/(main)/products/actions";
+import ProductSearchResultRow from "@/components/product-search-result-row";
 import type { Product } from "@/types/product";
 
 const inputClass =
@@ -29,10 +30,6 @@ type ProductListSearchProps = {
   onSelectProduct: (product: Product) => void;
   compact?: boolean;
 };
-
-function displayText(value: string | null | undefined) {
-  return value?.trim() ? value : "-";
-}
 
 export default function ProductListSearch({
   query,
@@ -141,56 +138,14 @@ export default function ProductListSearch({
           </li>
         ) : (
           results.map((product) => (
-            <li key={product.id}>
-              <button
-                type="button"
-                role="option"
-                onClick={() => {
-                  onSelectProduct(product);
-                  setIsOpen(false);
-                }}
-                className="w-full border-b border-zinc-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
-              >
-                <div className="grid gap-1 text-[11px] leading-snug sm:grid-cols-3">
-                  <span>
-                    <span className="text-zinc-500 dark:text-zinc-400">공급처 </span>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {displayText(product.supplier)}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-zinc-500 dark:text-zinc-400">품목 </span>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {displayText(product.category)}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-zinc-500 dark:text-zinc-400">브랜드 </span>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {displayText(product.brand)}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-zinc-500 dark:text-zinc-400">제품명 </span>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {product.product_name}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-zinc-500 dark:text-zinc-400">모델명 </span>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {product.model_name}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-zinc-500 dark:text-zinc-400">SKU </span>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {product.sku}
-                    </span>
-                  </span>
-                </div>
-              </button>
-            </li>
+            <ProductSearchResultRow
+              key={product.id}
+              product={product}
+              onSelect={() => {
+                onSelectProduct(product);
+                setIsOpen(false);
+              }}
+            />
           ))
         )}
       </ul>
@@ -232,13 +187,15 @@ export default function ProductListSearch({
         autoComplete="off"
       />
       {compact ? (
-        <button
-          type="button"
-          onClick={handleConfirm}
-          className={compactConfirmButtonClass}
-        >
-          확인
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            className={compactConfirmButtonClass}
+          >
+            확인
+          </button>
+        </>
       ) : null}
       {!compact && query.trim() ? (
         <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">

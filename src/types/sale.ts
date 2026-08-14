@@ -41,9 +41,15 @@ export type SaleProductOption = {
   product_name: string;
   model_name: string;
   sku?: string;
+  category?: string | null;
+  brand?: string | null;
   keywords?: string | null;
   supplier: string;
   sale_price: number;
   purchase_price: number;
   stock_quantity: number;
 };
+
+/** 판매 등록 등에서 제품 목록 조회 시 사용 */
+export const SALE_PRODUCT_OPTION_SELECT =
+  "id, product_name, model_name, sku, category, brand, keywords, supplier, sale_price, purchase_price, stock_quantity";

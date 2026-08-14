@@ -5,6 +5,7 @@ import {
   type ProductListSort,
 } from "@/lib/product-list-sort";
 import type { Product } from "@/types/product";
+import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
 export const PRODUCT_PAGE_SIZE = 10;
 export const PRODUCT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
@@ -220,4 +221,24 @@ export async function searchProductsForDropdown(
 
   const { data } = await builder;
   return (data as Product[]) ?? [];
+}
+
+export async function searchSaleProductsForDropdown(
+  supabase: SupabaseClient,
+  searchQuery: string,
+  limit = 40,
+) {
+  const query = searchQuery.trim();
+  if (!query) return [];
+
+  let builder = supabase
+    .from("products")
+    .select(SALE_PRODUCT_OPTION_SELECT)
+    .order("product_name", { ascending: true })
+    .limit(limit);
+
+  builder = applyProductSearchFilter(builder, query);
+
+  const { data } = await builder;
+  return data ?? [];
 }

@@ -1,3 +1,4 @@
+import { alertAccent } from "@/lib/ui-classes";
 import Link from "next/link";
 
 type LowStockProduct = {
@@ -20,7 +21,7 @@ export default function DashboardLowStockAlert({
   if (products.length === 0) return null;
 
   return (
-    <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950">
+    <div className={`mt-6 ${alertAccent}`}>
       <h3 className="font-medium text-amber-900 dark:text-amber-200">
         재고 부족 알림
       </h3>

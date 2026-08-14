@@ -1,6 +1,17 @@
 import Link from "next/link";
+import ProductListShowAllButton from "@/components/product-list-show-all-button";
+import {
+  alertError,
+  btnPrimary,
+  btnSecondary,
+  cardDashed,
+  pageMain,
+  pageSubtitle,
+  pageTitle,
+} from "@/lib/ui-classes";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import ProductsPageClient from "@/components/products-page-client";
 import {
   fetchProductListStats,
@@ -82,13 +93,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const { products, error } = pageData;
 
   return (
-      <main className="mx-auto max-w-app px-4 py-8">
+      <main className={pageMain}>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              제품 목록
-            </h2>
-            <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className={pageTitle}>제품 목록</h2>
+              <Suspense fallback={null}>
+                <ProductListShowAllButton />
+              </Suspense>
+            </div>
+            <p className={pageSubtitle}>
               {canManageProducts
                 ? "행을 클릭하면 선택됩니다. 우클릭하면 복사·수정·상세보기 등 메뉴를 사용할 수 있습니다."
                 : "재고 현황을 조회할 수 있습니다. 수정은 관리자·매니저만 가능합니다."}
@@ -98,25 +112,25 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <div className="flex flex-wrap justify-end gap-2">
               <Link
                 href="/products/key-stock"
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className={btnSecondary}
               >
-                주요재고현황
+                주요재고
               </Link>
               <Link
                 href="/products/stock"
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className={btnSecondary}
               >
                 입고/출고
               </Link>
               <Link
                 href="/products/history"
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className={btnSecondary}
               >
                 변동 이력
               </Link>
               <Link
                 href="/products/new"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
+                className={btnPrimary}
               >
                 + 제품 등록
               </Link>
@@ -124,9 +138,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           ) : (
           <Link
             href="/products/key-stock"
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className={btnSecondary}
           >
-            주요재고현황
+            주요재고
           </Link>
           )}
         </div>
@@ -146,7 +160,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <div className={alertError}>
             <p className="font-medium">제품 목록을 불러오지 못했습니다.</p>
             <p className="mt-2">
               Supabase SQL Editor에서{" "}
@@ -157,13 +171,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </p>
           </div>
         ) : searchQuery && listStats.totalCount === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
+          <div className={cardDashed}>
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
               검색 결과가 없습니다.
             </p>
           </div>
         ) : !listStats.totalCount ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
+          <div className={cardDashed}>
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
               아직 등록된 제품이 없습니다.
             </p>

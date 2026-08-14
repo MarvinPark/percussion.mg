@@ -85,10 +85,14 @@ export type NavItem = {
 };
 
 export const ALL_NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "홈" },
   { href: "/products", label: "재고", permission: "viewProducts" },
   { href: "/sales", label: "매출", permission: "viewSales" },
   { href: "/quotes", label: "견적", permission: "viewQuotes" },
+  {
+    href: "/products/key-stock",
+    label: "주요재고",
+    permission: "viewProducts",
+  },
   { href: "/settings/users", label: "사용자", permission: "manageUsers" },
   { href: "/my-page", label: "마이페이지" },
 ];

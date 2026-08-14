@@ -44,7 +44,7 @@ function lineTotal(product: Product, reserved: number) {
 const headerClass =
   "whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold text-zinc-600 dark:text-zinc-400";
 const cellClass =
-  "whitespace-nowrap px-2 py-1.5 text-[11px] text-zinc-800 dark:text-zinc-200";
+  "whitespace-nowrap px-2 py-1.5 text-[12px] text-zinc-800 dark:text-zinc-200";
 const dividerClass =
   "w-0 border-l-2 border-blue-200 p-0 dark:border-blue-400/60";
 const filterDividerClass =
@@ -170,7 +170,7 @@ function ProductCells({
               event.currentTarget.blur();
             }
           }}
-          className="w-12 rounded border border-zinc-300 bg-white px-1 py-0.5 text-center text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
+          className="w-12 rounded border border-zinc-300 bg-white px-1 py-0.5 text-center text-[12px] dark:border-zinc-600 dark:bg-zinc-800"
           aria-label={`${product.model_name} 예약 수량`}
         />
       </td>

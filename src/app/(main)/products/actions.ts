@@ -6,6 +6,7 @@ import {
   fetchProductsPage,
   PRODUCT_PAGE_SIZE,
   searchProductsForDropdown,
+  searchSaleProductsForDropdown,
 } from "@/lib/product-list-loader";
 import type { ProductListSort } from "@/lib/product-list-sort";
 import {
@@ -910,6 +911,20 @@ export async function searchProductsForListDropdown(query: string) {
   }
 
   const products = await searchProductsForDropdown(supabase, query);
+  return { products, error: null };
+}
+
+export async function searchProductsForSaleDropdown(query: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { products: [], error: "로그인이 필요합니다." as const };
+  }
+
+  const products = await searchSaleProductsForDropdown(supabase, query);
   return { products, error: null };
 }
 

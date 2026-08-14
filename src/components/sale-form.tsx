@@ -26,8 +26,16 @@ const tableInputClass =
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
 
+const bulkBarLabelClass =
+  "shrink-0 text-xs font-semibold text-zinc-700 dark:text-zinc-300";
+
+const bulkBarInputClass =
+  "h-[34px] rounded border border-zinc-400 bg-white px-2 text-xs text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+const bulkBarButtonClass =
+  "inline-flex h-[34px] shrink-0 items-center rounded border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+
 type SaleFormProps = {
-  products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
   contactSuggestions: SaleContactSuggestions;
 };
@@ -49,14 +57,18 @@ function todayString() {
   return `${year}-${month}-${day}`;
 }
 
-function createEmptyLine(paymentMethods: PaymentMethod[]): SaleLineDraft {
+function createEmptyLine(
+  paymentMethods: PaymentMethod[],
+  options?: { paymentMethodId?: string; quantity?: number },
+): SaleLineDraft {
   return {
     id: crypto.randomUUID(),
     productId: "",
-    quantity: 1,
+    quantity: options?.quantity ?? 1,
     unitSalePrice: 0,
     unitPurchasePrice: 0,
-    paymentMethodId: paymentMethods[0]?.id ?? "",
+    paymentMethodId:
+      options?.paymentMethodId ?? paymentMethods[0]?.id ?? "",
   };
 }
 
@@ -76,13 +88,19 @@ function linePreview(
 }
 
 export default function SaleForm({
-  products,
   paymentMethods,
   contactSuggestions,
 }: SaleFormProps) {
   const [lines, setLines] = useState<SaleLineDraft[]>(() => [
     createEmptyLine(paymentMethods),
   ]);
+  const [selectedProductsByLine, setSelectedProductsByLine] = useState<
+    Record<string, SaleProductOption>
+  >({});
+  const [bulkPaymentMethodId, setBulkPaymentMethodId] = useState(
+    () => paymentMethods[0]?.id ?? "",
+  );
+  const [bulkQuantity, setBulkQuantity] = useState(1);
   const [businessPartner, setBusinessPartner] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -132,22 +150,67 @@ export default function SaleForm({
     );
   }
 
-  function handleProductChange(lineId: string, productId: string) {
-    const product = products.find((item) => item.id === productId);
+  function handleProductChange(
+    lineId: string,
+    product: SaleProductOption | null,
+  ) {
+    if (!product) {
+      setSelectedProductsByLine((prev) => {
+        const next = { ...prev };
+        delete next[lineId];
+        return next;
+      });
+      updateLine(lineId, {
+        productId: "",
+        unitSalePrice: 0,
+        unitPurchasePrice: 0,
+      });
+      return;
+    }
+
+    setSelectedProductsByLine((prev) => ({ ...prev, [lineId]: product }));
     updateLine(lineId, {
-      productId,
-      unitSalePrice: product?.sale_price ?? 0,
-      unitPurchasePrice: product?.purchase_price ?? 0,
+      productId: product.id,
+      unitSalePrice: product.sale_price ?? 0,
+      unitPurchasePrice: product.purchase_price ?? 0,
     });
   }
 
   function addLine() {
-    setLines((prev) => [...prev, createEmptyLine(paymentMethods)]);
+    setLines((prev) => [
+      ...prev,
+      createEmptyLine(paymentMethods, {
+        paymentMethodId: bulkPaymentMethodId,
+        quantity: bulkQuantity,
+      }),
+    ]);
   }
 
   function removeLine(id: string) {
     setLines((prev) =>
       prev.length <= 1 ? prev : prev.filter((line) => line.id !== id),
+    );
+  }
+
+  function applyBulkPaymentMethod() {
+    if (!bulkPaymentMethodId) return;
+
+    setLines((prev) =>
+      prev.map((line) => ({
+        ...line,
+        paymentMethodId: bulkPaymentMethodId,
+      })),
+    );
+  }
+
+  function applyBulkQuantity() {
+    if (bulkQuantity < 1) return;
+
+    setLines((prev) =>
+      prev.map((line) => ({
+        ...line,
+        quantity: bulkQuantity,
+      })),
     );
   }
 
@@ -185,7 +248,8 @@ export default function SaleForm({
               판매 제품
             </h3>
             <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-              + 버튼으로 여러 제품을 한 번에 등록할 수 있습니다.
+              + 버튼으로 여러 제품을 한 번에 등록할 수 있습니다. 수량·결제방식은
+              행마다 선택하거나 아래 일괄 적용을 사용하세요.
             </p>
           </div>
           <Link
@@ -194,6 +258,51 @@ export default function SaleForm({
           >
             결제 수단 관리 →
           </Link>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-800/40">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={bulkBarLabelClass}>수량 일괄</span>
+            <input
+              type="number"
+              min={1}
+              value={bulkQuantity}
+              onChange={(event) =>
+                setBulkQuantity(Math.max(1, Number(event.target.value) || 1))
+              }
+              className={`${bulkBarInputClass} w-20`}
+              aria-label="일괄 적용할 수량"
+            />
+            <button
+              type="button"
+              onClick={applyBulkQuantity}
+              disabled={bulkQuantity < 1 || lines.length === 0}
+              className={bulkBarButtonClass}
+            >
+              전체 적용
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={bulkBarLabelClass}>결제방식 일괄</span>
+            <div className="min-w-[10rem] max-w-xs">
+              <PaymentMethodCombobox
+                paymentMethods={paymentMethods}
+                value={bulkPaymentMethodId}
+                onChange={setBulkPaymentMethodId}
+                className={`${bulkBarInputClass} w-full min-w-[10rem]`}
+                aria-label="일괄 적용할 결제방식"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={applyBulkPaymentMethod}
+              disabled={!bulkPaymentMethodId || lines.length === 0}
+              className={bulkBarButtonClass}
+            >
+              전체 적용
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
@@ -232,10 +341,9 @@ export default function SaleForm({
                   >
                     <td className="px-3 py-2 align-top">
                       <ProductSearchSelect
-                        products={products}
-                        selectedProductId={line.productId}
-                        onSelect={(productId) =>
-                          handleProductChange(line.id, productId)
+                        selectedProduct={selectedProductsByLine[line.id] ?? null}
+                        onSelect={(product) =>
+                          handleProductChange(line.id, product)
                         }
                         compact
                         showHiddenField={false}

@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
+import AppBrandFooter from "@/components/app-brand-footer";
 import ThemeToggle from "@/components/theme-toggle";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
   variable: "--font-noto-sans-kr",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "600", "900"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "PERCUSSIONCENTER 관리시스템",
-  description: "재고 · 매출 · 견적 관리",
+  title: "PERCY",
+  description: "Sales · Inventory · Quotation",
 };
 
 export const viewport = {
@@ -40,8 +41,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full flex flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-        {children}
+      <body className="flex min-h-full flex-col bg-background text-foreground">
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <AppBrandFooter />
         <ThemeToggle />
       </body>
     </html>

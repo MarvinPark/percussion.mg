@@ -2,6 +2,7 @@ import Link from "next/link";
 import SaleForm from "@/components/sale-form";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { createClient } from "@/lib/supabase/server";
+import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 import { redirect } from "next/navigation";
 
 export default async function NewSalePage() {
@@ -16,9 +17,7 @@ export default async function NewSalePage() {
     await Promise.all([
     supabase
       .from("products")
-      .select(
-        "id, product_name, model_name, sku, keywords, supplier, sale_price, purchase_price, stock_quantity",
-      )
+      .select(SALE_PRODUCT_OPTION_SELECT)
       .order("product_name", { ascending: true }),
     supabase
       .from("payment_methods")
@@ -76,7 +75,6 @@ export default async function NewSalePage() {
         ) : (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <SaleForm
-              products={products}
               paymentMethods={paymentMethods}
               contactSuggestions={contactSuggestions}
             />

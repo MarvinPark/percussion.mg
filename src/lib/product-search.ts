@@ -1,4 +1,36 @@
 import type { Product } from "@/types/product";
+import type { SaleProductOption } from "@/types/sale";
+
+export function saleProductSearchHaystack(
+  product: Pick<
+    SaleProductOption,
+    "sku" | "category" | "model_name" | "product_name" | "keywords" | "supplier"
+  >,
+): string {
+  return [
+    product.sku,
+    product.category,
+    product.model_name,
+    product.product_name,
+    product.keywords,
+    product.supplier,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+export function matchesSaleProductSearch(
+  product: Pick<
+    SaleProductOption,
+    "sku" | "category" | "model_name" | "product_name" | "keywords" | "supplier"
+  >,
+  query: string,
+): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+  return saleProductSearchHaystack(product).includes(normalized);
+}
 
 export function productSearchHaystack(product: Product): string {
   return [

@@ -1,4 +1,13 @@
 import Link from "next/link";
+import {
+  alertError,
+  btnPrimary,
+  btnSecondary,
+  cardDashed,
+  pageMain,
+  pageSubtitle,
+  pageTitle,
+} from "@/lib/ui-classes";
 import QuotesPageClient from "@/components/quotes-page-client";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchAllProductSkus } from "@/lib/quote-product-search";
@@ -67,26 +76,19 @@ export default async function QuotesPage() {
   ];
 
   return (
-      <main className="mx-auto max-w-app px-4 py-8">
+      <main className={pageMain}>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              견적관리
-            </h2>
-            <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              견적 클릭으로 수정 · 매출전환
-            </p>
+            <h2 className={pageTitle}>견적관리</h2>
+            <p className={pageSubtitle}>견적 클릭으로 수정 · 매출전환</p>
           </div>
-          <Link
-            href="/quotes/new"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
-          >
+          <Link href="/quotes/new" className={btnPrimary}>
             + 견적서 작성
           </Link>
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <div className={alertError}>
             <p className="font-medium">견적 데이터를 불러오지 못했습니다.</p>
             <p className="mt-2">
               Supabase SQL Editor에서{" "}
@@ -101,7 +103,7 @@ export default async function QuotesPage() {
             </p>
           </div>
         ) : !quotes?.length ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
+          <div className={cardDashed}>
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
               아직 견적 기록이 없습니다.
             </p>

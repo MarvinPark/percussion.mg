@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PaymentMethod } from "@/types/sale";
+
+type DropdownPosition = {
+  top: number;
+  left: number;
+  width: number;
+};
 
 type PaymentMethodComboboxProps = {
   id?: string;
@@ -41,10 +48,13 @@ export default function PaymentMethodCombobox({
 }: PaymentMethodComboboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLUListElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [dropdownPosition, setDropdownPosition] =
+    useState<DropdownPosition | null>(null);
 
   const selectedMethod = useMemo(
     () => paymentMethods.find((method) => method.id === value) ?? null,
@@ -71,25 +81,55 @@ export default function PaymentMethodCombobox({
     return filtered.slice(0, 12);
   }, [paymentMethods, searchQuery]);
 
+  function updateDropdownPosition() {
+    const input = inputRef.current;
+    if (!input) return;
+
+    const rect = input.getBoundingClientRect();
+    setDropdownPosition({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  }
+
   useEffect(() => {
     setHighlightIndex(0);
   }, [matches.length, searchQuery]);
 
   useEffect(() => {
+    if (!open) return;
+
+    updateDropdownPosition();
+
     function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
       if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        containerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
       ) {
-        setOpen(false);
-        setQuery("");
-        setIsEditing(false);
+        return;
       }
+
+      setOpen(false);
+      setQuery("");
+      setIsEditing(false);
+    }
+
+    function handleReposition() {
+      updateDropdownPosition();
     }
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+    };
+  }, [open]);
 
   function handleSelect(method: PaymentMethod) {
     onChange(method.id);
@@ -102,6 +142,7 @@ export default function PaymentMethodCombobox({
     setQuery(nextQuery);
     setIsEditing(true);
     setOpen(true);
+    updateDropdownPosition();
 
     const normalized = nextQuery.trim().toLowerCase();
     if (!normalized) return;
@@ -116,6 +157,7 @@ export default function PaymentMethodCombobox({
 
   function handleFocus() {
     setOpen(true);
+    updateDropdownPosition();
     window.requestAnimationFrame(() => {
       inputRef.current?.select();
     });
@@ -126,7 +168,8 @@ export default function PaymentMethodCombobox({
       if (
         containerRef.current &&
         document.activeElement &&
-        containerRef.current.contains(document.activeElement)
+        (containerRef.current.contains(document.activeElement) ||
+          dropdownRef.current?.contains(document.activeElement))
       ) {
         return;
       }
@@ -152,6 +195,43 @@ export default function PaymentMethodCombobox({
     }, 0);
   }
 
+  const dropdown =
+    open && matches.length > 0 && dropdownPosition ? (
+      <ul
+        ref={dropdownRef}
+        style={{
+          position: "fixed",
+          top: dropdownPosition.top,
+          left: dropdownPosition.left,
+          width: dropdownPosition.width,
+          zIndex: 9999,
+        }}
+        className="max-h-56 overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
+      >
+        {matches.map((method, index) => (
+          <li key={method.id}>
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => handleSelect(method)}
+              className={`block w-full px-3 py-2 text-left text-sm ${
+                index === highlightIndex
+                  ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
+                  : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <span className="font-medium">{method.name}</span>
+              {method.fee_rate > 0 ? (
+                <span className="ml-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  수수료 {method.fee_rate}%
+                </span>
+              ) : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
   return (
     <div ref={containerRef} className="relative min-w-0">
       {name ? (
@@ -168,12 +248,16 @@ export default function PaymentMethodCombobox({
         aria-label={ariaLabel}
         onChange={(event) => handleInputChange(event.target.value)}
         onFocus={handleFocus}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          updateDropdownPosition();
+        }}
         onBlur={handleBlur}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
             setOpen(true);
+            updateDropdownPosition();
             if (matches.length > 0) {
               setHighlightIndex((prev) => (prev + 1) % matches.length);
             }
@@ -183,6 +267,7 @@ export default function PaymentMethodCombobox({
           if (event.key === "ArrowUp") {
             event.preventDefault();
             setOpen(true);
+            updateDropdownPosition();
             if (matches.length > 0) {
               setHighlightIndex(
                 (prev) => (prev - 1 + matches.length) % matches.length,
@@ -206,31 +291,9 @@ export default function PaymentMethodCombobox({
         className={className}
       />
 
-      {open && matches.length > 0 ? (
-        <ul className="absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
-          {matches.map((method, index) => (
-            <li key={method.id}>
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => handleSelect(method)}
-                className={`block w-full px-3 py-2 text-left text-sm ${
-                  index === highlightIndex
-                    ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
-                    : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <span className="font-medium">{method.name}</span>
-                {method.fee_rate > 0 ? (
-                  <span className="ml-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    수수료 {method.fee_rate}%
-                  </span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {typeof document !== "undefined" && dropdown
+        ? createPortal(dropdown, document.body)
+        : null}
     </div>
   );
 }

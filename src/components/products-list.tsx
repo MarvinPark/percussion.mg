@@ -21,6 +21,11 @@ import {
   tableFocusRingClass,
   type TableFocusState,
 } from "@/lib/product-table-navigation";
+import {
+  alertAccentInline,
+  btnPrimarySm,
+  btnSecondarySm,
+} from "@/lib/ui-classes";
 import type { Product } from "@/types/product";
 import { formatKRW } from "@/lib/sales-calculator";
 
@@ -48,7 +53,7 @@ const stickyTableHeaderCellClass =
   "bg-zinc-50 dark:bg-zinc-800";
 
 const tableClassName =
-  "w-full text-sm max-md:min-w-[720px] md:table-fixed";
+  "w-full table-fixed text-sm max-md:min-w-[720px]";
 const horizontalScrollClass =
   "overflow-x-auto overscroll-x-contain";
 const hiddenScrollbarClass =
@@ -164,7 +169,7 @@ function ProductDetailModal({
         </div>
 
         {isLowStock ? (
-          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-normal text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <p className={`mb-4 ${alertAccentInline}`}>
             재고 부족 — 현재 {product.stock_quantity}개 (최소{" "}
             {product.min_stock_quantity}개)
           </p>
@@ -189,20 +194,20 @@ function ProductDetailModal({
         <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
           <Link
             href={`/products/stock?product=${product.id}`}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-normal text-white hover:bg-blue-700 dark:bg-blue-500"
+            className={btnPrimarySm}
           >
             입고/출고
           </Link>
           <Link
             href={`/products/${product.id}/edit`}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className={btnSecondarySm}
           >
             전체 수정
           </Link>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className={btnSecondarySm}
           >
             닫기
           </button>
@@ -571,7 +576,7 @@ export default function ProductsList({
   const tableStyle = { minWidth: tableMinWidth };
 
   const colGroup = (
-    <colgroup className="max-md:hidden">
+    <colgroup>
       {tableColumns.map((column) => (
         <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
       ))}
@@ -660,7 +665,7 @@ export default function ProductsList({
 
   return (
     <>
-      <div className="max-w-full rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="max-w-full min-w-0 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
         <div className="sticky top-[var(--app-header-height)] z-20 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
           <div
             ref={headerScrollRef}
@@ -679,7 +684,7 @@ export default function ProductsList({
         <div
           ref={bodyScrollRef}
           onScroll={syncHeaderScroll}
-          className={horizontalScrollClass}
+          className={`${horizontalScrollClass} ${hiddenScrollbarClass}`}
         >
           <table className={tableClassName} style={tableStyle}>
             {colGroup}

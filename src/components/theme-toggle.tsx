@@ -34,7 +34,7 @@ export default function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label={theme === "light" ? "다크 모드로 전환" : "라이트 모드로 전환"}
-      className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white/95 px-4 py-2 text-sm font-semibold text-zinc-800 shadow-md backdrop-blur transition hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800/95 dark:text-zinc-100 dark:hover:bg-zinc-700"
+      className="fixed bottom-5 right-4 z-50 flex items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/90 px-4 py-2 text-sm font-semibold text-zinc-700 shadow-[var(--shadow-card)] backdrop-blur-md transition hover:border-zinc-300 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
     >
       {theme === "light" ? (
         <>

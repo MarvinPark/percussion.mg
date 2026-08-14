@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { btnPrimary, sectionAccent, sectionMuted } from "@/lib/ui-classes";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
@@ -334,7 +335,7 @@ export default function QuoteForm({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-zinc-200 bg-amber-50/40 p-4 dark:border-zinc-700 dark:bg-zinc-900">
+      <section className={sectionMuted}>
         <h3 className="text-center text-2xl font-bold tracking-[0.3em] text-zinc-900 dark:text-zinc-100">
           견 적 서
         </h3>
@@ -456,7 +457,7 @@ export default function QuoteForm({
         </div>
       </section>
 
-      <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+      <section className={sectionAccent}>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
@@ -764,7 +765,7 @@ export default function QuoteForm({
             disabled={
               isPending || items.length === 0 || paymentMethods.length === 0
             }
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            className={`${btnPrimary} px-4 py-2.5`}
           >
             {isPending
               ? "저장 중..."

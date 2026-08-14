@@ -29,10 +29,6 @@ type SaleEditModalProps = {
   onClose: () => void;
 };
 
-function productDisplayLabel(product: SaleProductOption) {
-  return `${product.product_name} / ${product.model_name} (${product.supplier}) — 재고 ${product.stock_quantity}개`;
-}
-
 function soldAtInputValue(value: string) {
   return value.slice(0, 10);
 }
@@ -56,6 +52,9 @@ export default function SaleEditModal({
     return names;
   }, [staffOptions, sale.created_by_name]);
 
+  const [selectedProduct, setSelectedProduct] = useState<SaleProductOption | null>(
+    initialProduct ?? null,
+  );
   const [selectedProductId, setSelectedProductId] = useState(sale.product_id);
   const [sellerName, setSellerName] = useState(
     sale.created_by_name?.trim() || sellerNameOptions[0] || "",
@@ -131,9 +130,9 @@ export default function SaleEditModal({
     [quantity, unitSalePrice, unitPurchasePrice, selectedPayment],
   );
 
-  function handleProductChange(productId: string) {
-    setSelectedProductId(productId);
-    const product = products.find((item) => item.id === productId);
+  function handleProductChange(product: SaleProductOption | null) {
+    setSelectedProduct(product);
+    setSelectedProductId(product?.id ?? "");
     if (product) {
       setUnitSalePrice(product.sale_price);
       setUnitPurchasePrice(product.purchase_price);
@@ -272,13 +271,9 @@ export default function SaleEditModal({
               판매 제품 <span className="text-red-500">*</span>
             </label>
             <ProductSearchSelect
-              products={products}
-              selectedProductId={selectedProductId}
+              selectedProduct={selectedProduct}
               onSelect={handleProductChange}
               showHiddenField={false}
-              initialDisplayValue={
-                initialProduct ? productDisplayLabel(initialProduct) : undefined
-              }
             />
           </div>
 

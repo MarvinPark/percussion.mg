@@ -4,24 +4,63 @@
 
 :root {
   --background: #f4f4f5;
-  --foreground: #18181b;
+  --foreground: #2a3a4f;
   --card: #ffffff;
-  --border: #e4e4e7;
-  --muted: #52525b;
+  --border: #e2e8f0;
+  --muted: #52607a;
+  --accent: #b45309;
+  --accent-soft: #fffbeb;
+  --accent-border: #fde68a;
+  --accent-muted: #92400e;
+  --surface-muted: #f8fafc;
+  --text-heading: #1a2740;
+  --text-body: #334155;
+  --text-muted: #5b6b8a;
+  --text-label: #4f46a5;
   --app-header-height: 4.25rem;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.03);
+  --shadow-header: 0 1px 0 rgb(0 0 0 / 0.04);
 }
 
 .dark {
   --background: #09090b;
-  --foreground: #f4f4f5;
-  --card: #18181b;
-  --border: #3f3f46;
-  --muted: #a1a1aa;
+  --foreground: #e2e8f4;
+  --card: #151c2b;
+  --border: #334155;
+  --muted: #94a3b8;
+  --accent: #fbbf24;
+  --accent-soft: rgb(69 26 3 / 0.35);
+  --accent-border: rgb(180 83 9 / 0.45);
+  --accent-muted: #fcd34d;
+  --surface-muted: #151c2b;
+  --text-heading: #f1f5f9;
+  --text-body: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-label: #a5b4fc;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.15);
+  --shadow-header: 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-accent-muted: var(--accent-muted);
+  --color-surface-muted: var(--surface-muted);
+  /* Slate-indigo tint — zinc utilities feel slightly colorful app-wide */
+  --color-zinc-50: #f8fafc;
+  --color-zinc-100: #f1f5f9;
+  --color-zinc-200: #e2e8f0;
+  --color-zinc-300: #cbd5e1;
+  --color-zinc-400: #94a3b8;
+  --color-zinc-500: #64748b;
+  --color-zinc-600: #52607a;
+  --color-zinc-700: #3d4f66;
+  --color-zinc-800: #2a3a4f;
+  --color-zinc-900: #1a2740;
+  --color-zinc-950: #0f172a;
   --font-sans: var(--font-noto-sans-kr), "Apple SD Gothic Neo", "Malgun Gothic",
     sans-serif;
   --max-width-app: 1600px;

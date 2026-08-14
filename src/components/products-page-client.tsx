@@ -103,6 +103,9 @@ export default function ProductsPageClient({
     setPageSize(initialPageSize);
     setSort(initialSort);
     setDraftQuery(initialSearchQuery);
+    if (!initialSearchQuery) {
+      setHighlightedIds(new Set());
+    }
   }, [
     initialProducts,
     initialListStats,

@@ -1,5 +1,10 @@
 import Link from "next/link";
 import DashboardLowStockAlert from "@/components/dashboard-low-stock-alert";
+import {
+  card,
+  cardInteractive,
+  pageMain,
+} from "@/lib/ui-classes";
 import { isLowStockProduct } from "@/lib/product-stock";
 import { formatKRW } from "@/lib/sales-calculator";
 import { fetchSalesPeriodSummaries } from "@/lib/sales-summary";
@@ -45,21 +50,18 @@ export default async function DashboardPage() {
     lowStockCandidates?.filter((item) => isLowStockProduct(item)) ?? [];
 
   return (
-      <main className="mx-auto max-w-app px-4 py-8">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <main className={pageMain}>
+        <div className={`${card} border-t-2 border-t-accent/40`}>
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
             오늘도 화이팅! {displayName}님
           </h2>
-          <p className="mt-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             {user.email}
           </p>
         </div>
 
         <div className={`mt-6 grid gap-4 ${canViewQuotes ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-          <Link
-            href="/products"
-            className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500"
-          >
+          <Link href="/products" className={cardInteractive}>
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
               재고
             </p>
@@ -74,10 +76,7 @@ export default async function DashboardPage() {
             </p>
           </Link>
 
-          <Link
-            href="/sales"
-            className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500"
-          >
+          <Link href="/sales" className={cardInteractive}>
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
               매출
             </p>
@@ -97,10 +96,7 @@ export default async function DashboardPage() {
           </Link>
 
           {canViewQuotes ? (
-          <Link
-            href="/quotes"
-            className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-500"
-          >
+          <Link href="/quotes" className={cardInteractive}>
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
               견적
             </p>

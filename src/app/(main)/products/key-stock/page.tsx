@@ -23,7 +23,7 @@ export default async function KeyStockPage() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              주요재고현황
+              주요재고
             </h2>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
               주요 재고로 체크된 제품만 품목별로 표시합니다.

@@ -168,7 +168,7 @@ export default function ProductForm({ product }: ProductFormProps) {
               주요 재고
             </label>
             <p className="mt-1 text-xs font-medium text-zinc-700 dark:text-zinc-400">
-              체크하면 주요재고현황 페이지에 표시됩니다.
+              체크하면 주요재고 페이지에 표시됩니다.
             </p>
           </div>
         </div>
