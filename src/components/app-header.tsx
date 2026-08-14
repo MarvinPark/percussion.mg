@@ -10,7 +10,7 @@ export default async function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-app items-center justify-between gap-3 px-4 py-3">
         <Link href="/dashboard" className="min-w-0 shrink hover:opacity-80">
           <p className="truncate text-xs font-semibold tracking-widest text-zinc-600 dark:text-zinc-400">
             PERCUSSIONCENTER

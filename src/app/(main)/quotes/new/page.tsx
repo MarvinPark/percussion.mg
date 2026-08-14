@@ -39,7 +39,7 @@ export default async function NewQuotePage() {
   const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
 
   return (
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto max-w-app px-4 py-8">
         <div className="mb-6">
           <Link
             href="/quotes"

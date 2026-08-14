@@ -43,7 +43,7 @@ export default async function StockHistoryPage() {
     .limit(100);
 
   return (
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-app px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <Link

@@ -345,7 +345,7 @@ export default function QuotesList({
             role="dialog"
             aria-modal="true"
             aria-labelledby="quote-edit-title"
-            className="my-4 w-full max-w-6xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+            className="my-4 w-full max-w-app rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3

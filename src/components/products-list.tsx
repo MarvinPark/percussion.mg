@@ -105,6 +105,17 @@ function ProductDetailModal({
   product: Product;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const fields: { label: string; value: string; fullWidth?: boolean }[] = [
     { label: "공급처", value: product.supplier, fullWidth: true },
     { label: "품목", value: product.category ?? "-" },
@@ -132,10 +143,18 @@ function ProductDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-detail-title"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+      >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="break-words text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <h3
+              id="product-detail-title"
+              className="break-words text-lg font-semibold text-zinc-900 dark:text-zinc-100"
+            >
               {product.product_name}
             </h3>
             <p className="mt-0.5 break-words text-sm font-normal text-zinc-600 dark:text-zinc-400">

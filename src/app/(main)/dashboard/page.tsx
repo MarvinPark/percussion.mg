@@ -45,7 +45,7 @@ export default async function DashboardPage() {
     lowStockCandidates?.filter((item) => isLowStockProduct(item)) ?? [];
 
   return (
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-app px-4 py-8">
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
             오늘도 화이팅! {displayName}님

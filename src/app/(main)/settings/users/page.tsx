@@ -18,7 +18,7 @@ export default async function UsersSettingsPage() {
     .order("full_name", { ascending: true });
 
   return (
-      <main className="mx-auto max-w-4xl px-4 py-8 pb-24">
+      <main className="mx-auto max-w-app px-4 py-8 pb-24">
         <h2 className="mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
           사용자 관리
         </h2>

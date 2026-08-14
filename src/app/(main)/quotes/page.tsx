@@ -67,7 +67,7 @@ export default async function QuotesPage() {
   ];
 
   return (
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-app px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">

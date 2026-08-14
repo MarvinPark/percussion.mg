@@ -23,7 +23,7 @@ export default async function StockPage({ searchParams }: PageProps) {
     .order("product_name", { ascending: true });
 
   return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto max-w-app px-4 py-8">
         <div className="mb-6">
           <Link
             href="/products"
