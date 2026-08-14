@@ -11,6 +11,7 @@ import {
   registerResolvedSku,
   resolveExcelImportSku,
 } from "@/lib/product-duplicate";
+import { recordAppUsage } from "@/lib/app-usage";
 import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -54,6 +55,10 @@ export async function importProductsFromExcel(
   const supabase = await createClient();
   const auth = await requirePermission("manageProducts");
   if ("error" in auth) return { error: auth.error };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   let successCount = 0;
   const errors: string[] = [];
@@ -101,6 +106,14 @@ export async function importProductsFromExcel(
 
   revalidatePath("/products");
   revalidatePath("/dashboard");
+
+  if (successCount > 0) {
+    await recordAppUsage(supabase, {
+      eventType: "excel_import",
+      amount: successCount,
+      userId: user?.id ?? null,
+    });
+  }
 
   if (successCount === 0) {
     return {

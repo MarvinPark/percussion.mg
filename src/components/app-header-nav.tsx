@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { logout } from "@/app/login/actions";
+import AppHeaderUsage from "@/components/app-header-usage";
+import type { MonthlyUsageSummary } from "@/lib/app-usage";
 import { ROLE_LABELS } from "@/lib/permissions";
 import type { NavItem } from "@/lib/permissions";
 import type { UserRole } from "@/types/profile";
@@ -11,6 +13,7 @@ import type { UserRole } from "@/types/profile";
 type AppHeaderNavProps = {
   navItems: NavItem[];
   role: UserRole;
+  usage: MonthlyUsageSummary;
 };
 
 function getActiveNavHref(pathname: string, navItems: NavItem[]) {
@@ -24,7 +27,7 @@ function getActiveNavHref(pathname: string, navItems: NavItem[]) {
   ).href;
 }
 
-export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
+export default function AppHeaderNav({ navItems, role, usage }: AppHeaderNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const activeHref = getActiveNavHref(pathname, navItems);
@@ -59,9 +62,12 @@ export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
       <div className="hidden items-center gap-2 md:flex">
         <nav className="flex flex-wrap items-center gap-1">
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className={linkClass(item.href)}>
-              {item.label}
-            </Link>
+            <Fragment key={item.href}>
+              <Link href={item.href} className={linkClass(item.href)}>
+                {item.label}
+              </Link>
+              {item.href === "/quotes" ? <AppHeaderUsage usage={usage} /> : null}
+            </Fragment>
           ))}
         </nav>
         <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
@@ -125,13 +131,19 @@ export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
           >
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={linkClass(item.href)}
-                >
-                  {item.label}
-                </Link>
+                <Fragment key={item.href}>
+                  <Link href={item.href} className={linkClass(item.href)}>
+                    {item.label}
+                  </Link>
+                  {item.href === "/quotes" ? (
+                    <div className="px-3 pb-1 lg:hidden">
+                      <AppHeaderUsage
+                        usage={usage}
+                        className="inline-flex flex-wrap items-center gap-1 text-[10px] font-extralight tracking-tight"
+                      />
+                    </div>
+                  ) : null}
+                </Fragment>
               ))}
               <form action={logout} className="pt-2">
                 <button
