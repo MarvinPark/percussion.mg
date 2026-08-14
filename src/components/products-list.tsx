@@ -42,8 +42,8 @@ function formatDate(value: string) {
 const actionButtonClass =
   "rounded border border-zinc-300 px-1.5 py-0.5 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
-const duplicateButtonClass =
-  "rounded border border-zinc-300 px-1.5 py-0.5 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
+const deleteButtonClass =
+  "rounded bg-red-600 px-1.5 py-0.5 text-[12px] leading-none font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
 
 const stickyTableHeaderCornerClass =
   "sticky left-0 z-30 bg-zinc-50 dark:bg-zinc-800";
@@ -69,6 +69,7 @@ type ProductsListProps = {
   someSelected: boolean;
   onSelectAll: (checked: boolean) => void;
   onDuplicateProducts: (products: Product[]) => void;
+  onRequestDelete: (products: Product[]) => void;
   isDuplicating: boolean;
   readOnly?: boolean;
   sort: ProductListSort;
@@ -219,6 +220,7 @@ function ProductContextMenu({
   products,
   selectedIds,
   onDuplicateProducts,
+  onRequestDelete,
   isDuplicating,
   onDetail,
   onClose,
@@ -228,6 +230,7 @@ function ProductContextMenu({
   products: Product[];
   selectedIds: Set<string>;
   onDuplicateProducts: (products: Product[]) => void;
+  onRequestDelete: (products: Product[]) => void;
   isDuplicating: boolean;
   onDetail: (product: Product) => void;
   onClose: () => void;
@@ -276,6 +279,15 @@ function ProductContextMenu({
     onClose();
   }
 
+  function handleDelete() {
+    const toDelete =
+      selectedIds.has(product.id) && selectedIds.size > 0
+        ? products.filter((item) => selectedIds.has(item.id))
+        : [product];
+    onRequestDelete(toDelete);
+    onClose();
+  }
+
   function handleEdit() {
     router.push(`/products/${product.id}/edit`);
     onClose();
@@ -313,6 +325,13 @@ function ProductContextMenu({
         <button type="button" onClick={handleEdit} className={`${menuItemClass} ${menuItemActive}`}>
           수정
         </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          className={`${menuItemClass} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40`}
+        >
+          삭제
+        </button>
         <button type="button" onClick={handleDetail} className={`${menuItemClass} ${menuItemActive}`}>
         상세보기
       </button>
@@ -332,6 +351,7 @@ export default function ProductsList({
   someSelected,
   onSelectAll,
   onDuplicateProducts,
+  onRequestDelete,
   isDuplicating,
   readOnly = false,
   sort,
@@ -342,7 +362,7 @@ export default function ProductsList({
   const [focusTarget, setFocusTarget] = useState<TableFocusState | null>(null);
   const checkboxRefs = useRef(new Map<string, HTMLInputElement>());
   const editRefs = useRef(new Map<string, HTMLAnchorElement>());
-  const duplicateRefs = useRef(new Map<string, HTMLButtonElement>());
+  const deleteRefs = useRef(new Map<string, HTMLButtonElement>());
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
@@ -398,8 +418,8 @@ export default function ProductsList({
       checkboxRefs.current.get(focusTarget.productId)?.focus();
     } else if (focusTarget.kind === "edit") {
       editRefs.current.get(focusTarget.productId)?.focus();
-    } else if (focusTarget.kind === "duplicate") {
-      duplicateRefs.current.get(focusTarget.productId)?.focus();
+    } else if (focusTarget.kind === "delete") {
+      deleteRefs.current.get(focusTarget.productId)?.focus();
     }
   }, [focusTarget]);
 
@@ -915,33 +935,32 @@ export default function ProductsList({
                         type="button"
                         ref={(element) => {
                           if (element) {
-                            duplicateRefs.current.set(product.id, element);
+                            deleteRefs.current.set(product.id, element);
                           } else {
-                            duplicateRefs.current.delete(product.id);
+                            deleteRefs.current.delete(product.id);
                           }
                         }}
                         tabIndex={-1}
-                        disabled={isDuplicating}
-                        onClick={() => onDuplicateProducts([product])}
+                        onClick={() => onRequestDelete([product])}
                         onKeyDown={(event) => {
                           event.stopPropagation();
                           if (event.key === "Tab") {
                             event.preventDefault();
                             navigateFocus(
-                              { kind: "duplicate", productId: product.id },
+                              { kind: "delete", productId: product.id },
                               event.shiftKey ? "backward" : "forward",
                             );
                           }
                         }}
-                        className={`${duplicateButtonClass} ${
-                          focusTarget?.kind === "duplicate" &&
+                        className={`${deleteButtonClass} ${
+                          focusTarget?.kind === "delete" &&
                           focusTarget.productId === product.id
                             ? tableFocusRingClass
                             : ""
                         }`}
-                        aria-label="복제"
+                        aria-label="삭제"
                       >
-                        복제
+                        -
                       </button>
                     </div>
                   </td>
@@ -960,6 +979,7 @@ export default function ProductsList({
           products={products}
           selectedIds={selectedIds}
           onDuplicateProducts={onDuplicateProducts}
+          onRequestDelete={onRequestDelete}
           isDuplicating={isDuplicating}
           onDetail={setSelectedProduct}
           onClose={() => setContextMenu(null)}

@@ -44,6 +44,31 @@ function dimensionSelectClass() {
   return "rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-800 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200";
 }
 
+function DimensionSelect({
+  value,
+  onChange,
+}: {
+  value: SalesRankDimension;
+  onChange: (value: SalesRankDimension) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+      기준
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as SalesRankDimension)}
+        className={dimensionSelectClass()}
+      >
+        {RANK_DIMENSIONS.map((dimension) => (
+          <option key={dimension} value={dimension}>
+            {SALES_RANK_DIMENSION_LABELS[dimension]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function formatMonthLabel(start: string): string {
   const [y, m] = start.split("-");
   return `${y}년 ${Number(m)}월`;
@@ -169,59 +194,31 @@ export default function SalesAnalyticsDashboard({
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div>
-          <div className="mb-2 flex justify-end">
-            <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-              기준
-              <select
-                value={leftDimension}
-                onChange={(event) =>
-                  setLeftDimension(event.target.value as SalesRankDimension)
-                }
-                className={dimensionSelectClass()}
-              >
-                {RANK_DIMENSIONS.map((dimension) => (
-                  <option key={dimension} value={dimension}>
-                    {SALES_RANK_DIMENSION_LABELS[dimension]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <SalesRankChart
-            title="월간 매출순위 Top 7"
-            entries={leftRanking}
-            dimensionLabel={SALES_RANK_DIMENSION_LABELS[leftDimension]}
-            monthLabel={monthLabel}
-          />
-        </div>
+        <SalesRankChart
+          title="월간 매출순위 Top 7"
+          entries={leftRanking}
+          dimensionLabel={SALES_RANK_DIMENSION_LABELS[leftDimension]}
+          monthLabel={monthLabel}
+          headerAction={
+            <DimensionSelect
+              value={leftDimension}
+              onChange={setLeftDimension}
+            />
+          }
+        />
 
-        <div>
-          <div className="mb-2 flex justify-end">
-            <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-              기준
-              <select
-                value={rightDimension}
-                onChange={(event) =>
-                  setRightDimension(event.target.value as SalesRankDimension)
-                }
-                className={dimensionSelectClass()}
-              >
-                {RANK_DIMENSIONS.map((dimension) => (
-                  <option key={dimension} value={dimension}>
-                    {SALES_RANK_DIMENSION_LABELS[dimension]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <SalesRankChart
-            title="월간 매출순위 Top 7"
-            entries={rightRanking}
-            dimensionLabel={SALES_RANK_DIMENSION_LABELS[rightDimension]}
-            monthLabel={monthLabel}
-          />
-        </div>
+        <SalesRankChart
+          title="월간 매출순위 Top 7"
+          entries={rightRanking}
+          dimensionLabel={SALES_RANK_DIMENSION_LABELS[rightDimension]}
+          monthLabel={monthLabel}
+          headerAction={
+            <DimensionSelect
+              value={rightDimension}
+              onChange={setRightDimension}
+            />
+          }
+        />
       </div>
     </div>
   );

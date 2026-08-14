@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter } from "next/navigation";
 import {
   applyKeyStockToProducts,
+  deleteProductsByIds,
   duplicateProducts,
 } from "@/app/(main)/products/actions";
+import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ExcelProductActions from "@/components/excel-product-actions";
 import ProductsBulkEditModal from "@/components/products-bulk-edit-modal";
 import ProductsList from "@/components/products-list";
@@ -56,6 +58,7 @@ export default function ProductsWorkspace({
   );
   const [toast, setToast] = useState<string | null>(null);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Product[] | null>(null);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isApplyingKeyStock, setIsApplyingKeyStock] = useState(false);
   const pendingHighlightRef = useRef<string[]>([]);
@@ -107,6 +110,50 @@ export default function ProductsWorkspace({
     if (!selected.length) return;
     void handleDuplicate(selected);
   }, [handleDuplicate, products, selectedIds]);
+
+  const handleDeleteProducts = useCallback(
+    async (targets: Product[]) => {
+      if (!targets.length) return;
+
+      const ids = targets.map((product) => product.id);
+      const result = await deleteProductsByIds(ids);
+
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const product of targets) {
+          next.delete(product.id);
+        }
+        return next;
+      });
+      showToast(`삭제 ${targets.length}건`);
+      router.refresh();
+    },
+    [router, showToast],
+  );
+
+  const handleRequestDelete = useCallback((targets: Product[]) => {
+    if (!targets.length) return;
+    setPendingDelete(targets);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!pendingDelete?.length) return;
+
+    const targets = pendingDelete;
+    setPendingDelete(null);
+    void handleDeleteProducts(targets);
+  }, [handleDeleteProducts, pendingDelete]);
+
+  const handleDeleteSelected = useCallback(() => {
+    const selected = products.filter((product) => selectedIds.has(product.id));
+    if (!selected.length) return;
+    handleRequestDelete(selected);
+  }, [handleRequestDelete, products, selectedIds]);
 
   useEffect(() => {
     if (!pendingHighlightRef.current.length) return;
@@ -185,6 +232,14 @@ export default function ProductsWorkspace({
                 </button>
                 <button
                   type="button"
+                  onClick={handleDeleteSelected}
+                  disabled={selectedIds.size === 0}
+                  className={toolbarButtonClass}
+                >
+                  삭제
+                </button>
+                <button
+                  type="button"
                   onClick={() => setBulkEditOpen(true)}
                   disabled={selectedIds.size === 0}
                   className={toolbarButtonClass}
@@ -217,6 +272,14 @@ export default function ProductsWorkspace({
 
       {toast ? <ActionToast message={toast} /> : null}
 
+      {pendingDelete ? (
+        <DeleteConfirmDialog
+          count={pendingDelete.length}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
+      ) : null}
+
       {bulkEditOpen ? (
         <ProductsBulkEditModal
           productIds={Array.from(selectedIds)}
@@ -238,6 +301,7 @@ export default function ProductsWorkspace({
         someSelected={someSelected}
         onSelectAll={handleSelectAll}
         onDuplicateProducts={handleDuplicate}
+        onRequestDelete={handleRequestDelete}
         isDuplicating={isDuplicating}
       />
     </>

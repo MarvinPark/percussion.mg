@@ -227,14 +227,6 @@ function DocumentTable({
   );
 }
 
-function CenterDivider() {
-  return (
-    <div className="center-divider flex justify-center py-2">
-      <span className="block h-px w-3/5 bg-zinc-400" />
-    </div>
-  );
-}
-
 const COMPANY_SEAL_SRC = "/images/company-seal.jpg";
 const COMPANY_SEAL_SIZE_PX = 95;
 const COMPANY_SEAL_BOTTOM_PX = -25;
@@ -336,15 +328,12 @@ function MemoBox({ memo }: { memo: string }) {
   if (!memo) return null;
 
   return (
-    <>
-      <CenterDivider />
-      <div className="memo-box mt-2 rounded border border-zinc-400 p-2">
-        <p className="text-[10px] font-normal text-zinc-500">메모</p>
-        <p className="mt-1 whitespace-pre-line text-[10px] font-normal leading-relaxed text-zinc-700">
-          {memo}
-        </p>
-      </div>
-    </>
+    <div className="memo-box mt-2 rounded border border-zinc-400 p-2">
+      <p className="text-[12px] font-normal text-zinc-600">메모</p>
+      <p className="mt-1 whitespace-pre-line text-[12px] font-normal leading-relaxed text-zinc-800">
+        {memo}
+      </p>
+    </div>
   );
 }
 
@@ -414,11 +403,9 @@ const PRINT_STYLES = `
   .amount-line-full .amount-value { font-size: 20px; font-weight: bold; white-space: nowrap; flex-shrink: 0; }
   .total-amount { color: #dc2626 !important; font-size: 16px; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .card-fee-row { font-size: 12px; font-weight: 500; color: #111 !important; text-align: right; }
-  .center-divider { display: flex; justify-content: center; padding: 8px 0; }
-  .center-divider span { display: block; width: 60%; height: 1px; background: #666; }
   .footer { margin-top: 8px; font-size: 11px; white-space: pre-line; }
-  .memo-box { border: 1px solid #666; padding: 6px 8px; font-size: 10px; font-weight: normal; }
-  .memo-box p { font-weight: normal; margin: 0; }
+  .memo-box { border: 1px solid #666; padding: 6px 8px; font-size: 12px; font-weight: normal; color: #333; }
+  .memo-box p { font-weight: normal; margin: 0; color: #333; }
   .bank-info { text-align: center; color: #dc2626 !important; font-weight: 600; font-size: 13px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .invoice-receipt { text-align: center; font-size: 18px; font-weight: 600; margin: 20px 0 8px; }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useMemo } from "react";
 import {
   formatManwonLabel,
@@ -12,6 +13,7 @@ type SalesRankChartProps = {
   entries: SalesRankEntry[];
   dimensionLabel: string;
   monthLabel: string;
+  headerAction?: ReactNode;
 };
 
 const LABEL_WIDTH = 88;
@@ -22,6 +24,7 @@ export default function SalesRankChart({
   entries,
   dimensionLabel,
   monthLabel,
+  headerAction,
 }: SalesRankChartProps) {
   const layout = useMemo(() => {
     const maxManwon = Math.max(
@@ -52,6 +55,9 @@ export default function SalesRankChart({
             {monthLabel} · {dimensionLabel} 기준 Top 7
           </p>
         </div>
+        {headerAction ? (
+          <div className="ml-auto shrink-0">{headerAction}</div>
+        ) : null}
       </div>
 
       {entries.length === 0 ? (

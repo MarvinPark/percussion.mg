@@ -11,4 +11,4 @@ alter table sales
 
 alter table sales
   add constraint sales_sale_category_check
-  check (sale_category in ('도매', '소매', 'VIP', '중고'));
+  check (sale_category in ('도매', '소매', 'VIP', '중고', '렌탈'));

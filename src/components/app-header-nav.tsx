@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { logout } from "@/app/login/actions";
-import AppHeaderUsage from "@/components/app-header-usage";
-import type { MonthlyUsageSummary } from "@/lib/app-usage";
 import { ROLE_LABELS } from "@/lib/permissions";
 import type { NavItem } from "@/lib/permissions";
 import type { UserRole } from "@/types/profile";
@@ -13,7 +11,6 @@ import type { UserRole } from "@/types/profile";
 type AppHeaderNavProps = {
   navItems: NavItem[];
   role: UserRole;
-  usage: MonthlyUsageSummary;
 };
 
 function getActiveNavHref(pathname: string, navItems: NavItem[]) {
@@ -27,7 +24,9 @@ function getActiveNavHref(pathname: string, navItems: NavItem[]) {
   ).href;
 }
 
-export default function AppHeaderNav({ navItems, role, usage }: AppHeaderNavProps) {
+const GRAY_NAV_HREFS = new Set(["/products", "/sales", "/quotes"]);
+
+export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const activeHref = getActiveNavHref(pathname, navItems);
@@ -49,6 +48,17 @@ export default function AppHeaderNav({ navItems, role, usage }: AppHeaderNavProp
 
   const linkClass = (href: string) => {
     const active = href === activeHref;
+    const isGrayNav = GRAY_NAV_HREFS.has(href);
+
+    if (isGrayNav) {
+      return [
+        "rounded-lg px-3 py-2 text-sm font-medium transition",
+        active
+          ? "bg-zinc-100 text-zinc-600 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
+          : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
+      ].join(" ");
+    }
+
     return [
       "rounded-lg px-3 py-2 text-sm font-medium transition",
       active
@@ -62,12 +72,9 @@ export default function AppHeaderNav({ navItems, role, usage }: AppHeaderNavProp
       <div className="hidden items-center gap-2 md:flex">
         <nav className="flex flex-wrap items-center gap-1">
           {navItems.map((item) => (
-            <Fragment key={item.href}>
-              <Link href={item.href} className={linkClass(item.href)}>
-                {item.label}
-              </Link>
-              {item.href === "/quotes" ? <AppHeaderUsage usage={usage} /> : null}
-            </Fragment>
+            <Link key={item.href} href={item.href} className={linkClass(item.href)}>
+              {item.label}
+            </Link>
           ))}
         </nav>
         <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
@@ -131,19 +138,13 @@ export default function AppHeaderNav({ navItems, role, usage }: AppHeaderNavProp
           >
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => (
-                <Fragment key={item.href}>
-                  <Link href={item.href} className={linkClass(item.href)}>
-                    {item.label}
-                  </Link>
-                  {item.href === "/quotes" ? (
-                    <div className="px-3 pb-1 lg:hidden">
-                      <AppHeaderUsage
-                        usage={usage}
-                        className="inline-flex flex-wrap items-center gap-1 text-[10px] font-extralight tracking-tight"
-                      />
-                    </div>
-                  ) : null}
-                </Fragment>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={linkClass(item.href)}
+                >
+                  {item.label}
+                </Link>
               ))}
               <form action={logout} className="pt-2">
                 <button

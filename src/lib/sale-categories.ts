@@ -1,4 +1,4 @@
-export const SALE_CATEGORIES = ["도매", "소매", "VIP", "중고"] as const;
+export const SALE_CATEGORIES = ["도매", "소매", "VIP", "중고", "렌탈"] as const;
 
 export type SaleCategory = (typeof SALE_CATEGORIES)[number];
 

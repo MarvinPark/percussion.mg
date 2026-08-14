@@ -1,5 +1,4 @@
 import { createProductExportBuffer } from "@/lib/excel-products";
-import { recordAppUsage } from "@/lib/app-usage";
 import {
   fetchProductsForExport,
 } from "@/lib/product-list-loader";
@@ -35,11 +34,6 @@ export async function GET(request: Request) {
 
   const buffer = createProductExportBuffer(products);
   const filename = searchQuery ? "검색제품목록.xlsx" : "제품목록.xlsx";
-
-  await recordAppUsage(supabase, {
-    eventType: "excel_download",
-    userId: user.id,
-  });
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
