@@ -24,6 +24,59 @@ export function parseProductPageSize(
   return PRODUCT_PAGE_SIZE;
 }
 
+const PRODUCT_PAGE_SIZE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+export function getProductPageSizeStorageKey(userId: string) {
+  return `pc-product-page-size-${userId}`;
+}
+
+export function loadSavedProductPageSize(
+  userId: string,
+): ProductPageSize | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = localStorage.getItem(getProductPageSizeStorageKey(userId));
+    if (!raw) return null;
+    const parsed = Number(raw);
+    if (PRODUCT_PAGE_SIZE_OPTIONS.includes(parsed as ProductPageSize)) {
+      return parsed as ProductPageSize;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function saveProductPageSize(
+  userId: string,
+  pageSize: ProductPageSize,
+) {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.setItem(getProductPageSizeStorageKey(userId), String(pageSize));
+  } catch {
+    // ignore quota / private mode
+  }
+
+  document.cookie = `${getProductPageSizeStorageKey(userId)}=${pageSize}; path=/; max-age=${PRODUCT_PAGE_SIZE_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+export function readProductPageSizeCookie(
+  cookieValue: string | undefined,
+): ProductPageSize | null {
+  if (!cookieValue) return null;
+
+  const parsed = Number(cookieValue);
+  if (PRODUCT_PAGE_SIZE_OPTIONS.includes(parsed as ProductPageSize)) {
+    return parsed as ProductPageSize;
+  }
+
+  return null;
+}
+
 export type ProductListStats = {
   totalCount: number;
   totalStockQuantity: number;

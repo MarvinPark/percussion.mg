@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import ProductListSearch from "@/components/product-list-search";
 import ProductsWorkspace from "@/components/products-workspace";
@@ -8,7 +8,12 @@ import type {
   ProductListStats,
   ProductPageSize,
 } from "@/lib/product-list-loader";
-import { PRODUCT_PAGE_SIZE_OPTIONS } from "@/lib/product-list-loader";
+import {
+  loadSavedProductPageSize,
+  PRODUCT_PAGE_SIZE,
+  PRODUCT_PAGE_SIZE_OPTIONS,
+  saveProductPageSize,
+} from "@/lib/product-list-loader";
 import {
   cycleProductListSort,
   productListSortToSearchParams,
@@ -85,6 +90,7 @@ export default function ProductsPageClient({
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const hasAppliedSavedPageSize = useRef(false);
 
   const isSearchActive = searchQuery.length > 0;
 
@@ -158,6 +164,7 @@ export default function ProductsPageClient({
       setPageSize(resolvedPageSize);
       setSort(nextSort);
       setDraftQuery(result.searchQuery);
+      saveProductPageSize(userId, resolvedPageSize);
       syncProductsUrl(
         result.currentPage,
         result.searchQuery,
@@ -166,8 +173,42 @@ export default function ProductsPageClient({
       );
     });
   },
-    [pageSize, sort],
+    [pageSize, sort, userId],
   );
+
+  useEffect(() => {
+    saveProductPageSize(userId, pageSize);
+  }, [userId, pageSize]);
+
+  useEffect(() => {
+    if (hasAppliedSavedPageSize.current) return;
+    hasAppliedSavedPageSize.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("limit")) return;
+
+    const savedPageSize = loadSavedProductPageSize(userId);
+    if (savedPageSize && savedPageSize !== initialPageSize) {
+      loadView(1, initialSearchQuery, savedPageSize, initialSort);
+      return;
+    }
+
+    if (initialPageSize !== PRODUCT_PAGE_SIZE) {
+      syncProductsUrl(
+        initialCurrentPage,
+        initialSearchQuery,
+        initialPageSize,
+        initialSort,
+      );
+    }
+  }, [
+    initialCurrentPage,
+    initialPageSize,
+    initialSearchQuery,
+    initialSort,
+    loadView,
+    userId,
+  ]);
 
   const applySearch = useCallback(() => {
     loadView(1, draftQuery, pageSize, sort);

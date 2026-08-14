@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import ProductsPageClient from "@/components/products-page-client";
 import {
   fetchProductListStats,
   fetchProductsPage,
+  getProductPageSizeStorageKey,
   parseProductPageSize,
   PRODUCT_PAGE_SIZE,
+  readProductPageSizeCookie,
 } from "@/lib/product-list-loader";
 import { parseProductListSort } from "@/lib/product-list-sort";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
@@ -26,8 +29,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const params = await searchParams;
   const searchQuery = params.q?.trim() ?? "";
   const requestedPage = Math.max(1, Number(params.page) || 1);
-  const pageSize = parseProductPageSize(params.limit);
-  const sort = parseProductListSort(params.sort, params.order);
 
   const supabase = await createClient();
   const { user, profile } = await getCurrentUserProfile();
@@ -35,6 +36,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   if (!user) {
     redirect("/login");
   }
+
+  const savedPageSizeCookie = readProductPageSizeCookie(
+    (await cookies()).get(getProductPageSizeStorageKey(user.id))?.value,
+  );
+  const pageSize = params.limit
+    ? parseProductPageSize(params.limit)
+    : savedPageSizeCookie ?? PRODUCT_PAGE_SIZE;
+  const sort = parseProductListSort(params.sort, params.order);
 
   const role = normalizeRole(profile?.role);
   const canManageProducts = hasPermission(role, "manageProducts");
