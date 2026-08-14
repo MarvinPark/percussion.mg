@@ -8,8 +8,8 @@ import {
 import {
   createRegistrationSkuContext,
   duplicatePurchasePriceRowMessage,
-  previewRegistrationSku,
   registerResolvedSku,
+  resolveExcelImportSku,
 } from "@/lib/product-duplicate";
 import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -69,7 +69,7 @@ export async function importProductsFromExcel(
       continue;
     }
 
-    const resolved = previewRegistrationSku(
+    const resolved = resolveExcelImportSku(
       { sku: row.sku, purchase_price: row.purchase_price },
       registrationContext,
     );
@@ -93,7 +93,9 @@ export async function importProductsFromExcel(
       continue;
     }
 
-    registerResolvedSku(registrationContext, resolved.sku, row.purchase_price);
+    if (!resolved.alreadyRegistered) {
+      registerResolvedSku(registrationContext, resolved.sku, row.purchase_price);
+    }
     successCount++;
   }
 

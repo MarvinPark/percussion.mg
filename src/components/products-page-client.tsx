@@ -268,6 +268,7 @@ export default function ProductsPageClient({
           onSortColumn={handleSortColumn}
           externalHighlightedIds={highlightedIds}
           listSummary={listSummary}
+          searchQuery={searchQuery}
           searchSlot={
             <div className="flex flex-wrap items-center gap-2">
               <ProductListSearch

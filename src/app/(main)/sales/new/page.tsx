@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SaleForm from "@/components/sale-form";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
+import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 import { redirect } from "next/navigation";
@@ -13,16 +14,16 @@ export default async function NewSalePage() {
 
   if (!user) redirect("/login");
 
-  const [{ data: products }, { data: paymentMethods }, { data: salesContacts }] =
-    await Promise.all([
+  const [
+    { data: products },
+    { paymentMethods, error: paymentMethodsError },
+    { data: salesContacts },
+  ] = await Promise.all([
     supabase
       .from("products")
       .select(SALE_PRODUCT_OPTION_SELECT)
       .order("product_name", { ascending: true }),
-    supabase
-      .from("payment_methods")
-      .select("*")
-      .order("sort_order", { ascending: true }),
+    fetchPaymentMethods(supabase),
     supabase
       .from("sales")
       .select(
@@ -64,13 +65,39 @@ export default async function NewSalePage() {
               먼저 제품을 등록해 주세요
             </Link>
           </div>
-        ) : !paymentMethods?.length ? (
+        ) : paymentMethodsError ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-            결제 방식 데이터가 없습니다.{" "}
-            <code className="rounded bg-red-100 px-1 dark:bg-red-900">
-              supabase/schema-sales.sql
-            </code>{" "}
-            파일을 실행해 주세요.
+            <p className="font-medium">결제 수단을 불러오지 못했습니다.</p>
+            <p className="mt-2">
+              Supabase에서{" "}
+              <code className="rounded bg-red-100 px-1 dark:bg-red-900">
+                supabase/schema-sales.sql
+              </code>
+              {" "}및{" "}
+              <code className="rounded bg-red-100 px-1 dark:bg-red-900">
+                supabase/schema-sales-update.sql
+              </code>
+              {" "}을 실행했는지 확인해 주세요.
+            </p>
+            <Link
+              href="/sales/payment-methods"
+              className="mt-4 inline-block text-sm font-medium text-blue-600 underline dark:text-blue-400"
+            >
+              결제 수단 관리로 이동
+            </Link>
+          </div>
+        ) : !paymentMethods.length ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            <p className="font-medium">등록된 결제 수단이 없습니다.</p>
+            <p className="mt-2">
+              <Link
+                href="/sales/payment-methods"
+                className="font-medium text-blue-600 underline dark:text-blue-400"
+              >
+                결제 수단 관리
+              </Link>
+              에서 결제 방식을 먼저 등록해 주세요.
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">

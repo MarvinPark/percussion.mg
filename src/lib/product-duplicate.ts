@@ -84,6 +84,26 @@ export function registerResolvedSku(
   context.variants.push({ sku, purchase_price: purchasePrice });
 }
 
+export function resolveDuplicateSku(
+  input: { sku: string; purchase_price: number },
+  context: RegistrationSkuContext,
+): { sku: string } | { error: string } {
+  const sku = normalizeProductSku(input.sku);
+  if (!sku) {
+    return { error: "SKU(모델번호)를 입력해 주세요." };
+  }
+
+  const baseSku = getBaseSku(sku);
+  const resolvedSku = nextVariantSku(
+    baseSku,
+    context.reservedSkus,
+    context.batchCounters,
+  );
+
+  registerResolvedSku(context, resolvedSku, input.purchase_price);
+  return { sku: resolvedSku };
+}
+
 export function resolveRegistrationSku(
   input: { sku: string; purchase_price: number },
   context: RegistrationSkuContext,
@@ -95,6 +115,32 @@ export function resolveRegistrationSku(
 
   registerResolvedSku(context, preview.sku, input.purchase_price);
   return preview;
+}
+
+/** 엑셀 등록: 이미 있는 SKU는 복제와 같이 -1, -2… 접미사로 새 제품 등록 */
+export function resolveExcelImportSku(
+  input: { sku: string; purchase_price: number },
+  context: RegistrationSkuContext,
+): { sku: string; alreadyRegistered: boolean } | { error: string } {
+  const sku = normalizeProductSku(input.sku);
+  if (!sku) {
+    return { error: "SKU(모델번호)를 입력해 주세요." };
+  }
+
+  if (context.reservedSkus.has(sku)) {
+    const resolved = resolveDuplicateSku(input, context);
+    if ("error" in resolved) {
+      return resolved;
+    }
+    return { sku: resolved.sku, alreadyRegistered: true };
+  }
+
+  const preview = previewRegistrationSku(input, context);
+  if ("error" in preview) {
+    return preview;
+  }
+
+  return { sku: preview.sku, alreadyRegistered: false };
 }
 
 export async function findProductBySku(

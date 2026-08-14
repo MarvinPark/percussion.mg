@@ -12,24 +12,52 @@ type ConfirmDialogProps = {
   onCancel: () => void;
 };
 
+const cancelButtonClass =
+  "rounded-lg border border-zinc-300 px-4 py-2 text-sm font-normal text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:focus-visible:ring-offset-zinc-900";
+
 export default function ConfirmDialog({
   title,
   description,
   confirmLabel = "네",
   cancelLabel = "아니오",
-  confirmClassName = "rounded-lg bg-blue-600 px-4 py-2 text-sm font-normal text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400",
+  confirmClassName = "rounded-lg bg-blue-600 px-4 py-2 text-sm font-normal text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:bg-blue-500 dark:hover:bg-blue-400 dark:focus-visible:ring-offset-zinc-900",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const yesButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     yesButtonRef.current?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+
       if (event.key === "Enter") {
         event.preventDefault();
         onConfirm();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const cancelButton = cancelButtonRef.current;
+      const yesButton = yesButtonRef.current;
+      if (!cancelButton || !yesButton) return;
+
+      if (event.shiftKey && document.activeElement === cancelButton) {
+        event.preventDefault();
+        yesButton.focus();
+        return;
+      }
+
+      if (!event.shiftKey && document.activeElement === yesButton) {
+        event.preventDefault();
+        cancelButton.focus();
       }
     }
 
@@ -38,12 +66,16 @@ export default function ConfirmDialog({
   }, [onConfirm, onCancel]);
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
+      onClick={onCancel}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        onClick={(event) => event.stopPropagation()}
       >
         <h3
           id="confirm-dialog-title"
@@ -58,9 +90,10 @@ export default function ConfirmDialog({
         ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <button
+            ref={cancelButtonRef}
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className={cancelButtonClass}
           >
             {cancelLabel}
           </button>

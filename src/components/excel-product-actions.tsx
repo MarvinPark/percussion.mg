@@ -12,6 +12,11 @@ import {
 import ProductRegistrationReportModal, {
   type ProductRegistrationReport,
 } from "@/components/product-registration-report-modal";
+import ConfirmDialog from "@/components/confirm-dialog";
+import {
+  productListSortToSearchParams,
+  type ProductListSort,
+} from "@/lib/product-list-sort";
 
 const buttonClass =
   "inline-flex items-center gap-1 rounded border border-zinc-300 px-2 py-1 text-[12px] leading-none font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
@@ -109,10 +114,17 @@ function SuccessMessage({
   );
 }
 
-export default function ExcelProductActions() {
+export default function ExcelProductActions({
+  searchQuery = "",
+  sort,
+}: {
+  searchQuery?: string;
+  sort?: ProductListSort;
+}) {
   const importInputRef = useRef<HTMLInputElement>(null);
   const updateInputRef = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<ProductRegistrationReport | null>(null);
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
 
   const [importState, importAction, importPending] = useActionState<
     ExcelImportResult | null,
@@ -145,6 +157,27 @@ export default function ExcelProductActions() {
       updateInputRef.current.value = "";
     }
   }, [updatePending, updateState]);
+
+  function buildExportUrl() {
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) {
+      params.set("q", searchQuery.trim());
+    }
+    if (sort) {
+      const sortParams = productListSortToSearchParams(sort);
+      if (sortParams.sort) params.set("sort", sortParams.sort);
+      if (sortParams.order) params.set("order", sortParams.order);
+    }
+    const query = params.toString();
+    return query
+      ? `/api/products/excel-export?${query}`
+      : "/api/products/excel-export";
+  }
+
+  function handleExportConfirm() {
+    setExportConfirmOpen(false);
+    window.location.assign(buildExportUrl());
+  }
 
   return (
     <>
@@ -202,6 +235,15 @@ export default function ExcelProductActions() {
               {updatePending ? "수정 중..." : "엑셀 수정"}
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={() => setExportConfirmOpen(true)}
+            className={buttonClass}
+          >
+            <ExcelIcon />
+            다운받기
+          </button>
         </div>
 
         <SuccessMessage
@@ -218,6 +260,14 @@ export default function ExcelProductActions() {
         <ProductRegistrationReportModal
           report={report}
           onClose={() => setReport(null)}
+        />
+      ) : null}
+
+      {exportConfirmOpen ? (
+        <ConfirmDialog
+          title="검색된 상품을 엑셀로 다운로드 하시겠습니까?"
+          onConfirm={handleExportConfirm}
+          onCancel={() => setExportConfirmOpen(false)}
         />
       ) : null}
     </>

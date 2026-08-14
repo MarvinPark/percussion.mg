@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { listPaymentMethods } from "@/app/(main)/sales/payment-methods/actions";
 import type { PaymentMethod } from "@/types/sale";
 
 type DropdownPosition = {
@@ -34,6 +35,15 @@ function methodSearchText(method: PaymentMethod) {
   return `${method.name} ${method.fee_rate}`;
 }
 
+function normalizeMethods(methods: PaymentMethod[]) {
+  return methods.map((method) => ({
+    id: method.id,
+    name: method.name,
+    fee_rate: Number(method.fee_rate) || 0,
+    sort_order: Number(method.sort_order) || 0,
+  }));
+}
+
 export default function PaymentMethodCombobox({
   id,
   name,
@@ -49,16 +59,29 @@ export default function PaymentMethodCombobox({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [methods, setMethods] = useState(() => normalizeMethods(paymentMethods));
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [dropdownPosition, setDropdownPosition] =
     useState<DropdownPosition | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setMethods(normalizeMethods(paymentMethods));
+  }, [paymentMethods]);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    };
+  }, []);
 
   const selectedMethod = useMemo(
-    () => paymentMethods.find((method) => method.id === value) ?? null,
-    [paymentMethods, value],
+    () => methods.find((method) => method.id === value) ?? null,
+    [methods, value],
   );
 
   const searchQuery = isEditing || query ? query : "";
@@ -73,13 +96,13 @@ export default function PaymentMethodCombobox({
   const matches = useMemo(() => {
     const normalized = searchQuery.trim().toLowerCase();
     const filtered = normalized
-      ? paymentMethods.filter((method) =>
+      ? methods.filter((method) =>
           methodSearchText(method).toLowerCase().includes(normalized),
         )
-      : paymentMethods;
+      : methods;
 
-    return filtered.slice(0, 12);
-  }, [paymentMethods, searchQuery]);
+    return filtered.slice(0, 20);
+  }, [methods, searchQuery]);
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -89,8 +112,20 @@ export default function PaymentMethodCombobox({
     setDropdownPosition({
       top: rect.bottom + 4,
       left: rect.left,
-      width: rect.width,
+      width: Math.max(rect.width, 220),
     });
+  }
+
+  async function refreshMethods() {
+    setIsLoading(true);
+    try {
+      const result = await listPaymentMethods();
+      if (result.paymentMethods.length > 0) {
+        setMethods(result.paymentMethods);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -147,7 +182,7 @@ export default function PaymentMethodCombobox({
     const normalized = nextQuery.trim().toLowerCase();
     if (!normalized) return;
 
-    const exact = paymentMethods.find(
+    const exact = methods.find(
       (method) => method.name.toLowerCase() === normalized,
     );
     if (exact) {
@@ -155,21 +190,26 @@ export default function PaymentMethodCombobox({
     }
   }
 
-  function handleFocus() {
+  function openDropdown() {
+    void refreshMethods();
     setOpen(true);
     updateDropdownPosition();
-    window.requestAnimationFrame(() => {
-      inputRef.current?.select();
-    });
+  }
+
+  function handleFocus() {
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+    openDropdown();
   }
 
   function handleBlur() {
-    window.setTimeout(() => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = setTimeout(() => {
       if (
-        containerRef.current &&
-        document.activeElement &&
-        (containerRef.current.contains(document.activeElement) ||
-          dropdownRef.current?.contains(document.activeElement))
+        containerRef.current?.contains(document.activeElement) ||
+        dropdownRef.current?.contains(document.activeElement)
       ) {
         return;
       }
@@ -177,10 +217,10 @@ export default function PaymentMethodCombobox({
       const normalized = query.trim().toLowerCase();
       if (normalized) {
         const matched =
-          paymentMethods.find(
+          methods.find(
             (method) => method.name.toLowerCase() === normalized,
           ) ??
-          paymentMethods.find((method) =>
+          methods.find((method) =>
             methodSearchText(method).toLowerCase().includes(normalized),
           );
 
@@ -192,13 +232,14 @@ export default function PaymentMethodCombobox({
       setQuery("");
       setIsEditing(false);
       setOpen(false);
-    }, 0);
+    }, 150);
   }
 
   const dropdown =
-    open && matches.length > 0 && dropdownPosition ? (
+    open && dropdownPosition ? (
       <ul
         ref={dropdownRef}
+        role="listbox"
         style={{
           position: "fixed",
           top: dropdownPosition.top,
@@ -208,27 +249,41 @@ export default function PaymentMethodCombobox({
         }}
         className="max-h-56 overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
       >
-        {matches.map((method, index) => (
-          <li key={method.id}>
-            <button
-              type="button"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => handleSelect(method)}
-              className={`block w-full px-3 py-2 text-left text-sm ${
-                index === highlightIndex
-                  ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
-                  : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              }`}
-            >
-              <span className="font-medium">{method.name}</span>
-              {method.fee_rate > 0 ? (
-                <span className="ml-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  수수료 {method.fee_rate}%
-                </span>
-              ) : null}
-            </button>
+        {isLoading ? (
+          <li className="px-3 py-2.5 text-sm text-zinc-500 dark:text-zinc-400">
+            불러오는 중...
           </li>
-        ))}
+        ) : matches.length === 0 ? (
+          <li className="px-3 py-2.5 text-sm text-zinc-500 dark:text-zinc-400">
+            {methods.length === 0
+              ? "등록된 결제 수단이 없습니다."
+              : "검색 결과가 없습니다."}
+          </li>
+        ) : (
+          matches.map((method, index) => (
+            <li key={method.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={method.id === value}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handleSelect(method)}
+                className={`block w-full px-3 py-2 text-left text-sm ${
+                  index === highlightIndex
+                    ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
+                    : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <span className="font-medium">{method.name}</span>
+                {method.fee_rate > 0 ? (
+                  <span className="ml-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    수수료 {method.fee_rate}%
+                  </span>
+                ) : null}
+              </button>
+            </li>
+          ))
+        )}
       </ul>
     ) : null;
 
@@ -241,6 +296,9 @@ export default function PaymentMethodCombobox({
         ref={inputRef}
         id={id}
         type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
         value={displayValue}
         placeholder={placeholder}
         autoComplete="off"
@@ -248,16 +306,12 @@ export default function PaymentMethodCombobox({
         aria-label={ariaLabel}
         onChange={(event) => handleInputChange(event.target.value)}
         onFocus={handleFocus}
-        onClick={() => {
-          setOpen(true);
-          updateDropdownPosition();
-        }}
+        onClick={openDropdown}
         onBlur={handleBlur}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
-            setOpen(true);
-            updateDropdownPosition();
+            openDropdown();
             if (matches.length > 0) {
               setHighlightIndex((prev) => (prev + 1) % matches.length);
             }
@@ -266,8 +320,7 @@ export default function PaymentMethodCombobox({
 
           if (event.key === "ArrowUp") {
             event.preventDefault();
-            setOpen(true);
-            updateDropdownPosition();
+            openDropdown();
             if (matches.length > 0) {
               setHighlightIndex(
                 (prev) => (prev - 1 + matches.length) % matches.length,

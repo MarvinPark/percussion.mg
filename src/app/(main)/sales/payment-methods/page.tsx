@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PaymentMethodsManager from "@/components/payment-methods-manager";
+import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -11,10 +12,7 @@ export default async function PaymentMethodsPage() {
 
   if (!user) redirect("/login");
 
-  const { data: paymentMethods, error } = await supabase
-    .from("payment_methods")
-    .select("*")
-    .order("sort_order", { ascending: true });
+  const { paymentMethods, error } = await fetchPaymentMethods(supabase);
 
   return (
       <main className="mx-auto max-w-3xl px-4 py-8">
@@ -48,7 +46,7 @@ export default async function PaymentMethodsPage() {
             </p>
           </div>
         ) : (
-          <PaymentMethodsManager paymentMethods={paymentMethods ?? []} />
+          <PaymentMethodsManager paymentMethods={paymentMethods} />
         )}
       </main>
   );

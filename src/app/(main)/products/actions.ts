@@ -13,8 +13,10 @@ import {
   createRegistrationSkuContext,
   DUPLICATE_SKU_MESSAGE,
   findProductBySku,
+  resolveDuplicateSku,
   resolveRegistrationSku,
 } from "@/lib/product-duplicate";
+import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
 import {
   addLocationStock,
   deductLocationStock,
@@ -773,6 +775,100 @@ export async function pasteProducts(
   revalidatePath("/dashboard");
 
   return { ids };
+}
+
+export async function duplicateProducts(
+  ids: string[],
+): Promise<{ ids?: string[]; error?: string }> {
+  if (!ids.length) {
+    return { error: "복제할 제품을 선택해 주세요." };
+  }
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
+  const { data: products, error: fetchError } = await supabase
+    .from("products")
+    .select(PRODUCT_LIST_SELECT)
+    .in("id", ids);
+
+  if (fetchError) {
+    console.error("duplicateProducts fetch error:", fetchError);
+    return { error: "복제할 제품을 불러오지 못했습니다." };
+  }
+
+  if (!products?.length) {
+    return { error: "복제할 제품을 찾을 수 없습니다." };
+  }
+
+  const registrationContext = await createRegistrationSkuContext(supabase);
+  const newIds: string[] = [];
+
+  for (const product of products) {
+    const resolved = resolveDuplicateSku(
+      {
+        sku: product.sku,
+        purchase_price: Number(product.purchase_price) || 0,
+      },
+      registrationContext,
+    );
+
+    if ("error" in resolved) {
+      return { error: resolved.error };
+    }
+
+    const stock_floor3 = Number(product.stock_floor3) || 0;
+    const stock_b1 = Number(product.stock_b1) || 0;
+    const stock_display = Number(product.stock_display) || 0;
+    const stock_quantity =
+      Number(product.stock_quantity) || stock_floor3 + stock_b1 + stock_display;
+
+    const { data, error: dbError } = await supabase
+      .from("products")
+      .insert({
+        sku: resolved.sku,
+        product_name: product.product_name,
+        model_name: product.model_name,
+        brand: product.brand || null,
+        category: product.category || null,
+        supplier: product.supplier,
+        color: product.color || null,
+        product_option: product.product_option || null,
+        size: product.size || null,
+        purchase_price: Number(product.purchase_price) || 0,
+        sale_price: Number(product.sale_price) || 0,
+        stock_quantity,
+        min_stock_quantity: Number(product.min_stock_quantity) || 0,
+        is_key_stock: product.is_key_stock ?? false,
+        stock_location: product.stock_location ?? "3층",
+        stock_floor3,
+        stock_b1,
+        stock_display,
+        reserved_quantity: 0,
+        keywords: product.keywords || null,
+      })
+      .select("id")
+      .single();
+
+    if (dbError || !data) {
+      console.error("duplicateProducts insert error:", dbError);
+      return {
+        error:
+          dbError?.code === "23505"
+            ? DUPLICATE_SKU_MESSAGE
+            : "제품 복제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      };
+    }
+
+    newIds.push(data.id);
+  }
+
+  revalidatePath("/products");
+  revalidatePath("/products/key-stock");
+  revalidatePath("/dashboard");
+
+  return { ids: newIds };
 }
 
 export async function updateKeyStockReserved(

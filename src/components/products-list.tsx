@@ -42,8 +42,8 @@ function formatDate(value: string) {
 const actionButtonClass =
   "rounded border border-zinc-300 px-1.5 py-0.5 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
-const deleteButtonClass =
-  "rounded bg-red-600 px-1.5 py-0.5 text-[12px] leading-none font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
+const duplicateButtonClass =
+  "rounded border border-zinc-300 px-1.5 py-0.5 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
 const stickyTableHeaderCornerClass =
   "sticky left-0 z-30 bg-zinc-50 dark:bg-zinc-800";
@@ -68,11 +68,8 @@ type ProductsListProps = {
   allSelected: boolean;
   someSelected: boolean;
   onSelectAll: (checked: boolean) => void;
-  onCopyProducts: (products: Product[]) => void;
-  onPaste: () => void;
-  onRequestDelete: (products: Product[]) => void;
-  hasClipboard: boolean;
-  isPasting: boolean;
+  onDuplicateProducts: (products: Product[]) => void;
+  isDuplicating: boolean;
   readOnly?: boolean;
   sort: ProductListSort;
   onSortColumn: (column: ProductSortColumn) => void;
@@ -221,11 +218,8 @@ function ProductContextMenu({
   menu,
   products,
   selectedIds,
-  hasClipboard,
-  isPasting,
-  onCopyProducts,
-  onPaste,
-  onRequestDelete,
+  onDuplicateProducts,
+  isDuplicating,
   onDetail,
   onClose,
   readOnly = false,
@@ -233,11 +227,8 @@ function ProductContextMenu({
   menu: ContextMenuState;
   products: Product[];
   selectedIds: Set<string>;
-  hasClipboard: boolean;
-  isPasting: boolean;
-  onCopyProducts: (products: Product[]) => void;
-  onPaste: () => void;
-  onRequestDelete: (products: Product[]) => void;
+  onDuplicateProducts: (products: Product[]) => void;
+  isDuplicating: boolean;
   onDetail: (product: Product) => void;
   onClose: () => void;
   readOnly?: boolean;
@@ -276,32 +267,17 @@ function ProductContextMenu({
   const menuItemDisabled =
     "cursor-not-allowed text-zinc-400 dark:text-zinc-500";
 
-  function handleCopy() {
-    const toCopy =
+  function handleDuplicate() {
+    const toDuplicate =
       selectedIds.has(product.id) && selectedIds.size > 0
         ? products.filter((item) => selectedIds.has(item.id))
         : [product];
-    onCopyProducts(toCopy);
-    onClose();
-  }
-
-  function handlePaste() {
-    if (!hasClipboard || isPasting) return;
-    onPaste();
+    onDuplicateProducts(toDuplicate);
     onClose();
   }
 
   function handleEdit() {
     router.push(`/products/${product.id}/edit`);
-    onClose();
-  }
-
-  function handleDelete() {
-    const toDelete =
-      selectedIds.has(product.id) && selectedIds.size > 0
-        ? products.filter((item) => selectedIds.has(item.id))
-        : [product];
-    onRequestDelete(toDelete);
     onClose();
   }
 
@@ -323,29 +299,19 @@ function ProductContextMenu({
           </button>
         ) : (
           <>
-        <button type="button" onClick={handleCopy} className={`${menuItemClass} ${menuItemActive}`}>
-          복사
-        </button>
         <button
           type="button"
-          onClick={handlePaste}
-          disabled={!hasClipboard || isPasting}
+          onClick={handleDuplicate}
+          disabled={isDuplicating}
           className={`${menuItemClass} ${
-            hasClipboard && !isPasting ? menuItemActive : menuItemDisabled
+            isDuplicating ? menuItemDisabled : menuItemActive
           }`}
         >
-          붙여넣기
+          {isDuplicating ? "복제 중..." : "복제"}
         </button>
         <div className="my-1 border-t border-zinc-200 dark:border-zinc-700" />
         <button type="button" onClick={handleEdit} className={`${menuItemClass} ${menuItemActive}`}>
           수정
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          className={`${menuItemClass} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40`}
-        >
-          삭제
         </button>
         <button type="button" onClick={handleDetail} className={`${menuItemClass} ${menuItemActive}`}>
         상세보기
@@ -365,11 +331,8 @@ export default function ProductsList({
   allSelected,
   someSelected,
   onSelectAll,
-  onCopyProducts,
-  onPaste,
-  onRequestDelete,
-  hasClipboard,
-  isPasting,
+  onDuplicateProducts,
+  isDuplicating,
   readOnly = false,
   sort,
   onSortColumn,
@@ -379,7 +342,7 @@ export default function ProductsList({
   const [focusTarget, setFocusTarget] = useState<TableFocusState | null>(null);
   const checkboxRefs = useRef(new Map<string, HTMLInputElement>());
   const editRefs = useRef(new Map<string, HTMLAnchorElement>());
-  const deleteRefs = useRef(new Map<string, HTMLButtonElement>());
+  const duplicateRefs = useRef(new Map<string, HTMLButtonElement>());
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
@@ -435,8 +398,8 @@ export default function ProductsList({
       checkboxRefs.current.get(focusTarget.productId)?.focus();
     } else if (focusTarget.kind === "edit") {
       editRefs.current.get(focusTarget.productId)?.focus();
-    } else if (focusTarget.kind === "delete") {
-      deleteRefs.current.get(focusTarget.productId)?.focus();
+    } else if (focusTarget.kind === "duplicate") {
+      duplicateRefs.current.get(focusTarget.productId)?.focus();
     }
   }, [focusTarget]);
 
@@ -952,32 +915,33 @@ export default function ProductsList({
                         type="button"
                         ref={(element) => {
                           if (element) {
-                            deleteRefs.current.set(product.id, element);
+                            duplicateRefs.current.set(product.id, element);
                           } else {
-                            deleteRefs.current.delete(product.id);
+                            duplicateRefs.current.delete(product.id);
                           }
                         }}
                         tabIndex={-1}
-                        onClick={() => onRequestDelete([product])}
+                        disabled={isDuplicating}
+                        onClick={() => onDuplicateProducts([product])}
                         onKeyDown={(event) => {
                           event.stopPropagation();
                           if (event.key === "Tab") {
                             event.preventDefault();
                             navigateFocus(
-                              { kind: "delete", productId: product.id },
+                              { kind: "duplicate", productId: product.id },
                               event.shiftKey ? "backward" : "forward",
                             );
                           }
                         }}
-                        className={`${deleteButtonClass} ${
-                          focusTarget?.kind === "delete" &&
+                        className={`${duplicateButtonClass} ${
+                          focusTarget?.kind === "duplicate" &&
                           focusTarget.productId === product.id
                             ? tableFocusRingClass
                             : ""
                         }`}
-                        aria-label="삭제"
+                        aria-label="복제"
                       >
-                        -
+                        복제
                       </button>
                     </div>
                   </td>
@@ -995,11 +959,8 @@ export default function ProductsList({
           menu={contextMenu}
           products={products}
           selectedIds={selectedIds}
-          hasClipboard={hasClipboard}
-          isPasting={isPasting}
-          onCopyProducts={onCopyProducts}
-          onPaste={onPaste}
-          onRequestDelete={onRequestDelete}
+          onDuplicateProducts={onDuplicateProducts}
+          isDuplicating={isDuplicating}
           onDetail={setSelectedProduct}
           onClose={() => setContextMenu(null)}
           readOnly={readOnly}

@@ -701,8 +701,15 @@ export default function QuoteForm({
           </Link>
         </div>
         {paymentMethods.length === 0 ? (
-          <p className="text-sm text-red-600">
-            등록된 결제 방식이 없습니다. 매출관리에서 먼저 등록해 주세요.
+          <p className="text-sm text-red-600 dark:text-red-400">
+            등록된 결제 방식이 없습니다.{" "}
+            <Link
+              href="/sales/payment-methods"
+              className="font-medium text-blue-600 underline dark:text-blue-400"
+            >
+              결제 수단 관리
+            </Link>
+            에서 먼저 등록해 주세요.
           </p>
         ) : (
           <PaymentMethodCombobox

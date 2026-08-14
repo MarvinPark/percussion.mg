@@ -104,7 +104,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </div>
             <p className={pageSubtitle}>
               {canManageProducts
-                ? "행을 클릭하면 선택됩니다. 우클릭하면 복사·수정·상세보기 등 메뉴를 사용할 수 있습니다."
+                ? "행을 클릭하면 선택됩니다. 우클릭하면 복제·수정·상세보기 등 메뉴를 사용할 수 있습니다."
                 : "재고 현황을 조회할 수 있습니다. 수정은 관리자·매니저만 가능합니다."}
             </p>
           </div>

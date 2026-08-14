@@ -1,6 +1,7 @@
 "use server";
 
 import { requirePermission } from "@/lib/profile";
+import { normalizePaymentMethods } from "@/lib/payment-methods";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -8,6 +9,36 @@ function revalidatePaymentPaths() {
   revalidatePath("/sales/payment-methods");
   revalidatePath("/sales/new");
   revalidatePath("/sales");
+  revalidatePath("/quotes");
+  revalidatePath("/quotes/new");
+}
+
+export async function listPaymentMethods() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { paymentMethods: [], error: "로그인이 필요합니다." as const };
+  }
+
+  const { data, error } = await supabase
+    .from("payment_methods")
+    .select("id, name, fee_rate, sort_order")
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    return {
+      paymentMethods: [],
+      error: "결제 수단을 불러오지 못했습니다." as const,
+    };
+  }
+
+  return {
+    paymentMethods: normalizePaymentMethods(data),
+    error: null,
+  };
 }
 
 export async function createPaymentMethod(formData: FormData) {

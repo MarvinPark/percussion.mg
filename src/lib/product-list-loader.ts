@@ -8,7 +8,7 @@ import type { Product } from "@/types/product";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
 export const PRODUCT_PAGE_SIZE = 10;
-export const PRODUCT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+export const PRODUCT_PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100, 200] as const;
 
 export type ProductPageSize =
   (typeof PRODUCT_PAGE_SIZE_OPTIONS)[number];
@@ -199,6 +199,45 @@ export async function fetchProductsPage(
   return {
     products: (data as Product[]) ?? [],
     totalCount: count ?? 0,
+    error: null,
+  };
+}
+
+export async function fetchProductsForExport(
+  supabase: SupabaseClient,
+  options: {
+    searchQuery?: string;
+    sort?: ProductListSort;
+  },
+): Promise<{ products: Product[]; error: string | null }> {
+  const searchQuery = options.searchQuery?.trim() ?? "";
+  const sort = options.sort ?? DEFAULT_PRODUCT_LIST_SORT;
+
+  let builder = supabase.from("products").select("*");
+
+  if (sort.column) {
+    builder = builder
+      .order(sort.column, { ascending: sort.direction === "asc" })
+      .order("created_at", { ascending: false });
+  } else {
+    builder = builder.order("created_at", { ascending: false });
+  }
+
+  if (searchQuery) {
+    builder = applyProductSearchFilter(builder, searchQuery);
+  }
+
+  const { data, error } = await builder;
+
+  if (error) {
+    return {
+      products: [],
+      error: "제품 목록을 불러오지 못했습니다.",
+    };
+  }
+
+  return {
+    products: (data as Product[]) ?? [],
     error: null,
   };
 }

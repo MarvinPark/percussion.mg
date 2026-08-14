@@ -3,71 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  deleteProductsByIds,
-  pasteProducts,
-  restoreProducts,
   applyKeyStockToProducts,
+  duplicateProducts,
 } from "@/app/(main)/products/actions";
-import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ExcelProductActions from "@/components/excel-product-actions";
 import ProductsBulkEditModal from "@/components/products-bulk-edit-modal";
 import ProductsList from "@/components/products-list";
 import type { ProductListSort, ProductSortColumn } from "@/lib/product-list-sort";
-import type { CopiedProduct, Product } from "@/types/product";
+import type { Product } from "@/types/product";
 
 const toolbarButtonClass =
   "inline-flex items-center rounded border border-zinc-300 px-2 py-1 text-[12px] leading-none font-normal text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
-
-type PasteHistoryEntry = {
-  type: "paste";
-  productIds: string[];
-  items: CopiedProduct[];
-};
-
-type DeleteHistoryEntry = {
-  type: "delete";
-  products: Product[];
-};
-
-type HistoryEntry = PasteHistoryEntry | DeleteHistoryEntry;
-
-function productToCopied(product: Product): CopiedProduct {
-  const { id: _id, created_at: _c, updated_at: _u, ...rest } = product;
-  return {
-    ...rest,
-    purchase_price: Number(rest.purchase_price) || 0,
-    sale_price: Number(rest.sale_price) || 0,
-    stock_quantity: Number(rest.stock_quantity) || 0,
-    min_stock_quantity: Number(rest.min_stock_quantity) || 0,
-    is_key_stock: rest.is_key_stock ?? false,
-    stock_location: rest.stock_location ?? "3층",
-    stock_floor3: Number(rest.stock_floor3) || 0,
-    stock_b1: Number(rest.stock_b1) || 0,
-    stock_display: Number(rest.stock_display) || 0,
-    reserved_quantity: Number(rest.reserved_quantity) || 0,
-  };
-}
-
-function shouldIgnoreKeyboardShortcut(event: KeyboardEvent) {
-  const element =
-    (event.target instanceof HTMLElement ? event.target : null) ??
-    (document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null);
-
-  if (!element) return false;
-
-  if (element instanceof HTMLInputElement) {
-    return element.type !== "checkbox";
-  }
-
-  const tag = element.tagName;
-  return (
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    element.isContentEditable
-  );
-}
 
 function ActionToast({ message }: { message: string }) {
   return (
@@ -87,6 +33,7 @@ type ProductsWorkspaceProps = {
   externalHighlightedIds?: Set<string>;
   searchSlot?: ReactNode;
   listSummary?: ReactNode;
+  searchQuery?: string;
   sort: ProductListSort;
   onSortColumn: (column: ProductSortColumn) => void;
 };
@@ -98,6 +45,7 @@ export default function ProductsWorkspace({
   externalHighlightedIds,
   searchSlot,
   listSummary,
+  searchQuery = "",
   sort,
   onSortColumn,
 }: ProductsWorkspaceProps) {
@@ -106,17 +54,10 @@ export default function ProductsWorkspace({
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const [clipboard, setClipboard] = useState<CopiedProduct[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  const [isPasting, setIsPasting] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Product[] | null>(null);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isApplyingKeyStock, setIsApplyingKeyStock] = useState(false);
-  const clipboardRef = useRef<CopiedProduct[]>([]);
-  const pastingRef = useRef(false);
-  const historyBusyRef = useRef(false);
-  const undoStackRef = useRef<HistoryEntry[]>([]);
-  const redoStackRef = useRef<HistoryEntry[]>([]);
   const pendingHighlightRef = useRef<string[]>([]);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,177 +76,37 @@ export default function ProductsWorkspace({
     }, 2000);
   }, []);
 
-  const pushHistory = useCallback((entry: HistoryEntry) => {
-    undoStackRef.current.push(entry);
-    redoStackRef.current = [];
-  }, []);
+  const handleDuplicate = useCallback(
+    async (targets: Product[]) => {
+      if (!targets.length || isDuplicating) return;
 
-  const copyProducts = useCallback(
-    (items: Product[]) => {
-      if (!items.length) return;
+      setIsDuplicating(true);
+      try {
+        const result = await duplicateProducts(targets.map((product) => product.id));
 
-      const copied = items.map(productToCopied);
-      clipboardRef.current = copied;
-      setClipboard(copied);
-      showToast("복사");
+        if (result.error) {
+          showToast(result.error);
+          return;
+        }
+
+        if (result.ids?.length) {
+          pendingHighlightRef.current = result.ids;
+          setSelectedIds(new Set());
+          showToast(`복제 ${result.ids.length}건`);
+          router.refresh();
+        }
+      } finally {
+        setIsDuplicating(false);
+      }
     },
-    [showToast],
+    [isDuplicating, router, showToast],
   );
 
-  const handleCopy = useCallback(() => {
+  const handleDuplicateSelected = useCallback(() => {
     const selected = products.filter((product) => selectedIds.has(product.id));
     if (!selected.length) return;
-    copyProducts(selected);
-  }, [copyProducts, products, selectedIds]);
-
-  const handlePaste = useCallback(async () => {
-    const items = clipboardRef.current;
-    if (!items.length || pastingRef.current) return;
-
-    pastingRef.current = true;
-    setIsPasting(true);
-
-    try {
-      const result = await pasteProducts(items);
-
-      if (result.error) {
-        showToast(result.error);
-        return;
-      }
-
-      if (result.ids?.length) {
-        pushHistory({
-          type: "paste",
-          productIds: result.ids,
-          items: items.map((item) => ({ ...item })),
-        });
-        pendingHighlightRef.current = result.ids;
-        setSelectedIds(new Set());
-        showToast("붙여넣기");
-        router.refresh();
-      }
-    } finally {
-      pastingRef.current = false;
-      setIsPasting(false);
-    }
-  }, [pushHistory, router, showToast]);
-
-  const handleDeleteProducts = useCallback(
-    async (targets: Product[]) => {
-      if (!targets.length || historyBusyRef.current) return;
-
-      historyBusyRef.current = true;
-
-      try {
-        const ids = targets.map((product) => product.id);
-        const result = await deleteProductsByIds(ids);
-
-        if (result.error) {
-          showToast(result.error);
-          return;
-        }
-
-        pushHistory({ type: "delete", products: targets });
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          for (const product of targets) {
-            next.delete(product.id);
-          }
-          return next;
-        });
-        router.refresh();
-      } finally {
-        historyBusyRef.current = false;
-      }
-    },
-    [pushHistory, router, showToast],
-  );
-
-  const handleRequestDelete = useCallback((targets: Product[]) => {
-    if (!targets.length) return;
-    setPendingDelete(targets);
-  }, []);
-
-  const handleConfirmDelete = useCallback(() => {
-    if (!pendingDelete?.length) return;
-
-    const targets = pendingDelete;
-    setPendingDelete(null);
-    void handleDeleteProducts(targets);
-  }, [handleDeleteProducts, pendingDelete]);
-
-  const handleUndo = useCallback(async () => {
-    if (historyBusyRef.current || !undoStackRef.current.length) return;
-
-    const entry = undoStackRef.current.pop();
-    if (!entry) return;
-
-    historyBusyRef.current = true;
-
-    try {
-      if (entry.type === "paste") {
-        const result = await deleteProductsByIds(entry.productIds);
-        if (result.error) {
-          undoStackRef.current.push(entry);
-          showToast(result.error);
-          return;
-        }
-      } else {
-        const result = await restoreProducts(entry.products);
-        if (result.error) {
-          undoStackRef.current.push(entry);
-          showToast(result.error);
-          return;
-        }
-      }
-
-      redoStackRef.current.push(entry);
-      setSelectedIds(new Set());
-      showToast("실행 취소");
-      router.refresh();
-    } finally {
-      historyBusyRef.current = false;
-    }
-  }, [router, showToast]);
-
-  const handleRedo = useCallback(async () => {
-    if (historyBusyRef.current || !redoStackRef.current.length) return;
-
-    const entry = redoStackRef.current.pop();
-    if (!entry) return;
-
-    historyBusyRef.current = true;
-
-    try {
-      if (entry.type === "paste") {
-        const result = await pasteProducts(entry.items);
-        if (result.error || !result.ids?.length) {
-          redoStackRef.current.push(entry);
-          showToast(result.error ?? "다시 실행에 실패했습니다.");
-          return;
-        }
-
-        entry.productIds = result.ids;
-        pendingHighlightRef.current = result.ids;
-      } else {
-        const result = await deleteProductsByIds(
-          entry.products.map((product) => product.id),
-        );
-        if (result.error) {
-          redoStackRef.current.push(entry);
-          showToast(result.error);
-          return;
-        }
-      }
-
-      undoStackRef.current.push(entry);
-      setSelectedIds(new Set());
-      showToast("다시 실행");
-      router.refresh();
-    } finally {
-      historyBusyRef.current = false;
-    }
-  }, [router, showToast]);
+    void handleDuplicate(selected);
+  }, [handleDuplicate, products, selectedIds]);
 
   useEffect(() => {
     if (!pendingHighlightRef.current.length) return;
@@ -314,64 +115,6 @@ export default function ProductsWorkspace({
     pendingHighlightRef.current = [];
     applyHighlight(ids);
   }, [products, applyHighlight]);
-
-  useEffect(() => {
-    if (readOnly) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (shouldIgnoreKeyboardShortcut(event)) return;
-
-      const isMod = event.metaKey || event.ctrlKey;
-      if (!isMod) return;
-
-      if (event.key === "z" || event.key === "Z") {
-        event.preventDefault();
-        if (event.shiftKey) {
-          void handleRedo();
-        } else {
-          void handleUndo();
-        }
-        return;
-      }
-
-      if (event.key === "y" || event.key === "Y") {
-        event.preventDefault();
-        void handleRedo();
-        return;
-      }
-
-      if (event.key === "c" || event.key === "C") {
-        const selected = products.filter((product) =>
-          selectedIds.has(product.id),
-        );
-        if (!selected.length) return;
-
-        event.preventDefault();
-        const copied = selected.map(productToCopied);
-        clipboardRef.current = copied;
-        setClipboard(copied);
-        showToast("복사");
-      }
-
-      if (event.key === "v" || event.key === "V") {
-        if (!clipboardRef.current.length || pastingRef.current) return;
-
-        event.preventDefault();
-        void handlePaste();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [
-    handlePaste,
-    handleRedo,
-    handleUndo,
-    products,
-    readOnly,
-    selectedIds,
-    showToast,
-  ]);
 
   useEffect(() => {
     return () => {
@@ -397,11 +140,6 @@ export default function ProductsWorkspace({
       setSelectedIds(new Set());
     }
   }
-
-  const selectedProducts = useMemo(
-    () => products.filter((product) => selectedIds.has(product.id)),
-    [products, selectedIds],
-  );
 
   function handleBulkEditSaved() {
     setSelectedIds(new Set());
@@ -439,27 +177,11 @@ export default function ProductsWorkspace({
               <div className="flex flex-wrap gap-1">
                 <button
                   type="button"
-                  onClick={handleCopy}
-                  disabled={selectedIds.size === 0}
+                  onClick={handleDuplicateSelected}
+                  disabled={selectedIds.size === 0 || isDuplicating}
                   className={toolbarButtonClass}
                 >
-                  복사
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handlePaste()}
-                  disabled={isPasting || clipboard.length === 0}
-                  className={toolbarButtonClass}
-                >
-                  {isPasting ? "붙여넣는 중..." : "붙여넣기"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRequestDelete(selectedProducts)}
-                  disabled={selectedIds.size === 0}
-                  className={toolbarButtonClass}
-                >
-                  삭제
+                  {isDuplicating ? "복제 중..." : "복제"}
                 </button>
                 <button
                   type="button"
@@ -487,21 +209,13 @@ export default function ProductsWorkspace({
           </div>
         ) : null}
         {!readOnly ? (
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <ExcelProductActions />
-        </div>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <ExcelProductActions searchQuery={searchQuery} sort={sort} />
+          </div>
         ) : null}
       </div>
 
       {toast ? <ActionToast message={toast} /> : null}
-
-      {pendingDelete ? (
-        <DeleteConfirmDialog
-          count={pendingDelete.length}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setPendingDelete(null)}
-        />
-      ) : null}
 
       {bulkEditOpen ? (
         <ProductsBulkEditModal
@@ -523,11 +237,8 @@ export default function ProductsWorkspace({
         allSelected={allSelected}
         someSelected={someSelected}
         onSelectAll={handleSelectAll}
-        onCopyProducts={copyProducts}
-        onPaste={() => void handlePaste()}
-        onRequestDelete={handleRequestDelete}
-        hasClipboard={clipboard.length > 0}
-        isPasting={isPasting}
+        onDuplicateProducts={handleDuplicate}
+        isDuplicating={isDuplicating}
       />
     </>
   );

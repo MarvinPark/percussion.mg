@@ -1,6 +1,7 @@
 import Link from "next/link";
 import QuoteForm from "@/components/quote-form";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
+import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { isProfileComplete } from "@/types/profile";
@@ -18,15 +19,12 @@ export default async function NewQuotePage() {
 
   const completeProfile = profile!;
 
-  const [{ count: productCount }, { data: paymentMethods }, { data: salesContacts }] =
+  const [{ count: productCount }, { paymentMethods }, { data: salesContacts }] =
     await Promise.all([
     supabase
       .from("products")
       .select("*", { count: "exact", head: true }),
-    supabase
-      .from("payment_methods")
-      .select("id, name, fee_rate, sort_order")
-      .order("sort_order", { ascending: true }),
+    fetchPaymentMethods(supabase),
     supabase
       .from("sales")
       .select(
@@ -71,7 +69,7 @@ export default async function NewQuotePage() {
         ) : (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <QuoteForm
-              paymentMethods={paymentMethods ?? []}
+              paymentMethods={paymentMethods}
               contactSuggestions={contactSuggestions}
               managerName={formatManagerDisplayName(
                 completeProfile.full_name,

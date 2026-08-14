@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import type { Product } from "@/types/product";
 
 export const EXCEL_HEADERS = [
   "공급처",
@@ -156,12 +157,8 @@ export function parseExcelStockFields(
   };
 }
 
-export function createProductTemplateBuffer() {
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    [...EXCEL_HEADERS],
-    [...EXAMPLE_ROW],
-  ]);
-  worksheet["!cols"] = EXCEL_HEADERS.map((header) => ({
+function excelColumnWidths() {
+  return EXCEL_HEADERS.map((header) => ({
     wch:
       header === "제품명" || header === "모델명"
         ? 18
@@ -169,6 +166,49 @@ export function createProductTemplateBuffer() {
           ? 24
           : 12,
   }));
+}
+
+export function productToExcelRow(product: Product) {
+  return [
+    product.supplier ?? "",
+    product.category ?? "",
+    product.brand ?? "",
+    product.product_name,
+    product.model_name,
+    product.sku,
+    product.color ?? "",
+    product.product_option ?? "",
+    product.size ?? "",
+    product.keywords ?? "",
+    product.purchase_price,
+    product.sale_price,
+    product.stock_floor3,
+    product.stock_b1,
+    product.stock_display,
+    product.stock_quantity,
+    product.min_stock_quantity,
+  ];
+}
+
+export function createProductTemplateBuffer() {
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    [...EXCEL_HEADERS],
+    [...EXAMPLE_ROW],
+  ]);
+  worksheet["!cols"] = excelColumnWidths();
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "제품등록");
+
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+export function createProductExportBuffer(products: Product[]) {
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    [...EXCEL_HEADERS],
+    ...products.map(productToExcelRow),
+  ]);
+  worksheet["!cols"] = excelColumnWidths();
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "제품등록");

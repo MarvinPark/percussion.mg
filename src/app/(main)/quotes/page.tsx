@@ -10,6 +10,7 @@ import {
 } from "@/lib/ui-classes";
 import QuotesPageClient from "@/components/quotes-page-client";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
+import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -24,7 +25,7 @@ export default async function QuotesPage() {
   const [
     { data: quotes, error },
     productSkus,
-    { data: paymentMethods },
+    { paymentMethods: paymentMethodsResult },
     { data: linkedSales },
     { data: salesContacts },
     { data: staffProfiles },
@@ -35,10 +36,7 @@ export default async function QuotesPage() {
       .order("created_at", { ascending: false })
       .limit(50),
     fetchAllProductSkus(supabase),
-    supabase
-      .from("payment_methods")
-      .select("id, name, fee_rate, sort_order")
-      .order("sort_order", { ascending: true }),
+    fetchPaymentMethods(supabase),
     supabase
       .from("sales")
       .select("quote_id")
@@ -57,6 +55,8 @@ export default async function QuotesPage() {
       .not("full_name", "is", null)
       .order("full_name"),
   ]);
+
+  const paymentMethods = paymentMethodsResult;
 
   const staffOptions = (staffProfiles ?? [])
     .filter((profile) => profile.full_name?.trim())
@@ -118,7 +118,7 @@ export default async function QuotesPage() {
           <QuotesPageClient
             quotes={quotes}
             productSkus={productSkus}
-            paymentMethods={paymentMethods ?? []}
+            paymentMethods={paymentMethods}
             convertedQuoteIds={convertedQuoteIds}
             contactSuggestions={contactSuggestions}
             managerName={formatManagerDisplayName(

@@ -11,6 +11,7 @@ import {
 import SalesAnalyticsDashboard from "@/components/sales-analytics-dashboard";
 import SalesImportPanels from "@/components/sales-import-panels";
 import SalesPageClient from "@/components/sales-page-client";
+import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchSalesAnalyticsRows } from "@/lib/sales-analytics";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
@@ -30,7 +31,7 @@ export default async function SalesPage() {
   const canCreateSales = hasPermission(role, "createSales");
   const canManagePaymentMethods = hasPermission(role, "managePaymentMethods");
 
-  const [{ data: sales, error }, { data: products }, { data: paymentMethods }, { data: staffProfiles }, analytics] =
+  const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, analytics] =
     await Promise.all([
       supabase
         .from("sales")
@@ -42,10 +43,7 @@ export default async function SalesPage() {
         .from("products")
         .select(SALE_PRODUCT_OPTION_SELECT)
         .order("product_name", { ascending: true }),
-      supabase
-        .from("payment_methods")
-        .select("id, name, fee_rate, sort_order")
-        .order("sort_order", { ascending: true }),
+      fetchPaymentMethods(supabase),
       supabase
         .from("profiles")
         .select("id, full_name")
@@ -53,6 +51,8 @@ export default async function SalesPage() {
         .order("full_name"),
       fetchSalesAnalyticsRows(supabase),
     ]);
+
+  const paymentMethods = paymentMethodsResult;
 
   const staffOptions = (staffProfiles ?? [])
     .filter((profile) => profile.full_name?.trim())
