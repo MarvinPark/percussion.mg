@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import {
   DEFAULT_SALE_CATEGORY,
+  formatSaleCategoryDbError,
   parseSaleCategory,
 } from "@/lib/sale-categories";
 import { getModifierInfo } from "@/lib/profile";
@@ -46,7 +47,10 @@ export function formatSaleInsertError(error: {
   const message = error.message ?? "";
 
   if (message.includes("sale_category")) {
-    return "sales 테이블에 sale_category 컬럼이 없습니다. supabase/schema-sales-category.sql을 실행해 주세요.";
+    return (
+      formatSaleCategoryDbError(message, "sales") ??
+      "sales 테이블에 sale_category 컬럼이 없습니다. supabase/schema-sales-category.sql을 실행해 주세요."
+    );
   }
 
   if (message.includes("customer_phone") || message.includes("customer_address")) {

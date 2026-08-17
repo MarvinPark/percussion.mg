@@ -22,7 +22,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { QuoteProductOption } from "@/types/quote";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { parseSaleCategory } from "@/lib/sale-categories";
+import { formatSaleCategoryDbError, parseSaleCategory } from "@/lib/sale-categories";
 import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
@@ -138,7 +138,10 @@ function formatQuoteSaveError(error: {
   }
 
   if (message.includes("sale_category")) {
-    return "quotes 테이블에 구분(sale_category) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-sale-category.sql을 실행해 주세요.";
+    return (
+      formatSaleCategoryDbError(message, "quotes") ??
+      "quotes 테이블에 구분(sale_category) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-sale-category.sql을 실행해 주세요."
+    );
   }
 
   if (
