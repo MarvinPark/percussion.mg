@@ -234,7 +234,7 @@ export default function QuotesList({
                 setEditingQuote(quote);
               }
             }}
-            className={`cursor-pointer rounded-lg border px-2 py-1 transition ${
+            className={`cursor-pointer rounded-lg border px-2 py-[5.5px] transition ${
               isHighlighted ? "paste-row-highlight" : ""
             } ${
               isConverted
