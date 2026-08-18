@@ -517,14 +517,14 @@ export default function QuoteForm({
       </section>
 
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-center gap-2">
           <p className="font-semibold text-zinc-900 dark:text-zinc-100">
             제품 추가
           </p>
           <button
             type="button"
             onClick={() => handleRegisterProductFromSearch(modelSearch.trim())}
-            className="shrink-0 rounded-lg border border-blue-600 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
+            className="shrink-0 rounded-lg border border-blue-600 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 sm:px-3 sm:py-1.5 sm:text-sm dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
           >
             제품등록
           </button>
