@@ -138,6 +138,7 @@ export default function SaleForm({
           product_id: line.productId,
           quantity: line.quantity,
           unit_sale_price: line.unitSalePrice,
+          unit_purchase_price: line.unitPurchasePrice,
           payment_method_id: line.paymentMethodId,
           fulfillment_location: line.fulfillmentLocation,
           shipping_cost: line.shippingCost,
@@ -469,10 +470,20 @@ export default function SaleForm({
                         aria-label={`${index + 1}번째 결제방식`}
                       />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 align-top text-zinc-700 dark:text-zinc-300">
-                      {line.productId
-                        ? `${formatKRW(line.unitPurchasePrice)}원`
-                        : "-"}
+                    <td className="px-3 py-2 align-top">
+                      {line.productId ? (
+                        <PriceInput
+                          min={0}
+                          value={line.unitPurchasePrice}
+                          onChange={(unitPurchasePrice) =>
+                            updateLine(line.id, { unitPurchasePrice })
+                          }
+                          className={tableInputClass}
+                          aria-label={`${index + 1}번째 매입가`}
+                        />
+                      ) : (
+                        <span className="text-zinc-400">-</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 align-top">
                       <PriceInput

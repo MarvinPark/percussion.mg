@@ -13,17 +13,19 @@ export function belongsToSkuFamily(baseSku: string, sku: string) {
   return /^-\d+$/.test(suffix);
 }
 
+/** 원본 SKU 뒤에 -1, -2… 접미사를 붙입니다. (예: FGDP-30 → FGDP-30-1) */
 export function nextVariantSku(
-  baseSku: string,
+  sourceSku: string,
   reservedSkus: Set<string>,
   batchCounters?: Map<string, number>,
 ) {
-  let n = batchCounters?.get(baseSku) ?? 1;
+  const key = sourceSku.trim();
+  let n = batchCounters?.get(key) ?? 1;
 
-  while (reservedSkus.has(`${baseSku}-${n}`)) {
+  while (reservedSkus.has(`${key}-${n}`)) {
     n += 1;
   }
 
-  batchCounters?.set(baseSku, n + 1);
-  return `${baseSku}-${n}`;
+  batchCounters?.set(key, n + 1);
+  return `${key}-${n}`;
 }

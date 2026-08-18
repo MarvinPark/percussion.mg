@@ -68,7 +68,7 @@ export function previewRegistrationSku(
   }
 
   const resolvedSku = context.reservedSkus.has(sku)
-    ? nextVariantSku(baseSku, context.reservedSkus, context.batchCounters)
+    ? nextVariantSku(sku, context.reservedSkus, context.batchCounters)
     : sku;
 
   return { sku: resolvedSku };
@@ -93,9 +93,8 @@ export function resolveDuplicateSku(
     return { error: "SKU(모델번호)를 입력해 주세요." };
   }
 
-  const baseSku = getBaseSku(sku);
   const resolvedSku = nextVariantSku(
-    baseSku,
+    sku,
     context.reservedSkus,
     context.batchCounters,
   );

@@ -154,6 +154,7 @@ type SaleLineInput = {
   product_id: string;
   quantity: number;
   unit_sale_price: number;
+  unit_purchase_price: number;
   payment_method_id: string;
   fulfillment_location: ReturnType<typeof parseFulfillmentLocation>;
   shipping_cost: number;
@@ -176,6 +177,10 @@ function parseSaleLinesJson(
       const product_id = String(row.product_id ?? "");
       const quantity = Number(row.quantity ?? 0);
       const unit_sale_price = Number(row.unit_sale_price ?? 0);
+      const unit_purchase_price = Math.max(
+        0,
+        Number(row.unit_purchase_price ?? 0),
+      );
       const payment_method_id = String(row.payment_method_id ?? "");
       const fulfillment_location = parseFulfillmentLocation(row.fulfillment_location);
       const shipping_cost = Math.max(0, Number(row.shipping_cost ?? 0));
@@ -189,6 +194,9 @@ function parseSaleLinesJson(
       if (unit_sale_price < 0) {
         return { error: `${lineNumber}번째 줄: 판매단가는 0 이상이어야 합니다.` };
       }
+      if (unit_purchase_price < 0) {
+        return { error: `${lineNumber}번째 줄: 매입가는 0 이상이어야 합니다.` };
+      }
       if (!payment_method_id) {
         return { error: `${lineNumber}번째 줄: 결제 방식을 선택해 주세요.` };
       }
@@ -197,6 +205,7 @@ function parseSaleLinesJson(
         product_id,
         quantity,
         unit_sale_price,
+        unit_purchase_price,
         payment_method_id,
         fulfillment_location,
         shipping_cost,
@@ -259,7 +268,7 @@ export async function createSale(formData: FormData) {
       return { error: `${lineNumber}번째 줄: 결제 방식을 찾을 수 없습니다.` };
     }
 
-    const unit_purchase_price = Number(product.purchase_price) || 0;
+    const unit_purchase_price = line.unit_purchase_price;
     const { totalAmount, paymentFeeAmount, marginAmount } = calculateSaleAmounts({
       quantity: line.quantity,
       unitSalePrice: line.unit_sale_price,
