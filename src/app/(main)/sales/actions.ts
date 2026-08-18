@@ -156,6 +156,7 @@ type SaleLineInput = {
   unit_sale_price: number;
   payment_method_id: string;
   fulfillment_location: ReturnType<typeof parseFulfillmentLocation>;
+  shipping_cost: number;
 };
 
 function parseSaleLinesJson(
@@ -177,6 +178,7 @@ function parseSaleLinesJson(
       const unit_sale_price = Number(row.unit_sale_price ?? 0);
       const payment_method_id = String(row.payment_method_id ?? "");
       const fulfillment_location = parseFulfillmentLocation(row.fulfillment_location);
+      const shipping_cost = Math.max(0, Number(row.shipping_cost ?? 0));
 
       if (!product_id) {
         return { error: `${lineNumber}번째 줄: 제품을 선택해 주세요.` };
@@ -197,6 +199,7 @@ function parseSaleLinesJson(
         unit_sale_price,
         payment_method_id,
         fulfillment_location,
+        shipping_cost,
       });
     }
 
@@ -262,6 +265,7 @@ export async function createSale(formData: FormData) {
       unitSalePrice: line.unit_sale_price,
       unitPurchasePrice: unit_purchase_price,
       feeRate: Number(paymentMethod.fee_rate) || 0,
+      shippingCost: line.shipping_cost,
     });
 
     const fulfillmentNote = fromStore ? null : "출고: 직발송";
@@ -301,6 +305,7 @@ export async function createSale(formData: FormData) {
       payment_fee_amount: paymentFeeAmount,
       total_amount: totalAmount,
       margin_amount: marginAmount,
+      shipping_cost: line.shipping_cost,
       note: lineNote,
       created_by_user_id: modifier.userId,
       created_by_name: modifier.name,
@@ -334,6 +339,7 @@ export async function updateSale(formData: FormData) {
   const customer_phone = String(formData.get("customer_phone") ?? "").trim();
   const customer_address = String(formData.get("customer_address") ?? "").trim();
   const payment_method_id = String(formData.get("payment_method_id") ?? "");
+  const shipping_cost = Math.max(0, Number(formData.get("shipping_cost") ?? 0));
   const note = String(formData.get("note") ?? "").trim();
   const created_by_name = String(formData.get("created_by_name") ?? "").trim();
   const created_by_user_id = String(formData.get("created_by_user_id") ?? "").trim();
@@ -383,6 +389,7 @@ export async function updateSale(formData: FormData) {
     unitSalePrice: unit_sale_price,
     unitPurchasePrice: unit_purchase_price,
     feeRate: Number(paymentMethod.fee_rate) || 0,
+    shippingCost: shipping_cost,
   });
 
   const stockNote = `판매 수정${customer_name ? ` — ${customer_name}` : existingSale.customer_name ? ` — ${existingSale.customer_name}` : ""}`;
@@ -418,6 +425,7 @@ export async function updateSale(formData: FormData) {
       payment_fee_amount: paymentFeeAmount,
       total_amount: totalAmount,
       margin_amount: marginAmount,
+      shipping_cost,
       note: note || null,
       created_by_name,
       created_by_user_id: created_by_user_id || null,

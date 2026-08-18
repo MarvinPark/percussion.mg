@@ -543,12 +543,14 @@ export async function convertQuoteToSale(
       };
     }
 
+    const shipping_cost = Math.max(0, Math.round(Number(item.shipping_cost) || 0));
     const { totalAmount, paymentFeeAmount, marginAmount } =
       buildSaleAmountsForLine(
         quantity,
         unit_sale_price,
         unit_purchase_price,
         paymentMethod,
+        shipping_cost,
       );
 
     const purchaseSourceNote = item.purchase_source?.trim()
@@ -573,6 +575,7 @@ export async function convertQuoteToSale(
       payment_fee_amount: paymentFeeAmount,
       total_amount: totalAmount,
       margin_amount: marginAmount,
+      shipping_cost,
       note: [saleNote, lineNote].filter(Boolean).join("\n") || null,
       created_by_user_id: sellerUserId,
       created_by_name: sellerName,

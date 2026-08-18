@@ -22,6 +22,7 @@ export type Sale = {
   payment_fee_amount: number;
   total_amount: number;
   margin_amount: number;
+  shipping_cost: number;
   note: string | null;
   created_by_user_id: string | null;
   created_by_name: string | null;

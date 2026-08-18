@@ -3,17 +3,20 @@ export function calculateSaleAmounts(input: {
   unitSalePrice: number;
   unitPurchasePrice: number;
   feeRate: number;
+  shippingCost?: number;
 }) {
   const totalAmount = input.unitSalePrice * input.quantity;
   const paymentFeeAmount = Math.round(totalAmount * (input.feeRate / 100));
   const grossMargin =
     (input.unitSalePrice - input.unitPurchasePrice) * input.quantity;
-  const marginAmount = grossMargin - paymentFeeAmount;
+  const shippingCost = Math.max(0, Math.round(input.shippingCost ?? 0));
+  const marginAmount = grossMargin - paymentFeeAmount - shippingCost;
 
   return {
     totalAmount,
     paymentFeeAmount,
     marginAmount,
+    shippingCost,
   };
 }
 

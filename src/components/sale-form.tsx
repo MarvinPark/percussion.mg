@@ -54,6 +54,7 @@ type SaleLineDraft = {
   unitPurchasePrice: number;
   paymentMethodId: string;
   fulfillmentLocation: FulfillmentLocation;
+  shippingCost: number;
 };
 
 function todayString() {
@@ -77,6 +78,7 @@ function createEmptyLine(
     paymentMethodId:
       options?.paymentMethodId ?? paymentMethods[0]?.id ?? "",
     fulfillmentLocation: DEFAULT_FULFILLMENT_LOCATION,
+    shippingCost: 0,
   };
 }
 
@@ -92,6 +94,7 @@ function linePreview(
     unitSalePrice: line.unitSalePrice,
     unitPurchasePrice: line.unitPurchasePrice,
     feeRate: payment?.fee_rate ?? 0,
+    shippingCost: line.shippingCost,
   });
 }
 
@@ -135,6 +138,7 @@ export default function SaleForm({
           unit_sale_price: line.unitSalePrice,
           payment_method_id: line.paymentMethodId,
           fulfillment_location: line.fulfillmentLocation,
+          shipping_cost: line.shippingCost,
         })),
       ),
     [lines],
@@ -333,7 +337,7 @@ export default function SaleForm({
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-          <table className="min-w-[980px] w-full text-sm">
+          <table className="min-w-[1080px] w-full text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
               <tr>
                 <th className="min-w-[5rem] px-3 py-2.5 font-semibold">
@@ -362,6 +366,9 @@ export default function SaleForm({
                 </th>
                 <th className="min-w-[6rem] px-3 py-2.5 font-semibold">
                   매입가
+                </th>
+                <th className="min-w-[6rem] px-3 py-2.5 font-semibold">
+                  업체배송비
                 </th>
                 <th className="min-w-[6rem] px-3 py-2.5 font-semibold">
                   마진
@@ -456,6 +463,17 @@ export default function SaleForm({
                       {line.productId
                         ? `${formatKRW(line.unitPurchasePrice)}원`
                         : "-"}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <PriceInput
+                        min={0}
+                        value={line.shippingCost}
+                        onChange={(shippingCost) =>
+                          updateLine(line.id, { shippingCost })
+                        }
+                        className={tableInputClass}
+                        aria-label={`${index + 1}번째 업체 배송비`}
+                      />
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 align-top font-semibold text-green-700 dark:text-green-300">
                       {line.productId
@@ -596,7 +614,7 @@ export default function SaleForm({
           </div>
         </dl>
         <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-          각 행 마진 = (판매단가 − 매입가) × 수량 − 결제 수수료
+          각 행 마진 = (판매단가 − 매입가) × 수량 − 결제 수수료 − 업체 배송비
         </p>
       </div>
 

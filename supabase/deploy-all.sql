@@ -545,3 +545,7 @@ select '네이버페이', 3.0, 10
 where not exists (
   select 1 from payment_methods where name = '네이버페이'
 );
+
+-- ===== schema-sales-shipping-cost.sql =====
+alter table sales
+  add column if not exists shipping_cost numeric(12, 0) not null default 0;

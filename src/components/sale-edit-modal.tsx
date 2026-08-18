@@ -66,6 +66,9 @@ export default function SaleEditModal({
   const [unitPurchasePrice, setUnitPurchasePrice] = useState(
     Number(sale.unit_purchase_price),
   );
+  const [shippingCost, setShippingCost] = useState(
+    Number(sale.shipping_cost) || 0,
+  );
   const [paymentMethodId, setPaymentMethodId] = useState(() => {
     const matched = paymentMethods.find(
       (method) => method.name === sale.payment_method,
@@ -128,8 +131,9 @@ export default function SaleEditModal({
         unitSalePrice,
         unitPurchasePrice,
         feeRate: selectedPayment?.fee_rate ?? 0,
+        shippingCost,
       }),
-    [quantity, unitSalePrice, unitPurchasePrice, selectedPayment],
+    [quantity, unitSalePrice, unitPurchasePrice, selectedPayment, shippingCost],
   );
 
   function handleProductChange(product: SaleProductOption | null) {
@@ -308,6 +312,20 @@ export default function SaleEditModal({
                 required
                 value={unitSalePrice}
                 onChange={setUnitSalePrice}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit_shipping_cost" className={labelClass}>
+                업체 배송비 (원)
+              </label>
+              <PriceInput
+                id="edit_shipping_cost"
+                name="shipping_cost"
+                min={0}
+                value={shippingCost}
+                onChange={setShippingCost}
                 className={inputClass}
               />
             </div>
