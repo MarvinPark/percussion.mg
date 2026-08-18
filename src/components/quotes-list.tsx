@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { deleteQuote, convertQuoteToSale, cancelQuoteConversion } from "@/app/(main)/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
+import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import QuoteConvertDialog from "@/components/quote-convert-dialog";
 import QuoteForm from "@/components/quote-form";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
@@ -117,9 +118,11 @@ export default function QuotesList({
   const [cancellingQuote, setCancellingQuote] = useState<QuoteListItem | null>(
     null,
   );
+  const [deletingQuote, setDeletingQuote] = useState<QuoteListItem | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isConverting, startConvert] = useTransition();
   const [isCancelling, startCancel] = useTransition();
+  const [isDeleting, startDelete] = useTransition();
   const [preview, setPreview] = useState<{
     quote: QuoteListItem;
     mode: "quote" | "invoice";
@@ -182,6 +185,19 @@ export default function QuotesList({
         return;
       }
       setCancellingQuote(null);
+      router.refresh();
+    });
+  }
+
+  function handleConfirmDelete() {
+    if (!deletingQuote) return;
+
+    startDelete(async () => {
+      setActionError(null);
+      const formData = new FormData();
+      formData.set("quote_id", deletingQuote.id);
+      await deleteQuote(formData);
+      setDeletingQuote(null);
       router.refresh();
     });
   }
@@ -323,15 +339,17 @@ export default function QuotesList({
                     매출전환
                   </button>
                 )}
-                <form action={deleteQuote} className="inline-flex">
-                  <input type="hidden" name="quote_id" value={quote.id} />
-                  <button
-                    type="submit"
-                    className={`${actionButtonClass} border-zinc-300 text-red-600 hover:bg-red-50 dark:border-zinc-600 dark:hover:bg-red-950/30`}
-                  >
-                    삭제
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setActionError(null);
+                    setDeletingQuote(quote);
+                  }}
+                  className={`${actionButtonClass} border-zinc-300 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-zinc-600 dark:hover:bg-red-950/30`}
+                >
+                  삭제
+                </button>
               </div>
             </div>
           </div>
@@ -438,6 +456,16 @@ export default function QuotesList({
           onConfirm={handleConfirmCancel}
           onCancel={() => {
             if (!isCancelling) setCancellingQuote(null);
+          }}
+        />
+      ) : null}
+
+      {deletingQuote ? (
+        <DeleteConfirmDialog
+          count={1}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => {
+            if (!isDeleting) setDeletingQuote(null);
           }}
         />
       ) : null}

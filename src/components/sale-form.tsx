@@ -14,6 +14,11 @@ import {
   calculateSaleAmounts,
   formatKRW,
 } from "@/lib/sales-calculator";
+import {
+  DEFAULT_FULFILLMENT_LOCATION,
+  FULFILLMENT_LOCATIONS,
+  type FulfillmentLocation,
+} from "@/lib/quote-fulfillment";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
@@ -47,6 +52,7 @@ type SaleLineDraft = {
   unitSalePrice: number;
   unitPurchasePrice: number;
   paymentMethodId: string;
+  fulfillmentLocation: FulfillmentLocation;
 };
 
 function todayString() {
@@ -69,6 +75,7 @@ function createEmptyLine(
     unitPurchasePrice: 0,
     paymentMethodId:
       options?.paymentMethodId ?? paymentMethods[0]?.id ?? "",
+    fulfillmentLocation: DEFAULT_FULFILLMENT_LOCATION,
   };
 }
 
@@ -121,6 +128,7 @@ export default function SaleForm({
           quantity: line.quantity,
           unit_sale_price: line.unitSalePrice,
           payment_method_id: line.paymentMethodId,
+          fulfillment_location: line.fulfillmentLocation,
         })),
       ),
     [lines],
@@ -306,9 +314,12 @@ export default function SaleForm({
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-          <table className="min-w-[920px] w-full text-sm">
+          <table className="min-w-[980px] w-full text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
               <tr>
+                <th className="min-w-[5rem] px-3 py-2.5 font-semibold">
+                  출고지
+                </th>
                 <th className="min-w-[14rem] px-3 py-2.5 font-semibold">
                   판매제품
                 </th>
@@ -340,12 +351,32 @@ export default function SaleForm({
                     className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
                   >
                     <td className="px-3 py-2 align-top">
+                      <select
+                        value={line.fulfillmentLocation}
+                        onChange={(event) =>
+                          updateLine(line.id, {
+                            fulfillmentLocation: event.target
+                              .value as FulfillmentLocation,
+                          })
+                        }
+                        className={`${tableInputClass} w-20`}
+                        aria-label={`${index + 1}번째 출고지`}
+                      >
+                        {FULFILLMENT_LOCATIONS.map((location) => (
+                          <option key={location} value={location}>
+                            {location}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 align-top">
                       <ProductSearchSelect
                         selectedProduct={selectedProductsByLine[line.id] ?? null}
                         onSelect={(product) =>
                           handleProductChange(line.id, product)
                         }
                         compact
+                        emphasizeModelName
                         showHiddenField={false}
                         showHelperText={false}
                         inputId={`product_search_${line.id}`}

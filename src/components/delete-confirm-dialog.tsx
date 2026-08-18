@@ -41,7 +41,7 @@ export default function DeleteConfirmDialog({
           id="delete-confirm-title"
           className="text-base font-semibold text-zinc-900 dark:text-zinc-100"
         >
-          정말로 삭제하겠습니까?
+          삭제하시겠습니까?
         </h3>
         {count > 1 ? (
           <p className="mt-2 text-sm font-normal text-zinc-600 dark:text-zinc-400">

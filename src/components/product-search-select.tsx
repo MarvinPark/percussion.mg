@@ -20,8 +20,10 @@ type DropdownPosition = {
   width: number;
 };
 
-function productLabel(product: SaleProductOption) {
-  return `${product.product_name} / ${product.model_name}`;
+function productLabel(product: SaleProductOption, emphasizeModelName: boolean) {
+  return emphasizeModelName
+    ? `${product.model_name} · ${product.product_name}`
+    : `${product.product_name} / ${product.model_name}`;
 }
 
 type ProductSearchSelectProps = {
@@ -31,6 +33,7 @@ type ProductSearchSelectProps = {
   showHiddenField?: boolean;
   showHelperText?: boolean;
   inputId?: string;
+  emphasizeModelName?: boolean;
 };
 
 export default function ProductSearchSelect({
@@ -40,12 +43,13 @@ export default function ProductSearchSelect({
   showHiddenField = true,
   showHelperText = true,
   inputId = "product_search",
+  emphasizeModelName = false,
 }: ProductSearchSelectProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
   const [query, setQuery] = useState(() =>
-    selectedProduct ? productLabel(selectedProduct) : "",
+    selectedProduct ? productLabel(selectedProduct, emphasizeModelName) : "",
   );
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] =
@@ -54,8 +58,10 @@ export default function ProductSearchSelect({
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    setQuery(selectedProduct ? productLabel(selectedProduct) : "");
-  }, [selectedProduct]);
+    setQuery(
+      selectedProduct ? productLabel(selectedProduct, emphasizeModelName) : "",
+    );
+  }, [selectedProduct, emphasizeModelName]);
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -77,7 +83,7 @@ export default function ProductSearchSelect({
       return;
     }
 
-    if (selectedProduct && trimmed === productLabel(selectedProduct)) {
+    if (selectedProduct && trimmed === productLabel(selectedProduct, emphasizeModelName)) {
       setResults([]);
       setIsSearching(false);
       return;
@@ -92,7 +98,7 @@ export default function ProductSearchSelect({
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [query, selectedProduct]);
+  }, [query, selectedProduct, emphasizeModelName]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -127,7 +133,7 @@ export default function ProductSearchSelect({
 
   function handleSelect(product: SaleProductOption) {
     onSelect(product);
-    setQuery(productLabel(product));
+    setQuery(productLabel(product, emphasizeModelName));
     setIsOpen(false);
   }
 
@@ -140,7 +146,7 @@ export default function ProductSearchSelect({
       updateDropdownPosition();
     }
 
-    if (selectedProduct && value !== productLabel(selectedProduct)) {
+    if (selectedProduct && value !== productLabel(selectedProduct, emphasizeModelName)) {
       onSelect(null);
     }
   }
@@ -148,7 +154,8 @@ export default function ProductSearchSelect({
   const showDropdown =
     isOpen &&
     query.trim().length > 0 &&
-    (!selectedProduct || query.trim() !== productLabel(selectedProduct));
+    (!selectedProduct ||
+      query.trim() !== productLabel(selectedProduct, emphasizeModelName));
 
   const dropdown =
     showDropdown && dropdownPosition ? (
@@ -177,6 +184,7 @@ export default function ProductSearchSelect({
             <ProductSearchResultRow
               key={product.id}
               product={product}
+              emphasizeModelName={emphasizeModelName}
               onSelect={() => handleSelect(product)}
             />
           ))
@@ -221,7 +229,18 @@ export default function ProductSearchSelect({
       {showHelperText ? (
         selectedProduct ? (
           <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-300">
-            선택됨: {selectedProduct.product_name} / {selectedProduct.model_name}{" "}
+            선택됨:{" "}
+            {emphasizeModelName ? (
+              <>
+                <span className="font-bold">{selectedProduct.model_name}</span>
+                {" · "}
+                {selectedProduct.product_name}
+              </>
+            ) : (
+              <>
+                {selectedProduct.product_name} / {selectedProduct.model_name}
+              </>
+            )}{" "}
             · 재고 {selectedProduct.stock_quantity}개
           </p>
         ) : (

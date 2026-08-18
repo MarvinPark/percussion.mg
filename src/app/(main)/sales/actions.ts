@@ -2,6 +2,10 @@
 
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import { parseSaleCategory } from "@/lib/sale-categories";
+import {
+  isStoreFulfillment,
+  parseFulfillmentLocation,
+} from "@/lib/quote-fulfillment";
 import { getModifierInfo, requirePermission } from "@/lib/profile";
 import {
   addLocationStock,
@@ -157,6 +161,7 @@ type SaleLineInput = {
   quantity: number;
   unit_sale_price: number;
   payment_method_id: string;
+  fulfillment_location: ReturnType<typeof parseFulfillmentLocation>;
 };
 
 function parseSaleLinesJson(
@@ -177,6 +182,7 @@ function parseSaleLinesJson(
       const quantity = Number(row.quantity ?? 0);
       const unit_sale_price = Number(row.unit_sale_price ?? 0);
       const payment_method_id = String(row.payment_method_id ?? "");
+      const fulfillment_location = parseFulfillmentLocation(row.fulfillment_location);
 
       if (!product_id) {
         return { error: `${lineNumber}번째 줄: 제품을 선택해 주세요.` };
@@ -196,6 +202,7 @@ function parseSaleLinesJson(
         quantity,
         unit_sale_price,
         payment_method_id,
+        fulfillment_location,
       });
     }
 
@@ -234,12 +241,21 @@ export async function createSale(formData: FormData) {
 
     const { data: product } = await supabase
       .from("products")
-      .select("product_name, purchase_price")
+      .select("product_name, purchase_price, stock_quantity")
       .eq("id", line.product_id)
       .single();
 
     if (!product) {
       return { error: `${lineNumber}번째 줄: 제품을 찾을 수 없습니다.` };
+    }
+
+    const fromStore = isStoreFulfillment(line.fulfillment_location);
+    const stockQuantity = Number(product.stock_quantity) || 0;
+
+    if (fromStore && stockQuantity > 0 && stockQuantity < line.quantity) {
+      return {
+        error: `${lineNumber}번째 줄 (${product.product_name}): 재고가 부족합니다. (현재 ${stockQuantity}개, 판매 ${line.quantity}개)`,
+      };
     }
 
     const { data: paymentMethod } = await supabase
@@ -260,17 +276,28 @@ export async function createSale(formData: FormData) {
       feeRate: Number(paymentMethod.fee_rate) || 0,
     });
 
-    const stockResult = await recordStockOutForSale(
-      supabase,
-      line.product_id,
-      line.quantity,
-      stockNote,
-    );
+    const fulfillmentNote = fromStore ? null : "출고: 직발송";
+    const lineNote =
+      [note || null, fulfillmentNote].filter(Boolean).join(" / ") || null;
 
-    if ("error" in stockResult) {
-      return {
-        error: `${lineNumber}번째 줄 (${product.product_name}): ${stockResult.error}`,
-      };
+    const stockOutQuantity =
+      fromStore && stockQuantity > 0
+        ? Math.min(line.quantity, stockQuantity)
+        : 0;
+
+    if (stockOutQuantity > 0) {
+      const stockResult = await recordStockOutForSale(
+        supabase,
+        line.product_id,
+        stockOutQuantity,
+        stockNote,
+      );
+
+      if ("error" in stockResult) {
+        return {
+          error: `${lineNumber}번째 줄 (${product.product_name}): ${stockResult.error}`,
+        };
+      }
     }
 
     const { error: saleError } = await supabase.from("sales").insert({
@@ -289,7 +316,7 @@ export async function createSale(formData: FormData) {
       payment_fee_amount: paymentFeeAmount,
       total_amount: totalAmount,
       margin_amount: marginAmount,
-      note: note || null,
+      note: lineNote,
       created_by_user_id: modifier.userId,
       created_by_name: modifier.name,
     });
