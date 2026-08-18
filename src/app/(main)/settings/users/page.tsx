@@ -1,7 +1,7 @@
 import PaymentMethodsManager from "@/components/payment-methods-manager";
 import SaleCategoriesManager from "@/components/sale-categories-manager";
 import UsersManager from "@/components/users-manager";
-import { fetchAdminProfiles, getCurrentUserProfile } from "@/lib/profile";
+import { fetchAdminUserDirectory, getCurrentUserProfile } from "@/lib/profile";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchAllSaleCategoryOptions } from "@/lib/sale-category-options";
 import { createClient } from "@/lib/supabase/server";
@@ -20,11 +20,11 @@ export default async function AdminSettingsPage() {
   }
 
   const [
-    { profiles, error: profilesError, needsMigration },
+    { profiles, error: profilesError, needsMigration, orphanAuthCount, serviceRoleMissing },
     { paymentMethods, error: paymentMethodsError },
     { options: saleCategoryOptions, error: saleCategoryError, needsMigration: saleCategoryNeedsMigration },
   ] = await Promise.all([
-    fetchAdminProfiles(supabase),
+    fetchAdminUserDirectory(supabase),
     fetchPaymentMethods(supabase),
     fetchAllSaleCategoryOptions(supabase),
   ]);
@@ -74,6 +74,22 @@ export default async function AdminSettingsPage() {
                     supabase/schema-admin-settings.sql
                   </code>
                   을 Supabase에서 실행해 주세요.
+                </p>
+              ) : null}
+              {serviceRoleMissing ? (
+                <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                  Vercel 환경 변수{" "}
+                  <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">
+                    SUPABASE_SERVICE_ROLE_KEY
+                  </code>
+                  가 없어 가입만 하고 프로필이 없는 사용자를 불러오지 못할 수
+                  있습니다. 추가 후 Redeploy 해 주세요.
+                </p>
+              ) : null}
+              {orphanAuthCount > 0 ? (
+                <p className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+                  프로필이 아직 없는 가입 신청 {orphanAuthCount}명이 있습니다.
+                  직함 입력 후 승인하면 등록됩니다.
                 </p>
               ) : null}
               <UsersManager

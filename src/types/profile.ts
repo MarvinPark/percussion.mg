@@ -12,6 +12,8 @@ export type Profile = {
   email?: string | null;
   created_at: string;
   updated_at: string;
+  /** profiles 테이블에 없고 auth 계정만 있는 사용자 */
+  missingProfile?: boolean;
 };
 
 export function normalizeAccountStatus(

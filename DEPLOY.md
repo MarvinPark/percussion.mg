@@ -46,6 +46,7 @@ git push origin main
 |------|--------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API → Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API → anon public |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → **service_role** (secret) — **사용자 등록 필수** |
 | `NEXT_PUBLIC_APP_URL` | 배포 후 받을 주소 (아래 2) 참고 — 처음엔 비워두고 1차 Deploy 후 넣어도 됨 |
 
 6. **Deploy** 클릭 → 2~3분 대기
@@ -90,8 +91,21 @@ SQL Editor에서 **`supabase/deploy-all.sql`** 전체 Run.
 
 이미 개발 중 DB를 쓰는 경우, 빠진 것만 추가 실행:
 
+- `schema-admin-settings.sql` (**사용자 등록·관리자 페이지** — 필수)
 - `schema-phase7-admin-policy.sql` (사용자 역할 변경)
 - `schema-quotes-conversion.sql` (견적 매출전환)
+
+**사용자 등록 전 확인 (SQL Editor):**
+
+```sql
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'profiles'
+  and column_name in ('account_status', 'email', 'role', 'job_title');
+```
+
+`account_status`, `email`이 없으면 `schema-admin-settings.sql`을 다시 Run.
 
 ---
 

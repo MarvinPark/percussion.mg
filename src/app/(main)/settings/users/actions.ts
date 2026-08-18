@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getAppUrl } from "@/lib/app-url";
+import { profileFromAuthUser } from "@/lib/auth-registration";
 import { requirePermission } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -154,7 +155,7 @@ export async function updateUserJobTitle(userId: string, jobTitle: string) {
   return { success: true as const };
 }
 
-export async function approveUser(userId: string) {
+export async function approveUser(userId: string, jobTitleInput?: string) {
   const supabase = await createClient();
   const auth = await requirePermission("manageUsers");
 
@@ -162,27 +163,74 @@ export async function approveUser(userId: string) {
     return { error: auth.error };
   }
 
+  const trimmedJobTitle = jobTitleInput?.trim() ?? "";
+
   const { data: profile, error: fetchError } = await supabase
     .from("profiles")
     .select("account_status, job_title")
     .eq("id", userId)
     .maybeSingle();
 
-  if (fetchError || !profile) {
+  if (fetchError) {
     return { error: "사용자를 찾을 수 없습니다." };
+  }
+
+  if (!profile) {
+    if (!trimmedJobTitle) {
+      return { error: "승인 전 직함을 입력해 주세요." };
+    }
+
+    let adminClient;
+    try {
+      adminClient = createAdminClient();
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "관리자 API 설정이 필요합니다.",
+      };
+    }
+
+    const { data: authData, error: authUserError } =
+      await adminClient.auth.admin.getUserById(userId);
+
+    if (authUserError || !authData.user) {
+      return { error: "가입 계정을 찾을 수 없습니다." };
+    }
+
+    const profilePayload = profileFromAuthUser(authData.user);
+    const { error: createError } = await adminClient.from("profiles").upsert({
+      ...profilePayload,
+      job_title: trimmedJobTitle,
+      account_status: "active",
+      updated_at: new Date().toISOString(),
+    });
+
+    if (createError) {
+      return {
+        error:
+          "프로필 생성에 실패했습니다. supabase/schema-admin-settings.sql을 실행했는지 확인해 주세요.",
+      };
+    }
+
+    revalidateAdminPaths();
+    return { success: true as const };
   }
 
   if (profile.account_status !== "pending_approval") {
     return { error: "승인 대기 중인 사용자만 승인할 수 있습니다." };
   }
 
-  if (!profile.job_title?.trim()) {
+  const jobTitle = trimmedJobTitle || profile.job_title?.trim() || "";
+  if (!jobTitle) {
     return { error: "승인 전 직함을 입력해 주세요." };
   }
 
   const { error } = await supabase
     .from("profiles")
     .update({
+      job_title: jobTitle,
       account_status: "active",
       updated_at: new Date().toISOString(),
     })

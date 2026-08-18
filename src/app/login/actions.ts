@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  getSignUpRedirectUrl,
+  isDuplicateSignUpResponse,
+  mapSignUpError,
+  recoverPendingRegistrationProfile,
+  saveRegistrationProfile,
+  type RegistrationProfilePayload,
+} from "@/lib/auth-registration";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAuthProfile } from "@/lib/profile-auth";
 import {
@@ -79,6 +86,7 @@ export async function registerUser(formData: FormData) {
     email,
     password,
     options: {
+      emailRedirectTo: getSignUpRedirectUrl(),
       data: {
         full_name,
         phone,
@@ -87,48 +95,122 @@ export async function registerUser(formData: FormData) {
   });
 
   if (error) {
-    if (error.message.includes("already registered")) {
-      return { error: "이미 등록된 이메일입니다. 로그인해 주세요." };
+    if (
+      error.message.toLowerCase().includes("already") &&
+      error.message.toLowerCase().includes("registered")
+    ) {
+      try {
+        const recovered = await recoverPendingRegistrationProfile(email, {
+          id: "",
+          full_name,
+          phone,
+          job_title: "",
+          role: "employee",
+          account_status: "pending_approval",
+          email,
+          updated_at: new Date().toISOString(),
+        });
+        if (recovered) {
+          revalidatePath("/", "layout");
+          return recovered;
+        }
+      } catch {
+        // fall through to mapped error
+      }
     }
-    return { error: "회원가입에 실패했습니다. 입력 정보를 확인해 주세요." };
+
+    return { error: mapSignUpError(error) };
+  }
+
+  if (isDuplicateSignUpResponse(data.user)) {
+    try {
+      const recovered = await recoverPendingRegistrationProfile(email, {
+        id: "",
+        full_name,
+        phone,
+        job_title: "",
+        role: "employee",
+        account_status: "pending_approval",
+        email,
+        updated_at: new Date().toISOString(),
+      });
+      if (recovered) {
+        revalidatePath("/", "layout");
+        return recovered;
+      }
+    } catch (recoveryError) {
+      const message =
+        recoveryError instanceof Error ? recoveryError.message : "";
+
+      if (message.includes("SUPABASE_SERVICE_ROLE_KEY")) {
+        return {
+          error:
+            "서버 설정 오류입니다. Vercel 환경 변수에 SUPABASE_SERVICE_ROLE_KEY를 추가한 뒤 Redeploy 해 주세요.",
+        };
+      }
+    }
+
+    return {
+      error:
+        "이미 등록된 이메일입니다. 로그인해 주세요. 가입 확인 메일을 받으셨다면 메일 인증 후 로그인해 주세요.",
+    };
   }
 
   if (!data.user) {
     return { error: "회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요." };
   }
 
-  const profilePayload = {
+  const profilePayload: RegistrationProfilePayload = {
     id: data.user.id,
     full_name,
     phone,
     job_title: "",
-    role: "employee" as const,
-    account_status: "pending_approval" as const,
+    role: "employee",
+    account_status: "pending_approval",
     email,
     updated_at: new Date().toISOString(),
   };
 
-  let profileError = null;
+  let profileError: { message: string } | null = null;
 
-  if (data.session) {
-    const { error } = await supabase.from("profiles").upsert(profilePayload);
-    profileError = error;
-    await supabase.auth.signOut();
-  } else {
-    try {
-      const adminClient = createAdminClient();
-      const { error } = await adminClient.from("profiles").upsert(profilePayload);
+  try {
+    profileError = await saveRegistrationProfile(profilePayload);
+  } catch (adminError) {
+    const message =
+      adminError instanceof Error ? adminError.message : "admin client unavailable";
+
+    if (message.includes("SUPABASE_SERVICE_ROLE_KEY")) {
+      return {
+        error:
+          "서버 설정 오류입니다. Vercel 환경 변수에 SUPABASE_SERVICE_ROLE_KEY를 추가한 뒤 Redeploy 해 주세요.",
+      };
+    }
+
+    if (data.session) {
+      const { error } = await supabase.from("profiles").upsert(profilePayload);
       profileError = error;
-    } catch {
-      profileError = { message: "profile insert failed" };
+    } else {
+      profileError = { message };
     }
   }
 
   if (profileError) {
+    const detail = profileError.message.toLowerCase();
+    if (detail.includes("account_status") || detail.includes("column")) {
+      return {
+        error:
+          "프로필 저장에 실패했습니다. Supabase SQL Editor에서 supabase/schema-admin-settings.sql을 실행해 주세요.",
+      };
+    }
+
     return {
       error:
-        "프로필 저장에 실패했습니다. supabase/schema-admin-settings.sql을 실행했는지 확인해 주세요.",
+        "프로필 저장에 실패했습니다. Supabase에서 schema-admin-settings.sql 실행 여부와 Vercel의 SUPABASE_SERVICE_ROLE_KEY 설정을 확인해 주세요.",
     };
+  }
+
+  if (data.session) {
+    await supabase.auth.signOut();
   }
 
   revalidatePath("/", "layout");

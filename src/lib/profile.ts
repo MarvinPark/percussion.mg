@@ -13,6 +13,7 @@ import {
 } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAuthProfile } from "@/lib/profile-auth";
+import { listAuthUsersWithoutProfiles } from "@/lib/auth-registration";
 
 const PROFILE_SELECT =
   "id, full_name, job_title, phone, role, account_status, email, created_at, updated_at";
@@ -55,7 +56,7 @@ export async function fetchAdminProfiles(supabase: SupabaseClient) {
 
   if (!full.error && full.data) {
     return {
-      profiles: full.data.map(normalizeAdminProfileRow),
+      profiles: full.data.map((row) => normalizeAdminProfileRow(row)),
       error: null as string | null,
       needsMigration: false,
     };
@@ -120,7 +121,10 @@ export async function fetchAdminProfiles(supabase: SupabaseClient) {
   };
 }
 
-function normalizeAdminProfileRow(row: AdminProfileRow): Profile {
+function normalizeAdminProfileRow(
+  row: AdminProfileRow,
+  options?: { missingProfile?: boolean },
+): Profile {
   return {
     id: row.id,
     full_name: row.full_name,
@@ -131,6 +135,65 @@ function normalizeAdminProfileRow(row: AdminProfileRow): Profile {
     email: row.email ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    missingProfile: options?.missingProfile ?? false,
+  };
+}
+
+/** 관리자 페이지: profiles + auth만 있는 미연결 사용자 포함 */
+export async function fetchAdminUserDirectory(supabase: SupabaseClient) {
+  const base = await fetchAdminProfiles(supabase);
+  const { users: orphanAuthUsers, serviceRoleMissing } =
+    await listAuthUsersWithoutProfiles();
+
+  if (!orphanAuthUsers.length) {
+    return {
+      ...base,
+      orphanAuthCount: 0,
+      serviceRoleMissing,
+    };
+  }
+
+  const existingIds = new Set(base.profiles.map((profile) => profile.id));
+  const orphanProfiles = orphanAuthUsers
+    .filter((user) => user.id && !existingIds.has(user.id))
+    .map((user) => {
+      const metadata = user.user_metadata ?? {};
+      const full_name =
+        typeof metadata.full_name === "string" && metadata.full_name.trim()
+          ? metadata.full_name.trim()
+          : user.email?.split("@")[0] ?? "미등록";
+      const phone =
+        typeof metadata.phone === "string" && metadata.phone.trim()
+          ? metadata.phone.trim()
+          : "미등록";
+
+      return normalizeAdminProfileRow(
+        {
+          id: user.id,
+          full_name,
+          job_title:
+            typeof metadata.job_title === "string" ? metadata.job_title : null,
+          phone,
+          role: "employee",
+          account_status: "pending_approval",
+          email: user.email ?? null,
+          created_at: user.created_at,
+          updated_at: user.updated_at ?? user.created_at,
+        },
+        { missingProfile: true },
+      );
+    });
+
+  const profiles = [...base.profiles, ...orphanProfiles].sort((a, b) =>
+    a.full_name.localeCompare(b.full_name, "ko"),
+  );
+
+  return {
+    profiles,
+    error: base.error,
+    needsMigration: base.needsMigration,
+    orphanAuthCount: orphanProfiles.length,
+    serviceRoleMissing: false,
   };
 }
 

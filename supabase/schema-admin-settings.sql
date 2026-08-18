@@ -93,23 +93,39 @@ on conflict (name) do nothing;
 alter table quotes drop constraint if exists quotes_sale_category_check;
 alter table sales drop constraint if exists sales_sale_category_check;
 
--- 3) 결제수단: 관리자만 등록/수정/삭제
-drop policy if exists "로그인 사용자 결제방식 등록" on payment_methods;
-drop policy if exists "로그인 사용자 결제방식 수정" on payment_methods;
-drop policy if exists "로그인 사용자 결제방식 삭제" on payment_methods;
-drop policy if exists "관리자 결제방식 등록" on payment_methods;
-drop policy if exists "관리자 결제방식 수정" on payment_methods;
-drop policy if exists "관리자 결제방식 삭제" on payment_methods;
+-- 3) 결제수단: 관리자만 등록/수정/삭제 (payment_methods 테이블이 있을 때만)
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'payment_methods'
+  ) then
+    execute 'drop policy if exists "로그인 사용자 결제방식 등록" on payment_methods';
+    execute 'drop policy if exists "로그인 사용자 결제방식 수정" on payment_methods';
+    execute 'drop policy if exists "로그인 사용자 결제방식 삭제" on payment_methods';
+    execute 'drop policy if exists "관리자 결제방식 등록" on payment_methods';
+    execute 'drop policy if exists "관리자 결제방식 수정" on payment_methods';
+    execute 'drop policy if exists "관리자 결제방식 삭제" on payment_methods';
 
-create policy "관리자 결제방식 등록"
-  on payment_methods for insert to authenticated
-  with check (public.is_admin());
+    execute $policy$
+      create policy "관리자 결제방식 등록"
+        on payment_methods for insert to authenticated
+        with check (public.is_admin())
+    $policy$;
 
-create policy "관리자 결제방식 수정"
-  on payment_methods for update to authenticated
-  using (public.is_admin())
-  with check (public.is_admin());
+    execute $policy$
+      create policy "관리자 결제방식 수정"
+        on payment_methods for update to authenticated
+        using (public.is_admin())
+        with check (public.is_admin())
+    $policy$;
 
-create policy "관리자 결제방식 삭제"
-  on payment_methods for delete to authenticated
-  using (public.is_admin());
+    execute $policy$
+      create policy "관리자 결제방식 삭제"
+        on payment_methods for delete to authenticated
+        using (public.is_admin())
+    $policy$;
+  end if;
+end $$;

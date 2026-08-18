@@ -93,7 +93,9 @@ export default function UsersManager({
     });
   }
 
-  function handleJobTitleBlur(userId: string) {
+  function handleJobTitleBlur(userId: string, missingProfile?: boolean) {
+    if (missingProfile) return;
+
     const previous = profiles.find((profile) => profile.id === userId)?.job_title ?? "";
     const next = jobTitles[userId]?.trim() ?? "";
     if (next === previous.trim()) return;
@@ -111,8 +113,14 @@ export default function UsersManager({
   }
 
   function handleApprove(userId: string) {
+    const jobTitle = jobTitles[userId]?.trim() ?? "";
+    if (!jobTitle) {
+      window.alert("승인 전 직함을 입력해 주세요.");
+      return;
+    }
+
     startTransition(async () => {
-      const result = await approveUser(userId);
+      const result = await approveUser(userId, jobTitle);
       if ("error" in result && result.error) {
         window.alert(result.error);
         return;
@@ -231,6 +239,18 @@ export default function UsersManager({
             </tr>
           </thead>
           <tbody>
+            {profiles.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                >
+                  등록된 사용자가 없습니다. 로그인 화면에서 사용자등록한 사람이
+                  보이지 않으면 Supabase SQL과 Vercel service_role 키를
+                  확인해 주세요.
+                </td>
+              </tr>
+            ) : null}
             {profiles.map((profile) => {
               const status = normalizeAccountStatus(profile.account_status);
               return (
@@ -244,6 +264,11 @@ export default function UsersManager({
                       : profile.full_name}
                     {profile.id === currentUserId ? (
                       <span className="ml-2 text-xs text-zinc-500">(나)</span>
+                    ) : null}
+                    {profile.missingProfile ? (
+                      <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                        (프로필 미생성)
+                      </span>
                     ) : null}
                   </td>
                   <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
@@ -259,7 +284,7 @@ export default function UsersManager({
                           [profile.id]: event.target.value,
                         }))
                       }
-                      onBlur={() => handleJobTitleBlur(profile.id)}
+                      onBlur={() => handleJobTitleBlur(profile.id, profile.missingProfile)}
                       className="w-full min-w-[8rem] rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900"
                     />
                   </td>
