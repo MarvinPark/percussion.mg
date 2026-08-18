@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ProductSearchSelect from "@/components/product-search-select";
+import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
 import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
@@ -12,6 +13,7 @@ import {
   calculateSaleAmounts,
   formatKRW,
 } from "@/lib/sales-calculator";
+import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
 import type { StaffOption } from "@/components/sales-page-client";
 
@@ -43,6 +45,7 @@ export default function SaleEditModal({
   onClose,
 }: SaleEditModalProps) {
   const router = useRouter();
+  const livePaymentMethods = useLivePaymentMethods(paymentMethods);
   const initialProduct = products.find((item) => item.id === sale.product_id);
 
   const sellerNameOptions = useMemo(() => {
@@ -70,10 +73,10 @@ export default function SaleEditModal({
     Number(sale.shipping_cost) || 0,
   );
   const [paymentMethodId, setPaymentMethodId] = useState(() => {
-    const matched = paymentMethods.find(
+    const matched = livePaymentMethods.find(
       (method) => method.name === sale.payment_method,
     );
-    return matched?.id ?? paymentMethods[0]?.id ?? "";
+    return matched?.id ?? livePaymentMethods[0]?.id ?? "";
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -120,7 +123,7 @@ export default function SaleEditModal({
     });
   }
 
-  const selectedPayment = paymentMethods.find(
+  const selectedPayment = livePaymentMethods.find(
     (method) => method.id === paymentMethodId,
   );
 
@@ -256,20 +259,16 @@ export default function SaleEditModal({
               <label htmlFor="edit_payment_method_id" className={labelClass}>
                 결제 방식 <span className="text-red-500">*</span>
               </label>
-              <select
+              <PaymentMethodCombobox
                 id="edit_payment_method_id"
                 name="payment_method_id"
-                required
+                paymentMethods={livePaymentMethods}
                 value={paymentMethodId}
-                onChange={(event) => setPaymentMethodId(event.target.value)}
+                onChange={setPaymentMethodId}
                 className={inputClass}
-              >
-                {paymentMethods.map((method) => (
-                  <option key={method.id} value={method.id}>
-                    {method.name} (수수료 {method.fee_rate}%)
-                  </option>
-                ))}
-              </select>
+                placeholder="결제 방식 입력 또는 선택"
+                required
+              />
             </div>
           </div>
 

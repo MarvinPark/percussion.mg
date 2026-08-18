@@ -20,6 +20,7 @@ import {
   type FulfillmentLocation,
 } from "@/lib/quote-fulfillment";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
+import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -103,6 +104,7 @@ export default function SaleForm({
   contactSuggestions,
   saleCategories,
 }: SaleFormProps) {
+  const livePaymentMethods = useLivePaymentMethods(paymentMethods);
   const [lines, setLines] = useState<SaleLineDraft[]>(() => [
     createEmptyLine(paymentMethods),
   ]);
@@ -114,7 +116,7 @@ export default function SaleForm({
     initialQuery: string;
   } | null>(null);
   const [bulkPaymentMethodId, setBulkPaymentMethodId] = useState(
-    () => paymentMethods[0]?.id ?? "",
+    () => livePaymentMethods[0]?.id ?? "",
   );
   const [bulkQuantity, setBulkQuantity] = useState(1);
   const [businessPartner, setBusinessPartner] = useState("");
@@ -151,14 +153,14 @@ export default function SaleForm({
 
     for (const line of lines) {
       if (!line.productId) continue;
-      const preview = linePreview(line, paymentMethods);
+      const preview = linePreview(line, livePaymentMethods);
       totalAmount += preview.totalAmount;
       paymentFeeAmount += preview.paymentFeeAmount;
       marginAmount += preview.marginAmount;
     }
 
     return { totalAmount, paymentFeeAmount, marginAmount };
-  }, [lines, paymentMethods]);
+  }, [lines, livePaymentMethods]);
 
   const hasValidLine = lines.some((line) => line.productId);
 
@@ -168,17 +170,24 @@ export default function SaleForm({
     );
   }
 
-  function resolveRegisterTargetLineId() {
-    return lines.find((line) => !line.productId)?.id ?? lines[0]?.id ?? "";
-  }
-
   function openProductCreate(lineId: string, initialQuery: string) {
     if (!lineId) return;
     setProductCreateModal({ lineId, initialQuery });
   }
 
   function handleHeaderRegisterProduct() {
-    openProductCreate(resolveRegisterTargetLineId(), "");
+    const emptyLine = lines.find((line) => !line.productId);
+    if (emptyLine) {
+      openProductCreate(emptyLine.id, "");
+      return;
+    }
+
+    const newLine = createEmptyLine(livePaymentMethods, {
+      paymentMethodId: bulkPaymentMethodId,
+      quantity: bulkQuantity,
+    });
+    setLines((prev) => [...prev, newLine]);
+    openProductCreate(newLine.id, "");
   }
 
   function handleSaleProductCreated(product: SaleProductOption) {
@@ -216,7 +225,7 @@ export default function SaleForm({
   function addLine() {
     setLines((prev) => [
       ...prev,
-      createEmptyLine(paymentMethods, {
+      createEmptyLine(livePaymentMethods, {
         paymentMethodId: bulkPaymentMethodId,
         quantity: bulkQuantity,
       }),
@@ -252,7 +261,8 @@ export default function SaleForm({
   }
 
   return (
-    <form action={formAction} className="space-y-5">
+    <>
+      <form action={formAction} className="space-y-5">
       <input type="hidden" name="lines_json" value={linesJson} />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -318,7 +328,7 @@ export default function SaleForm({
             <span className={bulkBarLabelClass}>결제방식 일괄</span>
             <div className="min-w-[10rem] max-w-xs">
               <PaymentMethodCombobox
-                paymentMethods={paymentMethods}
+                paymentMethods={livePaymentMethods}
                 value={bulkPaymentMethodId}
                 onChange={setBulkPaymentMethodId}
                 className={`${bulkBarInputClass} w-full min-w-[10rem]`}
@@ -378,7 +388,7 @@ export default function SaleForm({
             </thead>
             <tbody>
               {lines.map((line, index) => {
-                const preview = linePreview(line, paymentMethods);
+                const preview = linePreview(line, livePaymentMethods);
 
                 return (
                   <tr
@@ -450,7 +460,7 @@ export default function SaleForm({
                     <td className="px-3 py-2 align-top">
                       <PaymentMethodCombobox
                         required
-                        paymentMethods={paymentMethods}
+                        paymentMethods={livePaymentMethods}
                         value={line.paymentMethodId}
                         onChange={(paymentMethodId) =>
                           updateLine(line.id, { paymentMethodId })
@@ -633,6 +643,7 @@ export default function SaleForm({
           ? "저장 중..."
           : `판매 등록 (${lines.filter((line) => line.productId).length}건 · 재고 자동 차감)`}
       </button>
+      </form>
 
       {productCreateModal ? (
         <SaleProductCreateModal
@@ -641,6 +652,6 @@ export default function SaleForm({
           onCreated={handleSaleProductCreated}
         />
       ) : null}
-    </form>
+    </>
   );
 }

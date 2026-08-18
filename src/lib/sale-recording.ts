@@ -281,12 +281,18 @@ export function buildSaleAmountsForLine(
   unitPurchasePrice: number,
   paymentMethod: SalePaymentMethod,
   shippingCost = 0,
+  feeRateOverride?: number,
 ) {
+  const feeRate =
+    feeRateOverride !== undefined
+      ? feeRateOverride
+      : Number(paymentMethod.fee_rate) || 0;
+
   return calculateSaleAmounts({
     quantity,
     unitSalePrice,
     unitPurchasePrice,
-    feeRate: Number(paymentMethod.fee_rate) || 0,
+    feeRate,
     shippingCost,
   });
 }

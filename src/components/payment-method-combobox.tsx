@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { listPaymentMethods } from "@/app/(main)/sales/payment-methods/actions";
+import { sortPaymentMethods } from "@/lib/payment-methods";
 import type { PaymentMethod } from "@/types/sale";
 
 type DropdownPosition = {
@@ -36,12 +37,14 @@ function methodSearchText(method: PaymentMethod) {
 }
 
 function normalizeMethods(methods: PaymentMethod[]) {
-  return methods.map((method) => ({
-    id: method.id,
-    name: method.name,
-    fee_rate: Number(method.fee_rate) || 0,
-    sort_order: Number(method.sort_order) || 0,
-  }));
+  return sortPaymentMethods(
+    methods.map((method) => ({
+      id: method.id,
+      name: method.name,
+      fee_rate: Number(method.fee_rate) || 0,
+      sort_order: Number(method.sort_order) || 0,
+    })),
+  );
 }
 
 export default function PaymentMethodCombobox({
@@ -72,6 +75,23 @@ export default function PaymentMethodCombobox({
   useEffect(() => {
     setMethods(normalizeMethods(paymentMethods));
   }, [paymentMethods]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    void listPaymentMethods()
+      .then((result) => {
+        if (cancelled || result.error) return;
+        setMethods(sortPaymentMethods(result.paymentMethods));
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -120,8 +140,8 @@ export default function PaymentMethodCombobox({
     setIsLoading(true);
     try {
       const result = await listPaymentMethods();
-      if (result.paymentMethods.length > 0) {
-        setMethods(result.paymentMethods);
+      if (!result.error) {
+        setMethods(sortPaymentMethods(result.paymentMethods));
       }
     } finally {
       setIsLoading(false);

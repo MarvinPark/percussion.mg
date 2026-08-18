@@ -13,6 +13,32 @@ function revalidatePaymentPaths() {
   revalidatePath("/quotes/new");
 }
 
+export async function reorderPaymentMethods(orderedIds: string[]) {
+  if (!orderedIds.length) {
+    return { error: "순서를 변경할 결제 수단이 없습니다." };
+  }
+
+  const supabase = await createClient();
+  const auth = await requirePermission("managePaymentMethods");
+  if ("error" in auth) return { error: auth.error };
+
+  const updates = orderedIds.map((id, index) =>
+    supabase
+      .from("payment_methods")
+      .update({ sort_order: index + 1 })
+      .eq("id", id),
+  );
+
+  const results = await Promise.all(updates);
+  const failed = results.find((result) => result.error);
+  if (failed?.error) {
+    return { error: "결제 수단 순서 변경에 실패했습니다." };
+  }
+
+  revalidatePaymentPaths();
+  return { ok: true as const };
+}
+
 export async function listPaymentMethods() {
   const supabase = await createClient();
   const {

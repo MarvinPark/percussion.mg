@@ -9,12 +9,22 @@ export function normalizePaymentMethods(
     sort_order: number | string | null;
   }> | null,
 ): PaymentMethod[] {
-  return (rows ?? []).map((method) => ({
-    id: method.id,
-    name: method.name,
-    fee_rate: Number(method.fee_rate) || 0,
-    sort_order: Number(method.sort_order) || 0,
-  }));
+  return sortPaymentMethods(
+    (rows ?? []).map((method) => ({
+      id: method.id,
+      name: method.name,
+      fee_rate: Number(method.fee_rate) || 0,
+      sort_order: Number(method.sort_order) || 0,
+    })),
+  );
+}
+
+export function sortPaymentMethods(methods: PaymentMethod[]): PaymentMethod[] {
+  return [...methods].sort(
+    (a, b) =>
+      a.sort_order - b.sort_order ||
+      a.name.localeCompare(b.name, "ko"),
+  );
 }
 
 export async function fetchPaymentMethods(supabase: SupabaseClient) {

@@ -56,6 +56,40 @@ export function calculateCardPaymentTotal(
   return applyAmountRounding(withFee, roundingUnit, roundingMode);
 }
 
+/** 견적 합계 기준 카드결제 금액 (견적서 하단과 동일). 차액은 마지막 제품 줄에 반영. */
+export function resolveQuoteConvertPricing(
+  quoteTotal: number,
+  cardFeePercent: CardFeePercent,
+  roundingUnit: AmountRoundingUnit,
+  roundingMode: AmountRoundingMode,
+) {
+  const normalizedTotal = Math.max(0, Math.round(quoteTotal));
+  const cardPaymentTotal = calculateCardPaymentTotal(
+    normalizedTotal,
+    cardFeePercent,
+    roundingUnit,
+    roundingMode,
+  );
+
+  return {
+    quoteTotal: normalizedTotal,
+    cardPaymentTotal,
+    delta: cardPaymentTotal - normalizedTotal,
+  };
+}
+
+export function adjustUnitSalePriceForLineDelta(input: {
+  quantity: number;
+  unitSalePrice: number;
+  delta: number;
+}): number {
+  const quantity = Math.max(1, Math.round(input.quantity));
+  const unitSalePrice = Math.round(input.unitSalePrice);
+  const oldLineTotal = unitSalePrice * quantity;
+  const newLineTotal = oldLineTotal + Math.round(input.delta);
+  return Math.max(0, Math.round(newLineTotal / quantity));
+}
+
 export type InvoiceLinePricing = {
   adjustedUnitPrice: number;
   adjustedLineTotal: number;
@@ -94,20 +128,89 @@ export function calculateInvoiceDocumentTotal(
   items: {
     rounded_unit_price: number;
     quantity: number;
+    line_total?: number;
   }[],
   cardFeePercent: CardFeePercent,
   roundingUnit: AmountRoundingUnit,
   roundingMode: AmountRoundingMode,
 ) {
-  return items.reduce(
-    (sum, item) =>
+  return resolveInvoiceDocumentPricing(
+    items,
+    cardFeePercent,
+    roundingUnit,
+    roundingMode,
+  ).documentTotal;
+}
+
+/** 거래명세서: 합계 기준 카드 금액(견적서·매출전환과 동일). 차액은 마지막 줄에 반영. */
+export function resolveInvoiceDocumentPricing(
+  items: {
+    rounded_unit_price: number;
+    quantity: number;
+    line_total?: number;
+  }[],
+  cardFeePercent: CardFeePercent,
+  roundingUnit: AmountRoundingUnit,
+  roundingMode: AmountRoundingMode,
+) {
+  const quoteTotal = items.reduce((sum, item) => {
+    const quantity = Math.max(0, item.quantity);
+    return (
       sum +
-      calculateInvoiceLinePricing(
-        item,
-        cardFeePercent,
-        roundingUnit,
-        roundingMode,
-      ).adjustedLineTotal,
-    0,
+      Math.round(item.line_total ?? item.rounded_unit_price * quantity)
+    );
+  }, 0);
+
+  if (cardFeePercent === 0 || items.length === 0) {
+    return {
+      linePricing: items.map((item) => {
+        const quantity = Math.max(0, item.quantity);
+        const lineTotal = Math.round(
+          item.line_total ?? item.rounded_unit_price * quantity,
+        );
+        return {
+          adjustedUnitPrice: Math.round(item.rounded_unit_price),
+          adjustedLineTotal: lineTotal,
+        };
+      }),
+      documentTotal: quoteTotal,
+    };
+  }
+
+  const { cardPaymentTotal, delta } = resolveQuoteConvertPricing(
+    quoteTotal,
+    cardFeePercent,
+    roundingUnit,
+    roundingMode,
   );
+  const lastIndex = items.length - 1;
+
+  const linePricing = items.map((item, index) => {
+    const quantity = Math.max(0, item.quantity);
+    const baseUnit = Math.round(item.rounded_unit_price);
+    const isLastLine = index === lastIndex;
+
+    if (!isLastLine || delta === 0) {
+      return {
+        adjustedUnitPrice: baseUnit,
+        adjustedLineTotal: baseUnit * quantity,
+      };
+    }
+
+    const adjustedUnitPrice = adjustUnitSalePriceForLineDelta({
+      quantity,
+      unitSalePrice: baseUnit,
+      delta,
+    });
+
+    return {
+      adjustedUnitPrice,
+      adjustedLineTotal: adjustedUnitPrice * quantity,
+    };
+  });
+
+  return {
+    linePricing,
+    documentTotal: cardPaymentTotal,
+  };
 }

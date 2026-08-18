@@ -5,8 +5,10 @@ import { useState, useTransition } from "react";
 import {
   createPaymentMethod,
   deletePaymentMethod,
+  reorderPaymentMethods,
   updatePaymentMethod,
 } from "@/app/(main)/sales/payment-methods/actions";
+import { sortPaymentMethods } from "@/lib/payment-methods";
 import type { PaymentMethod } from "@/types/sale";
 
 const compactBtnClass =
@@ -104,6 +106,29 @@ export default function PaymentMethodsManager({
     setMessage(null);
   }
 
+  async function handleMove(index: number, direction: -1 | 1) {
+    const sorted = sortPaymentMethods(paymentMethods);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= sorted.length) return;
+
+    const reordered = [...sorted];
+    [reordered[index], reordered[targetIndex]] = [
+      reordered[targetIndex],
+      reordered[index],
+    ];
+
+    setError(null);
+    setMessage(null);
+    const result = await reorderPaymentMethods(reordered.map((method) => method.id));
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+
+    setMessage("순서가 변경되었습니다.");
+    refresh();
+  }
+
   return (
     <div className="space-y-6">
       <section
@@ -119,7 +144,8 @@ export default function PaymentMethodsManager({
               결제 수단 추가
             </h3>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              이름과 수수료율(%)을 입력하세요. 판매 등록 화면에 바로 반영됩니다.
+              이름과 수수료율(%)을 입력하세요. 견적·매출 화면에서 바로 선택할 수
+              있습니다.
             </p>
           </>
         ) : (
@@ -206,7 +232,7 @@ export default function PaymentMethodsManager({
           </p>
         ) : (
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {paymentMethods.map((method) => (
+            {sortPaymentMethods(paymentMethods).map((method, index, sorted) => (
               <li
                 key={method.id}
                 className={embedded ? "px-3 py-1.5" : "px-6 py-4"}
@@ -246,6 +272,26 @@ export default function PaymentMethodsManager({
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 flex-col gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleMove(index, -1)}
+                        disabled={isPending || index === 0}
+                        className={compactBtnClass}
+                        aria-label={`${method.name} 위로`}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMove(index, 1)}
+                        disabled={isPending || index === sorted.length - 1}
+                        className={compactBtnClass}
+                        aria-label={`${method.name} 아래로`}
+                      >
+                        ↓
+                      </button>
+                    </div>
                     <p className="min-w-0 flex-1 text-sm text-zinc-900 dark:text-zinc-100">
                       <span className="font-semibold">{method.name}</span>
                       <span className="mx-1 text-zinc-400">·</span>

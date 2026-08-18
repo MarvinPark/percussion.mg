@@ -6,7 +6,10 @@ import { useEffect, useState, useTransition } from "react";
 import { deleteQuote, convertQuoteToSale, cancelQuoteConversion } from "@/app/(main)/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
-import QuoteConvertDialog from "@/components/quote-convert-dialog";
+import QuoteConvertDialog, {
+  defaultCardFeePercentFromPayment,
+  type QuoteConvertConfirmPayload,
+} from "@/components/quote-convert-dialog";
 import QuoteForm from "@/components/quote-form";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
@@ -146,17 +149,19 @@ export default function QuotesList({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [editingQuote]);
 
-  function handleConfirmConvert(seller?: { userId: string; name: string }) {
+  function handleConfirmConvert(payload: QuoteConvertConfirmPayload) {
     if (!convertingQuote) return;
 
     startConvert(async () => {
       setActionError(null);
-      const result = await convertQuoteToSale(
-        convertingQuote.id,
-        seller
-          ? { sellerUserId: seller.userId, sellerName: seller.name }
-          : undefined,
-      );
+      const result = await convertQuoteToSale(convertingQuote.id, {
+        sellerUserId: payload.seller.userId,
+        sellerName: payload.seller.name,
+        cardFeePercent: payload.cardFeePercent,
+        actualFeeRate: payload.actualFeeRate,
+        roundingUnit: payload.roundingUnit,
+        roundingMode: payload.roundingMode,
+      });
       if (result.error) {
         setActionError(result.error);
         setConvertingQuote(null);
@@ -416,34 +421,34 @@ export default function QuotesList({
       ) : null}
 
       {convertingQuote ? (
-        isOthersQuote(convertingQuote) ? (
-          <QuoteConvertDialog
-            title="매출기록하겠습니까?"
-            description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
-            staffOptions={staffOptions}
-            defaultSellerName={
-              convertingQuote.created_by_name?.trim() ||
-              currentUserName ||
-              staffOptions[0]?.full_name ||
-              ""
-            }
-            showSellerPicker
-            isPending={isConverting}
-            onConfirm={handleConfirmConvert}
-            onCancel={() => {
-              if (!isConverting) setConvertingQuote(null);
-            }}
-          />
-        ) : (
-          <ConfirmDialog
-            title="매출기록하겠습니까?"
-            description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
-            onConfirm={() => handleConfirmConvert()}
-            onCancel={() => {
-              if (!isConverting) setConvertingQuote(null);
-            }}
-          />
-        )
+        <QuoteConvertDialog
+          title="매출기록하겠습니까?"
+          description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
+          quoteTotal={convertingQuote.total_amount}
+          defaultCardFeePercent={defaultCardFeePercentFromPayment(
+            convertingQuote.payment_method,
+          )}
+          defaultActualFeeRate={
+            paymentMethods.find(
+              (method) => method.id === convertingQuote.payment_method_id,
+            )?.fee_rate ?? 0
+          }
+          staffOptions={staffOptions}
+          defaultSellerName={
+            isOthersQuote(convertingQuote)
+              ? convertingQuote.created_by_name?.trim() ||
+                currentUserName ||
+                staffOptions[0]?.full_name ||
+                ""
+              : currentUserName || staffOptions[0]?.full_name || ""
+          }
+          showSellerPicker={isOthersQuote(convertingQuote)}
+          isPending={isConverting}
+          onConfirm={handleConfirmConvert}
+          onCancel={() => {
+            if (!isConverting) setConvertingQuote(null);
+          }}
+        />
       ) : null}
 
       {cancellingQuote ? (

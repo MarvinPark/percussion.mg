@@ -13,6 +13,15 @@ import {
   recordStockIn,
   recordStockOutForSale,
 } from "@/lib/sale-recording";
+import {
+  AMOUNT_ROUNDING_MODE_OPTIONS,
+  AMOUNT_ROUNDING_UNIT_OPTIONS,
+  adjustUnitSalePriceForLineDelta,
+  resolveQuoteConvertPricing,
+  type AmountRoundingMode,
+  type AmountRoundingUnit,
+  type CardFeePercent,
+} from "@/lib/quote-card-pricing";
 import { getModifierInfo, requirePermission } from "@/lib/profile";
 import {
   createRegistrationSkuContext,
@@ -443,7 +452,14 @@ export async function updateQuote(formData: FormData) {
 
 export async function convertQuoteToSale(
   quoteId: string,
-  options?: { sellerUserId?: string; sellerName?: string },
+  options?: {
+    sellerUserId?: string;
+    sellerName?: string;
+    cardFeePercent?: CardFeePercent;
+    actualFeeRate?: number;
+    roundingUnit?: AmountRoundingUnit;
+    roundingMode?: AmountRoundingMode;
+  },
 ) {
   if (!quoteId) return { error: "견적 ID가 없습니다." };
 
@@ -506,8 +522,46 @@ export async function convertQuoteToSale(
 
   const soldAt = new Date().toISOString().slice(0, 10);
   const stockNote = `견적 매출전환${quote.customer_name ? ` — ${quote.customer_name}` : ""}`;
+  const quoteItems = quote.quote_items ?? [];
+  const cardFeePercent = options?.cardFeePercent ?? 0;
+  const roundingUnit = options?.roundingUnit ?? "none";
+  const roundingMode = options?.roundingMode ?? "none";
+  const actualFeeRate =
+    options?.actualFeeRate !== undefined
+      ? Math.min(10, Math.max(0, Math.round(options.actualFeeRate * 10) / 10))
+      : Number(paymentMethod.fee_rate) || 0;
+  const quoteTotal = Math.round(Number(quote.total_amount) || 0);
+  const { cardPaymentTotal, delta: pricingDelta } = resolveQuoteConvertPricing(
+    quoteTotal,
+    cardFeePercent,
+    roundingUnit,
+    roundingMode,
+  );
+  const cardPricingNote =
+    cardFeePercent > 0 || actualFeeRate > 0
+      ? (() => {
+          const unitLabel =
+            AMOUNT_ROUNDING_UNIT_OPTIONS.find(
+              (option) => option.value === roundingUnit,
+            )?.label ?? "없음";
+          const modeLabel =
+            AMOUNT_ROUNDING_MODE_OPTIONS.find(
+              (option) => option.value === roundingMode,
+            )?.label ?? "없음";
+          const parts = [
+            cardFeePercent > 0
+              ? `실결제 ${cardPaymentTotal.toLocaleString("ko-KR")}원 (고객청구 +${cardFeePercent}% · ${unitLabel} ${modeLabel})`
+              : null,
+            actualFeeRate > 0
+              ? `실제 PG ${actualFeeRate % 1 === 0 ? actualFeeRate : actualFeeRate.toFixed(1)}%`
+              : null,
+          ].filter(Boolean);
+          return parts.join(" / ");
+        })()
+      : null;
   const saleNote =
-    [quote.memo, quote.customer_note].filter(Boolean).join("\n") || null;
+    [quote.memo, quote.customer_note, cardPricingNote].filter(Boolean).join("\n") ||
+    null;
 
   const completed: {
     saleId: string;
@@ -515,9 +569,10 @@ export async function convertQuoteToSale(
     stockOutQuantity: number;
   }[] = [];
 
-  for (let index = 0; index < quote.quote_items.length; index += 1) {
-    const item = quote.quote_items[index];
+  for (let index = 0; index < quoteItems.length; index += 1) {
+    const item = quoteItems[index];
     const lineNumber = index + 1;
+    const isLastLine = index === quoteItems.length - 1;
 
     if (!item.product_id) {
       return {
@@ -526,7 +581,15 @@ export async function convertQuoteToSale(
     }
 
     const quantity = Math.round(Number(item.quantity) || 0);
-    const unit_sale_price = Math.round(Number(item.sale_unit_price) || 0);
+    const baseUnitSalePrice = Math.round(Number(item.sale_unit_price) || 0);
+    const unit_sale_price =
+      isLastLine && pricingDelta !== 0
+        ? adjustUnitSalePriceForLineDelta({
+            quantity,
+            unitSalePrice: baseUnitSalePrice,
+            delta: pricingDelta,
+          })
+        : baseUnitSalePrice;
     const unit_purchase_price = Math.round(Number(item.purchase_price) || 0);
     const fromStore = isStoreFulfillment(item.fulfillment_location);
 
@@ -551,6 +614,7 @@ export async function convertQuoteToSale(
         unit_purchase_price,
         paymentMethod,
         shipping_cost,
+        actualFeeRate,
       );
 
     const purchaseSourceNote = item.purchase_source?.trim()
@@ -571,7 +635,7 @@ export async function convertQuoteToSale(
       customer_phone: quote.customer_phone || null,
       customer_address: quote.customer_address || null,
       payment_method: paymentMethod.name,
-      payment_fee_rate: Number(paymentMethod.fee_rate) || 0,
+      payment_fee_rate: actualFeeRate,
       payment_fee_amount: paymentFeeAmount,
       total_amount: totalAmount,
       margin_amount: marginAmount,

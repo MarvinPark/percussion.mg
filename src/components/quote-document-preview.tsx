@@ -6,13 +6,10 @@ import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
 } from "@/lib/quote-document-capture";
+import QuoteCardPricingControls from "@/components/quote-card-pricing-controls";
 import {
-  AMOUNT_ROUNDING_MODE_OPTIONS,
-  AMOUNT_ROUNDING_UNIT_OPTIONS,
-  CARD_FEE_PERCENT_OPTIONS,
   calculateCardPaymentTotal,
-  calculateInvoiceDocumentTotal,
-  calculateInvoiceLinePricing,
+  resolveInvoiceDocumentPricing,
   type AmountRoundingMode,
   type AmountRoundingUnit,
   type CardFeePercent,
@@ -431,10 +428,6 @@ async function waitForPrintImages(doc: Document) {
 const controlSelectClass =
   "rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
 
-function parseRoundingUnit(value: string): AmountRoundingUnit {
-  return value === "none" ? "none" : (Number(value) as AmountRoundingUnit);
-}
-
 function DocumentDateControl({
   mode,
   value,
@@ -455,106 +448,6 @@ function DocumentDateControl({
         onChange={(event) => onChange(event.target.value)}
         className={controlSelectClass}
       />
-    </div>
-  );
-}
-
-function CardPricingControls({
-  mode,
-  cardFeePercent,
-  roundingUnit,
-  roundingMode,
-  onCardFeePercentChange,
-  onRoundingUnitChange,
-  onRoundingModeChange,
-}: {
-  mode: PreviewMode;
-  cardFeePercent: CardFeePercent;
-  roundingUnit: AmountRoundingUnit;
-  roundingMode: AmountRoundingMode;
-  onCardFeePercentChange: (value: CardFeePercent) => void;
-  onRoundingUnitChange: (value: AmountRoundingUnit) => void;
-  onRoundingModeChange: (value: AmountRoundingMode) => void;
-}) {
-  const roundingDisabled = cardFeePercent === 0;
-
-  return (
-    <div className="flex flex-wrap items-end gap-4 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-      <div>
-        <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-          카드 수수료
-        </label>
-        <select
-          value={cardFeePercent}
-          onChange={(event) =>
-            onCardFeePercentChange(Number(event.target.value) as CardFeePercent)
-          }
-          className={controlSelectClass}
-        >
-          {CARD_FEE_PERCENT_OPTIONS.map((percent) => (
-            <option key={percent} value={percent}>
-              {percent === 0 ? "0%" : `+${percent}%`}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label
-          className={`mb-1 block text-xs font-semibold ${
-            roundingDisabled
-              ? "text-zinc-400 dark:text-zinc-600"
-              : "text-zinc-600 dark:text-zinc-400"
-          }`}
-        >
-          금액 단위
-        </label>
-        <select
-          value={roundingUnit}
-          disabled={roundingDisabled}
-          onChange={(event) =>
-            onRoundingUnitChange(parseRoundingUnit(event.target.value))
-          }
-          className={controlSelectClass}
-        >
-          {AMOUNT_ROUNDING_UNIT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label
-          className={`mb-1 block text-xs font-semibold ${
-            roundingDisabled
-              ? "text-zinc-400 dark:text-zinc-600"
-              : "text-zinc-600 dark:text-zinc-400"
-          }`}
-        >
-          금액 처리
-        </label>
-        <select
-          value={roundingMode}
-          disabled={roundingDisabled}
-          onChange={(event) =>
-            onRoundingModeChange(event.target.value as AmountRoundingMode)
-          }
-          className={controlSelectClass}
-        >
-          {AMOUNT_ROUNDING_MODE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        {cardFeePercent === 0
-          ? "카드 수수료가 없으면 금액 조정 없이 기본 금액이 표시됩니다."
-          : mode === "invoice"
-            ? "거래명세서는 선택한 수수료·단위가 각 상품 금액과 최종금액에 반영됩니다."
-            : "견적서 하단 카드결제 금액에 반영됩니다."}
-      </p>
     </div>
   );
 }
@@ -617,31 +510,9 @@ export default function QuoteDocumentPreview({
     [totals.totalAmount, cardFeePercent, roundingUnit, roundingMode],
   );
 
-  const invoiceLinePricing = useMemo(() => {
-    const map = new Map<
-      string,
-      { adjustedUnitPrice: number; adjustedLineTotal: number }
-    >();
-
-    data.items.forEach((item, index) => {
-      const key = `${item.product_id}-${item.model_name}-${index}`;
-      map.set(
-        key,
-        calculateInvoiceLinePricing(
-          item,
-          cardFeePercent,
-          roundingUnit,
-          roundingMode,
-        ),
-      );
-    });
-
-    return map;
-  }, [data.items, cardFeePercent, roundingUnit, roundingMode]);
-
-  const invoiceDocumentTotal = useMemo(
+  const invoicePricing = useMemo(
     () =>
-      calculateInvoiceDocumentTotal(
+      resolveInvoiceDocumentPricing(
         data.items,
         cardFeePercent,
         roundingUnit,
@@ -650,8 +521,23 @@ export default function QuoteDocumentPreview({
     [data.items, cardFeePercent, roundingUnit, roundingMode],
   );
 
+  const invoiceLinePricing = useMemo(() => {
+    const map = new Map<
+      string,
+      { adjustedUnitPrice: number; adjustedLineTotal: number }
+    >();
+
+    data.items.forEach((item, index) => {
+      const key = `${item.product_id}-${item.model_name}-${index}`;
+      const pricing = invoicePricing.linePricing[index];
+      if (pricing) map.set(key, pricing);
+    });
+
+    return map;
+  }, [data.items, invoicePricing.linePricing]);
+
   const documentTotalAmount =
-    mode === "invoice" ? invoiceDocumentTotal : totals.totalAmount;
+    mode === "invoice" ? invoicePricing.documentTotal : totals.totalAmount;
 
   if (!open) return null;
 
@@ -848,15 +734,24 @@ export default function QuoteDocumentPreview({
           onChange={setDocumentDate}
         />
 
-        <CardPricingControls
-          mode={mode}
-          cardFeePercent={cardFeePercent}
-          roundingUnit={roundingUnit}
-          roundingMode={roundingMode}
-          onCardFeePercentChange={setCardFeePercent}
-          onRoundingUnitChange={setRoundingUnit}
-          onRoundingModeChange={setRoundingMode}
-        />
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+          <QuoteCardPricingControls
+            compact
+            cardFeePercent={cardFeePercent}
+            roundingUnit={roundingUnit}
+            roundingMode={roundingMode}
+            onCardFeePercentChange={setCardFeePercent}
+            onRoundingUnitChange={setRoundingUnit}
+            onRoundingModeChange={setRoundingMode}
+            helperText={
+              cardFeePercent === 0
+                ? "카드 수수료가 없으면 금액 조정 없이 기본 금액이 표시됩니다."
+                : mode === "invoice"
+                  ? "최종금액은 견적서·매출전환과 같이 합계 기준으로 계산되며, 차액은 마지막 제품 줄에 반영됩니다."
+                  : "견적서 하단 카드결제 금액에 반영됩니다."
+            }
+          />
+        </div>
 
         <div className="overflow-x-auto overflow-y-auto overscroll-x-contain p-4">
           <div

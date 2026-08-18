@@ -26,6 +26,7 @@ import {
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import { formatKRW } from "@/lib/sales-calculator";
+import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import type { PaymentMethod } from "@/types/sale";
 import type {
   QuoteItemInput,
@@ -138,6 +139,7 @@ export default function QuoteForm({
   onSaved,
 }: QuoteFormProps) {
   const isEditing = Boolean(quoteId);
+  const livePaymentMethods = useLivePaymentMethods(paymentMethods);
 
   const [items, setItems] = useState<QuoteItemInput[]>(
     initialQuote?.items ?? [],
@@ -201,8 +203,8 @@ export default function QuoteForm({
   const totals = useMemo(() => calculateQuoteTotals(items), [items]);
 
   const selectedPaymentMethod = useMemo(
-    () => paymentMethods.find((method) => method.id === paymentMethodId),
-    [paymentMethods, paymentMethodId],
+    () => livePaymentMethods.find((method) => method.id === paymentMethodId),
+    [livePaymentMethods, paymentMethodId],
   );
 
   const paymentFeeMargin = useMemo(() => {
@@ -721,14 +723,14 @@ export default function QuoteForm({
         <p className="mb-2 font-semibold text-zinc-900 dark:text-zinc-100">
           결제 방식
         </p>
-        {paymentMethods.length === 0 ? (
+        {livePaymentMethods.length === 0 ? (
           <p className="text-sm text-red-600 dark:text-red-400">
             등록된 결제 방식이 없습니다. 관리자 페이지에서 먼저 등록해 주세요.
           </p>
         ) : (
           <PaymentMethodCombobox
             id="quote_payment_method"
-            paymentMethods={paymentMethods}
+            paymentMethods={livePaymentMethods}
             value={paymentMethodId}
             onChange={setPaymentMethodId}
             className={inputClass}
@@ -784,7 +786,7 @@ export default function QuoteForm({
           <button
             type="submit"
             disabled={
-              isPending || items.length === 0 || paymentMethods.length === 0
+              isPending || items.length === 0 || livePaymentMethods.length === 0
             }
             className={`${btnPrimary} px-4 py-2.5`}
           >
