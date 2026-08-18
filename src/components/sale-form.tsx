@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { createSale } from "@/app/(main)/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
+import SaleProductCreateModal from "@/components/sale-product-create-modal";
 import PhoneInput from "@/components/phone-input";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
@@ -105,6 +106,10 @@ export default function SaleForm({
   const [selectedProductsByLine, setSelectedProductsByLine] = useState<
     Record<string, SaleProductOption>
   >({});
+  const [productCreateModal, setProductCreateModal] = useState<{
+    lineId: string;
+    initialQuery: string;
+  } | null>(null);
   const [bulkPaymentMethodId, setBulkPaymentMethodId] = useState(
     () => paymentMethods[0]?.id ?? "",
   );
@@ -157,6 +162,25 @@ export default function SaleForm({
     setLines((prev) =>
       prev.map((line) => (line.id === id ? { ...line, ...patch } : line)),
     );
+  }
+
+  function resolveRegisterTargetLineId() {
+    return lines.find((line) => !line.productId)?.id ?? lines[0]?.id ?? "";
+  }
+
+  function openProductCreate(lineId: string, initialQuery: string) {
+    if (!lineId) return;
+    setProductCreateModal({ lineId, initialQuery });
+  }
+
+  function handleHeaderRegisterProduct() {
+    openProductCreate(resolveRegisterTargetLineId(), "");
+  }
+
+  function handleSaleProductCreated(product: SaleProductOption) {
+    if (!productCreateModal) return;
+    handleProductChange(productCreateModal.lineId, product);
+    setProductCreateModal(null);
   }
 
   function handleProductChange(
@@ -316,7 +340,16 @@ export default function SaleForm({
                   출고지
                 </th>
                 <th className="min-w-[14rem] px-3 py-2.5 font-semibold">
-                  판매제품
+                  <span className="inline-flex items-center gap-1.5">
+                    판매제품
+                    <button
+                      type="button"
+                      onClick={handleHeaderRegisterProduct}
+                      className="rounded border border-blue-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
+                    >
+                      제품등록
+                    </button>
+                  </span>
                 </th>
                 <th className="min-w-[5rem] px-3 py-2.5 font-semibold">
                   판매수량
@@ -369,6 +402,9 @@ export default function SaleForm({
                         selectedProduct={selectedProductsByLine[line.id] ?? null}
                         onSelect={(product) =>
                           handleProductChange(line.id, product)
+                        }
+                        onRegisterProduct={(query) =>
+                          openProductCreate(line.id, query)
                         }
                         compact
                         emphasizeModelName
@@ -579,6 +615,14 @@ export default function SaleForm({
           ? "저장 중..."
           : `판매 등록 (${lines.filter((line) => line.productId).length}건 · 재고 자동 차감)`}
       </button>
+
+      {productCreateModal ? (
+        <SaleProductCreateModal
+          initialModelName={productCreateModal.initialQuery}
+          onClose={() => setProductCreateModal(null)}
+          onCreated={handleSaleProductCreated}
+        />
+      ) : null}
     </form>
   );
 }

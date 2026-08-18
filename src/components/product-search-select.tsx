@@ -41,6 +41,7 @@ type ProductSearchSelectProps = {
   inputId?: string;
   emphasizeModelName?: boolean;
   modelNameOnly?: boolean;
+  onRegisterProduct?: (query: string) => void;
 };
 
 export default function ProductSearchSelect({
@@ -53,6 +54,7 @@ export default function ProductSearchSelect({
   inputId = "product_search",
   emphasizeModelName = false,
   modelNameOnly = false,
+  onRegisterProduct,
 }: ProductSearchSelectProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -168,10 +170,23 @@ export default function ProductSearchSelect({
     }
   }
 
+  const trimmedQuery = query.trim();
   const showDropdown =
     isOpen &&
-    query.trim().length > 0 &&
-    (!selectedProduct || query.trim() !== currentLabel(selectedProduct));
+    trimmedQuery.length > 0 &&
+    (!selectedProduct || trimmedQuery !== currentLabel(selectedProduct));
+  const showRegisterOption =
+    Boolean(onRegisterProduct) &&
+    trimmedQuery.length > 0 &&
+    !isSearching &&
+    results.length === 0 &&
+    showDropdown;
+
+  function handleRegister() {
+    if (!onRegisterProduct || !trimmedQuery) return;
+    onRegisterProduct(trimmedQuery);
+    setIsOpen(false);
+  }
 
   const dropdown =
     showDropdown && dropdownPosition ? (
@@ -190,6 +205,20 @@ export default function ProductSearchSelect({
         {isSearching ? (
           <li className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
             검색 중...
+          </li>
+        ) : showRegisterOption ? (
+          <li>
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={handleRegister}
+              className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950"
+            >
+              + 제품등록
+              <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                「{trimmedQuery}」 검색 결과 없음 · 새 제품 등록
+              </span>
+            </button>
           </li>
         ) : results.length === 0 ? (
           <li className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
@@ -234,6 +263,12 @@ export default function ProductSearchSelect({
         value={query}
         onChange={(event) => handleInputChange(event.target.value)}
         onKeyDown={(event) => {
+          if (showRegisterOption && event.key === "Enter") {
+            event.preventDefault();
+            handleRegister();
+            return;
+          }
+
           if (event.key === "Escape") {
             event.preventDefault();
             setIsOpen(false);
