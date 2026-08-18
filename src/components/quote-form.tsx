@@ -517,9 +517,18 @@ export default function QuoteForm({
       </section>
 
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
-        <p className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
-          제품 추가
-        </p>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+            제품 추가
+          </p>
+          <button
+            type="button"
+            onClick={() => handleRegisterProductFromSearch(modelSearch.trim())}
+            className="shrink-0 rounded-lg border border-blue-600 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
+          >
+            제품등록
+          </button>
+        </div>
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[200px] flex-1">
             <label className={labelClass}>모델명</label>
@@ -788,7 +797,7 @@ export default function QuoteForm({
         </form>
       </div>
 
-      {productCreateQuery ? (
+      {productCreateQuery !== null ? (
         <QuoteProductCreateModal
           initialModelName={productCreateQuery}
           onClose={() => setProductCreateQuery(null)}
