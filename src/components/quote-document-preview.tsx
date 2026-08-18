@@ -368,50 +368,65 @@ function InvoiceFooter() {
   );
 }
 
-const PRINT_STYLES = `
-  @page { size: A4; margin: 12mm; }
-  body { font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; margin: 0; color: #111; }
-  .print-page { page-break-after: always; break-after: page; min-height: 0; }
-  .print-page:last-child { page-break-after: auto; break-after: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th, td { border-top: 1px solid #666; border-bottom: 1px solid #666; border-left: 0; border-right: 0; padding: 4px; }
-  .title { text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 0.3em; margin-bottom: 16px; }
-  .doc-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-size: 14px; margin-bottom: 12px; }
-  .doc-meta-manager { white-space: nowrap; min-width: 0; }
-  .doc-meta-date { white-space: nowrap; flex-shrink: 0; text-align: right; }
-  .box { border: 1px solid #666; padding: 8px; }
-  .supplier-company-line { position: relative; display: inline-block; max-width: 100%; }
-  .supplier-seal {
-    position: absolute;
-    right: 10px;
-    bottom: ${COMPANY_SEAL_BOTTOM_PX}px;
-    width: ${COMPANY_SEAL_SIZE_PX}px;
-    height: ${COMPANY_SEAL_SIZE_PX}px;
-    object-fit: contain;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+const PRINT_PAGE_STYLES = `
+  @page { size: A4; margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .print-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    page-break-after: always;
+    break-after: page;
+    overflow: hidden;
   }
-  .amount-box {
-    background: #fff2cc !important;
-    padding: 10px;
-    border: 1px solid #666;
-    margin: 12px 0;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
   }
-  .amount-line-full { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; }
-  .amount-line-full .amount-value { font-size: 20px; font-weight: bold; white-space: nowrap; flex-shrink: 0; }
-  .total-amount { color: #dc2626 !important; font-size: 16px; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .card-fee-row { font-size: 12px; font-weight: 500; color: #111 !important; text-align: right; }
-  .footer { margin-top: 8px; font-size: 11px; white-space: pre-line; }
-  .memo-box { border: 1px solid #666; padding: 6px 8px; font-size: 12px; font-weight: normal; color: #333; }
-  .memo-box p { font-weight: normal; margin: 0; color: #333; }
-  .bank-info { text-align: center; color: #dc2626 !important; font-weight: 600; font-size: 13px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .invoice-receipt { text-align: center; font-size: 18px; font-weight: 600; margin: 20px 0 8px; }
-  .invoice-bank { text-align: center; font-size: 10px; color: #666; }
-  .page-label { display: none; }
+  .print-page img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
 `;
+
+function buildPrintDocumentHtml(title: string, pageCanvases: HTMLCanvasElement[]) {
+  const pagesHtml = pageCanvases
+    .map((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      return `<div class="print-page"><img src="${imgData}" alt="" /></div>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>${title}</title>
+    <style>${PRINT_PAGE_STYLES}</style>
+  </head>
+  <body>${pagesHtml}</body>
+</html>`;
+}
+
+async function waitForPrintImages(doc: Document) {
+  const images = Array.from(doc.querySelectorAll("img"));
+  if (images.length === 0) return;
+
+  await Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete) {
+            resolve();
+            return;
+          }
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        }),
+    ),
+  );
+}
 
 const controlSelectClass =
   "rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
@@ -568,6 +583,7 @@ export default function QuoteDocumentPreview({
 }: QuoteDocumentPreviewProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [documentDate, setDocumentDate] = useState(data.quote_date);
@@ -640,29 +656,40 @@ export default function QuoteDocumentPreview({
   if (!open) return null;
 
   const title = mode === "quote" ? "견적서" : "거래명세서";
-  const isBusy = isPdfGenerating || isCopying;
+  const isBusy = isPdfGenerating || isPrinting || isCopying;
 
-  function handlePrint() {
+  async function handlePrint() {
     const content = printRef.current;
-    if (!content) return;
+    if (!content || isBusy) return;
 
-    const printWindow = window.open("", "_blank", "width=900,height=1100");
-    if (!printWindow) return;
+    setIsPrinting(true);
+    setActionMessage(null);
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="ko">
-        <head>
-          <meta charset="utf-8" />
-          <title>${title}</title>
-          <style>${PRINT_STYLES}</style>
-        </head>
-        <body>${content.innerHTML}</body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    try {
+      const pageCanvases = await captureQuoteDocumentPages(content);
+      if (pageCanvases.length === 0) {
+        throw new Error("no pages");
+      }
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        setActionMessage("팝업이 차단되어 인쇄할 수 없습니다.");
+        return;
+      }
+
+      printWindow.document.write(
+        buildPrintDocumentHtml(title, pageCanvases),
+      );
+      printWindow.document.close();
+      await waitForPrintImages(printWindow.document);
+      printWindow.focus();
+      printWindow.print();
+    } catch (error) {
+      console.error("quote print failed:", error);
+      setActionMessage("인쇄 준비에 실패했습니다.");
+    } finally {
+      setIsPrinting(false);
+    }
   }
 
   async function handlePdfExport() {
@@ -793,11 +820,11 @@ export default function QuoteDocumentPreview({
             </button>
             <button
               type="button"
-              onClick={handlePrint}
+              onClick={() => void handlePrint()}
               disabled={isBusy}
               className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-700"
             >
-              인쇄
+              {isPrinting ? "인쇄 준비 중..." : "인쇄"}
             </button>
             <button
               type="button"
