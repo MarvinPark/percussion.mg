@@ -6,6 +6,7 @@ import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/q
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
 } from "@/components/model-name-autocomplete";
+import QuoteProductCreateModal from "@/components/quote-product-create-modal";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
 import PriceInput from "@/components/price-input";
@@ -147,6 +148,9 @@ export default function QuoteForm({
   const [addQuantity, setAddQuantity] = useState(1);
   const [addSalePrice, setAddSalePrice] = useState(0);
   const [isResolvingProduct, setIsResolvingProduct] = useState(false);
+  const [productCreateQuery, setProductCreateQuery] = useState<string | null>(
+    null,
+  );
   const [quoteDate, setQuoteDate] = useState(
     initialQuote?.quote_date ?? todayString(),
   );
@@ -213,6 +217,17 @@ export default function QuoteForm({
   function handleProductPick(product: QuoteProductOption) {
     setSelectedProduct(product);
     setAddSalePrice(product.sale_price);
+  }
+
+  function handleRegisterProductFromSearch(query: string) {
+    setProductCreateQuery(query);
+  }
+
+  function handleQuoteProductCreated(product: QuoteProductOption) {
+    setModelSearch(product.model_name || product.sku);
+    handleProductPick(product);
+    setProductCreateQuery(null);
+    focusModelInput();
   }
 
   async function resolveProductForAdd(): Promise<QuoteProductOption | null> {
@@ -520,6 +535,7 @@ export default function QuoteForm({
                 });
               }}
               onSelectProduct={handleProductPick}
+              onRegisterProduct={handleRegisterProductFromSearch}
             />
           </div>
           <div className="w-12 shrink-0 sm:w-20">
@@ -771,6 +787,14 @@ export default function QuoteForm({
           </button>
         </form>
       </div>
+
+      {productCreateQuery ? (
+        <QuoteProductCreateModal
+          initialModelName={productCreateQuery}
+          onClose={() => setProductCreateQuery(null)}
+          onCreated={handleQuoteProductCreated}
+        />
+      ) : null}
     </div>
   );
 }

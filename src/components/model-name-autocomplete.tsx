@@ -22,6 +22,7 @@ type ModelNameAutocompleteProps = {
   value: string;
   onChange: (value: string) => void;
   onSelectProduct: (product: QuoteProductOption) => void;
+  onRegisterProduct?: (query: string) => void;
   placeholder?: string;
 };
 
@@ -37,6 +38,7 @@ const ModelNameAutocomplete = forwardRef<
     value,
     onChange,
     onSelectProduct,
+    onRegisterProduct,
     placeholder = "모델명 입력",
   },
   ref,
@@ -47,6 +49,12 @@ const ModelNameAutocomplete = forwardRef<
   const [isSearching, setIsSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const query = value.trim();
+  const showRegisterOption =
+    Boolean(onRegisterProduct) &&
+    Boolean(query) &&
+    !isSearching &&
+    matches.length === 0;
 
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
@@ -88,6 +96,12 @@ const ModelNameAutocomplete = forwardRef<
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  function handleRegister() {
+    if (!onRegisterProduct || !query) return;
+    onRegisterProduct(query);
+    setOpen(false);
+  }
+
   function handleSelect(product: QuoteProductOption) {
     onSelectProduct(product);
     onChange(productSearchLabel(product));
@@ -105,7 +119,19 @@ const ModelNameAutocomplete = forwardRef<
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={(event) => {
-          if (!open || matches.length === 0) return;
+          if (!open) return;
+
+          if (showRegisterOption) {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              handleRegister();
+            } else if (event.key === "Escape") {
+              setOpen(false);
+            }
+            return;
+          }
+
+          if (matches.length === 0) return;
           if (event.key === "ArrowDown") {
             event.preventDefault();
             setHighlightIndex((prev) => (prev + 1) % matches.length);
@@ -126,7 +152,7 @@ const ModelNameAutocomplete = forwardRef<
         autoComplete="off"
       />
 
-      {open && value.trim() ? (
+      {open && query ? (
         isSearching ? (
           <div className="absolute z-20 mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
             검색 중…
@@ -159,6 +185,22 @@ const ModelNameAutocomplete = forwardRef<
                 </button>
               </li>
             ))}
+          </ul>
+        ) : showRegisterOption ? (
+          <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
+            <li>
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={handleRegister}
+                className="block w-full px-3 py-2.5 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950"
+              >
+                + 제품등록
+                <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                  「{query}」 검색 결과 없음 · 새 제품 등록
+                </span>
+              </button>
+            </li>
           </ul>
         ) : (
           <div className="absolute z-20 mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
