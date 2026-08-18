@@ -74,7 +74,6 @@ type QuotesListProps = {
   rowFontSize?: number;
   emptyMessage?: string;
   highlightedQuoteIds?: Set<string>;
-  onCopyQuote?: (quote: QuoteListItem) => void;
 };
 
 function formatDate(value: string) {
@@ -108,7 +107,6 @@ export default function QuotesList({
   rowFontSize = 12,
   emptyMessage,
   highlightedQuoteIds,
-  onCopyQuote,
 }: QuotesListProps) {
   const router = useRouter();
   const convertedQuoteIdSet = new Set(convertedQuoteIds);
@@ -295,13 +293,6 @@ export default function QuotesList({
                 className="flex w-full shrink-0 flex-wrap items-center justify-center gap-1 md:w-auto md:self-center"
                 onClick={(event) => event.stopPropagation()}
               >
-                <button
-                  type="button"
-                  onClick={() => onCopyQuote?.(quote)}
-                  className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-                >
-                  복사
-                </button>
                 <button
                   type="button"
                   onClick={() => setPreview({ quote, mode: "quote" })}

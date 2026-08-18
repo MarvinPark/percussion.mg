@@ -6,10 +6,7 @@ import { pasteQuote } from "@/app/(main)/quotes/actions";
 import QuotesList, { type QuoteListItem } from "@/components/quotes-list";
 import QuotesListSearch from "@/components/quotes-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
-import {
-  quoteToCopiedPayload,
-  type CopiedQuotePayload,
-} from "@/lib/quote-clipboard";
+import { quoteToCopiedPayload } from "@/lib/quote-clipboard";
 import {
   buildProductSkuMap,
   filterQuotes,
@@ -76,14 +73,12 @@ export default function QuotesPageClient({
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_ROW_FONT_SIZE);
-  const [clipboard, setClipboard] = useState<CopiedQuotePayload | null>(null);
   const [highlightedQuoteIds, setHighlightedQuoteIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [toast, setToast] = useState<string | null>(null);
-  const [pasteError, setPasteError] = useState<string | null>(null);
-  const [isPasting, startPaste] = useTransition();
-  const clipboardRef = useRef<CopiedQuotePayload | null>(null);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [isDuplicating, startDuplicate] = useTransition();
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -92,40 +87,6 @@ export default function QuotesPageClient({
     setToast(message);
     toastTimerRef.current = setTimeout(() => setToast(null), 1500);
   }, []);
-
-  const handleCopyQuote = useCallback(
-    (quote: QuoteListItem) => {
-      const copied = quoteToCopiedPayload(quote);
-      clipboardRef.current = copied;
-      setClipboard(copied);
-      showToast("복사");
-    },
-    [showToast],
-  );
-
-  const handlePasteQuote = useCallback(() => {
-    const payload = clipboardRef.current;
-    if (!payload || isPasting) return;
-
-    setPasteError(null);
-    startPaste(async () => {
-      const result = await pasteQuote(payload);
-      if (result.error) {
-        setPasteError(result.error);
-        return;
-      }
-
-      showToast("붙여넣기");
-      if (result.quoteId) {
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        setHighlightedQuoteIds(new Set([result.quoteId]));
-        highlightTimerRef.current = setTimeout(() => {
-          setHighlightedQuoteIds(new Set());
-        }, 2000);
-      }
-      router.refresh();
-    });
-  }, [isPasting, router, showToast]);
 
   const productSkuById = useMemo(
     () => buildProductSkuMap(productSkus),
@@ -167,17 +128,69 @@ export default function QuotesPageClient({
     setAppliedQuery("");
   }, []);
 
+  const handleDuplicateQuotes = useCallback(() => {
+    if (isDuplicating) return;
+
+    if (!appliedQuery.trim()) {
+      showToast("검색 후 복제해 주세요");
+      return;
+    }
+
+    if (filteredQuotes.length === 0) {
+      showToast("복제할 견적이 없습니다");
+      return;
+    }
+
+    setDuplicateError(null);
+    startDuplicate(async () => {
+      const newQuoteIds: string[] = [];
+
+      for (const quote of filteredQuotes) {
+        const result = await pasteQuote(quoteToCopiedPayload(quote));
+        if (result.error) {
+          setDuplicateError(result.error);
+          if (newQuoteIds.length > 0) {
+            router.refresh();
+          }
+          return;
+        }
+        if (result.quoteId) {
+          newQuoteIds.push(result.quoteId);
+        }
+      }
+
+      showToast(`복제 ${newQuoteIds.length}건`);
+      if (newQuoteIds.length > 0) {
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        setHighlightedQuoteIds(new Set(newQuoteIds));
+        highlightTimerRef.current = setTimeout(() => {
+          setHighlightedQuoteIds(new Set());
+        }, 2000);
+      }
+      router.refresh();
+    });
+  }, [
+    appliedQuery,
+    filteredQuotes,
+    isDuplicating,
+    router,
+    showToast,
+  ]);
+
   const hasActiveFilter = Boolean(
     sellerFilter.trim() || appliedQuery.trim(),
   );
+
+  const canDuplicate =
+    Boolean(appliedQuery.trim()) && filteredQuotes.length > 0 && !isDuplicating;
 
   return (
     <>
       {toast ? <ActionToast message={toast} /> : null}
 
-      {pasteError ? (
+      {duplicateError ? (
         <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {pasteError}
+          {duplicateError}
         </p>
       ) : null}
 
@@ -199,6 +212,15 @@ export default function QuotesPageClient({
             onSelectQuote={handleSelectQuote}
           />
 
+          <button
+            type="button"
+            onClick={() => void handleDuplicateQuotes()}
+            disabled={!canDuplicate}
+            className={buttonClass}
+          >
+            {isDuplicating ? "복제 중..." : "복제"}
+          </button>
+
           <button type="button" onClick={applySearch} className={buttonClass}>
             확인
           </button>
@@ -212,15 +234,6 @@ export default function QuotesPageClient({
             }
           >
             전체보기
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void handlePasteQuote()}
-            disabled={isPasting || !clipboard}
-            className={buttonClass}
-          >
-            {isPasting ? "붙여넣는 중..." : "붙여넣기"}
           </button>
         </div>
 
@@ -262,7 +275,6 @@ export default function QuotesPageClient({
         staffOptions={staffOptions}
         rowFontSize={rowFontSize}
         highlightedQuoteIds={highlightedQuoteIds}
-        onCopyQuote={handleCopyQuote}
         emptyMessage={
           hasActiveFilter || draftQuery.trim()
             ? "검색 조건에 맞는 견적 기록이 없습니다."
