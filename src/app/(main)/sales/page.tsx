@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   alertError,
   btnPrimary,
-  btnSecondary,
   cardDashed,
   pageMain,
   pageSubtitle,
@@ -12,6 +11,7 @@ import SalesAnalyticsDashboard from "@/components/sales-analytics-dashboard";
 import SalesImportPanels from "@/components/sales-import-panels";
 import SalesPageClient from "@/components/sales-page-client";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
+import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { fetchSalesAnalyticsRows } from "@/lib/sales-analytics";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
@@ -29,9 +29,8 @@ export default async function SalesPage() {
   const role = normalizeRole(profile?.role);
   const canManageSales = hasPermission(role, "manageSales");
   const canCreateSales = hasPermission(role, "createSales");
-  const canManagePaymentMethods = hasPermission(role, "managePaymentMethods");
 
-  const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, analytics] =
+  const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, analytics, { names: saleCategories }] =
     await Promise.all([
       supabase
         .from("sales")
@@ -50,6 +49,7 @@ export default async function SalesPage() {
         .not("full_name", "is", null)
         .order("full_name"),
       fetchSalesAnalyticsRows(supabase),
+      fetchSaleCategoryOptions(supabase),
     ]);
 
   const paymentMethods = paymentMethodsResult;
@@ -72,14 +72,6 @@ export default async function SalesPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {canManagePaymentMethods ? (
-            <Link
-              href="/sales/payment-methods"
-              className={btnSecondary}
-            >
-              결제 수단 관리
-            </Link>
-            ) : null}
             <Link
               href="/sales/new"
               className={btnPrimary}
@@ -128,6 +120,7 @@ export default async function SalesPage() {
                 sales={sales as SaleWithProduct[]}
                 products={products ?? []}
                 paymentMethods={paymentMethods ?? []}
+                saleCategories={saleCategories}
                 staffOptions={staffOptions}
                 canManageSales={canManageSales}
               />

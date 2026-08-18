@@ -2,6 +2,7 @@ import Link from "next/link";
 import SaleForm from "@/components/sale-form";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
+import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 import { redirect } from "next/navigation";
@@ -18,6 +19,7 @@ export default async function NewSalePage() {
     { data: products },
     { paymentMethods, error: paymentMethodsError },
     { data: salesContacts },
+    { names: saleCategories },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -31,6 +33,7 @@ export default async function NewSalePage() {
       )
       .order("sold_at", { ascending: false })
       .limit(1000),
+    fetchSaleCategoryOptions(supabase),
   ]);
 
   const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
@@ -79,24 +82,12 @@ export default async function NewSalePage() {
               </code>
               {" "}을 실행했는지 확인해 주세요.
             </p>
-            <Link
-              href="/sales/payment-methods"
-              className="mt-4 inline-block text-sm font-medium text-blue-600 underline dark:text-blue-400"
-            >
-              결제 수단 관리로 이동
-            </Link>
           </div>
         ) : !paymentMethods.length ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
             <p className="font-medium">등록된 결제 수단이 없습니다.</p>
             <p className="mt-2">
-              <Link
-                href="/sales/payment-methods"
-                className="font-medium text-blue-600 underline dark:text-blue-400"
-              >
-                결제 수단 관리
-              </Link>
-              에서 결제 방식을 먼저 등록해 주세요.
+              관리자 페이지에서 결제 방식을 먼저 등록해 주세요.
             </p>
           </div>
         ) : (
@@ -104,6 +95,7 @@ export default async function NewSalePage() {
             <SaleForm
               paymentMethods={paymentMethods}
               contactSuggestions={contactSuggestions}
+              saleCategories={saleCategories}
             />
           </div>
         )}

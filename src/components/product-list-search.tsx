@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { searchProductsForListDropdown } from "@/app/(main)/products/actions";
+import { searchProductsForSaleDropdown } from "@/app/(main)/products/actions";
 import ProductSearchResultRow from "@/components/product-search-result-row";
-import type { Product } from "@/types/product";
+import type { SaleProductOption } from "@/types/sale";
 
 const inputClass =
   "w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs leading-none text-zinc-900 placeholder:text-xs placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400";
@@ -27,7 +27,7 @@ type ProductListSearchProps = {
   query: string;
   onQueryChange: (query: string) => void;
   onConfirm: () => void;
-  onSelectProduct: (product: Product) => void;
+  onSelectProduct: (product: SaleProductOption) => void;
   compact?: boolean;
 };
 
@@ -44,7 +44,7 @@ export default function ProductListSearch({
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] =
     useState<DropdownPosition | null>(null);
-  const [results, setResults] = useState<Product[]>([]);
+  const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   function updateDropdownPosition() {
@@ -69,8 +69,8 @@ export default function ProductListSearch({
 
     setIsSearching(true);
     const timer = window.setTimeout(() => {
-      void searchProductsForListDropdown(trimmed).then((response) => {
-        setResults(response.products.slice(0, MAX_RESULTS));
+      void searchProductsForSaleDropdown(trimmed).then((response) => {
+        setResults((response.products as SaleProductOption[]).slice(0, MAX_RESULTS));
         setIsSearching(false);
       });
     }, 250);
@@ -141,6 +141,7 @@ export default function ProductListSearch({
             <ProductSearchResultRow
               key={product.id}
               product={product}
+              emphasizeModelName
               onSelect={() => {
                 onSelectProduct(product);
                 setIsOpen(false);

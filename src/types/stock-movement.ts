@@ -8,6 +8,7 @@ export type StockMovement = {
   stock_before: number;
   stock_after: number;
   note: string | null;
+  movement_date: string | null;
   modified_by_user_id: string | null;
   modified_by_name: string | null;
   created_at: string;

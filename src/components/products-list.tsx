@@ -194,7 +194,7 @@ function ProductDetailModal({
             href={`/products/stock?product=${product.id}`}
             className={btnPrimarySm}
           >
-            입고/출고
+            입고기록
           </Link>
           <Link
             href={`/products/${product.id}/edit`}

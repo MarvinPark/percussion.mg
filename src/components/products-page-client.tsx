@@ -21,6 +21,7 @@ import {
   type ProductSortColumn,
 } from "@/lib/product-list-sort";
 import type { Product } from "@/types/product";
+import type { SaleProductOption } from "@/types/sale";
 
 const VISIBLE_PAGE_COUNT = 10;
 
@@ -235,7 +236,7 @@ export default function ProductsPageClient({
   );
 
   const handleSelectProduct = useCallback(
-    (product: Product) => {
+    (product: SaleProductOption) => {
       const value = product.sku || product.model_name;
       setDraftQuery(value);
       loadView(1, value, pageSize, sort);

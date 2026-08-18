@@ -31,6 +31,7 @@ type SalesTableProps = {
   sales: SaleWithProduct[];
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
   staffOptions: StaffOption[];
   rowFontSize?: number;
   emptyMessage?: string;
@@ -41,6 +42,7 @@ export default function SalesTable({
   sales,
   products,
   paymentMethods,
+  saleCategories,
   staffOptions,
   rowFontSize = 12,
   emptyMessage,
@@ -213,6 +215,7 @@ export default function SalesTable({
           sale={editingSale}
           products={products}
           paymentMethods={paymentMethods}
+          saleCategories={saleCategories}
           staffOptions={staffOptions}
           onClose={() => setEditingSale(null)}
         />

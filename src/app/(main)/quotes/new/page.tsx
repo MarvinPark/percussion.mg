@@ -2,9 +2,10 @@ import Link from "next/link";
 import QuoteForm from "@/components/quote-form";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
+import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
-import { isProfileComplete } from "@/types/profile";
+import { canUseApp } from "@/types/profile";
 import { redirect } from "next/navigation";
 
 export default async function NewQuotePage() {
@@ -13,17 +14,19 @@ export default async function NewQuotePage() {
 
   if (!user) redirect("/login");
 
-  if (!isProfileComplete(profile)) {
+  if (!canUseApp(profile)) {
     redirect("/profile/setup");
   }
 
   const completeProfile = profile!;
 
-  const [{ count: productCount }, { paymentMethods }, { data: salesContacts }] =
-    await Promise.all([
-    supabase
-      .from("products")
-      .select("*", { count: "exact", head: true }),
+  const [
+    { count: productCount },
+    { paymentMethods },
+    { data: salesContacts },
+    { names: saleCategories },
+  ] = await Promise.all([
+    supabase.from("products").select("*", { count: "exact", head: true }),
     fetchPaymentMethods(supabase),
     supabase
       .from("sales")
@@ -32,6 +35,7 @@ export default async function NewQuotePage() {
       )
       .order("sold_at", { ascending: false })
       .limit(1000),
+    fetchSaleCategoryOptions(supabase),
   ]);
 
   const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
@@ -48,10 +52,6 @@ export default async function NewQuotePage() {
           <h2 className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
             견적서 작성
           </h2>
-          <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            담당자: {formatManagerDisplayName(completeProfile.full_name, completeProfile.job_title)}{" "}
-            · {completeProfile.phone}
-          </p>
         </div>
 
         {!productCount ? (
@@ -70,6 +70,7 @@ export default async function NewQuotePage() {
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <QuoteForm
               paymentMethods={paymentMethods}
+              saleCategories={saleCategories}
               contactSuggestions={contactSuggestions}
               managerName={formatManagerDisplayName(
                 completeProfile.full_name,

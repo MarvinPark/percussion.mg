@@ -9,18 +9,29 @@ import {
 } from "@/app/(main)/sales/payment-methods/actions";
 import type { PaymentMethod } from "@/types/sale";
 
-const inputClass =
-  "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+const compactBtnClass =
+  "rounded border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
+
+const compactDeleteBtnClass =
+  "rounded px-2 py-0.5 text-xs text-red-600 hover:underline dark:text-red-400";
+
+const compactInputClass =
+  "w-full rounded border border-zinc-400 bg-white px-2 py-1 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
 
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
 
+const inputClass =
+  "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
 type PaymentMethodsManagerProps = {
   paymentMethods: PaymentMethod[];
+  embedded?: boolean;
 };
 
 export default function PaymentMethodsManager({
   paymentMethods,
+  embedded = false,
 }: PaymentMethodsManagerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -95,13 +106,27 @@ export default function PaymentMethodsManager({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-          결제 수단 추가
-        </h3>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          이름과 수수료율(%)을 입력하세요. 판매 등록 화면에 바로 반영됩니다.
-        </p>
+      <section
+        className={
+          embedded
+            ? "space-y-4"
+            : "rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"
+        }
+      >
+        {!embedded ? (
+          <>
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+              결제 수단 추가
+            </h3>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              이름과 수수료율(%)을 입력하세요. 판매 등록 화면에 바로 반영됩니다.
+            </p>
+          </>
+        ) : (
+          <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            결제 수단 추가
+          </h4>
+        )}
 
         <form
           action={handleCreate}
@@ -158,25 +183,40 @@ export default function PaymentMethodsManager({
         </p>
       ) : null}
 
-      <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="border-b border-zinc-200 px-6 py-4 text-lg font-semibold text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
+      <section
+        className={
+          embedded
+            ? "overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700"
+            : "rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+        }
+      >
+        <h3
+          className={
+            embedded
+              ? "border-b border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+              : "border-b border-zinc-200 px-6 py-4 text-lg font-semibold text-zinc-900 dark:border-zinc-700 dark:text-zinc-100"
+          }
+        >
           등록된 결제 수단
         </h3>
 
         {!paymentMethods.length ? (
-          <p className="px-6 py-8 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="px-3 py-4 text-sm text-zinc-600 dark:text-zinc-400">
             등록된 결제 수단이 없습니다.
           </p>
         ) : (
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {paymentMethods.map((method) => (
-              <li key={method.id} className="px-6 py-4">
+              <li
+                key={method.id}
+                className={embedded ? "px-3 py-1.5" : "px-6 py-4"}
+              >
                 {editingId === method.id ? (
-                  <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto_auto]">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_100px_auto_auto]">
                     <input
                       value={editName}
                       onChange={(event) => setEditName(event.target.value)}
-                      className={inputClass}
+                      className={embedded ? compactInputClass : inputClass}
                     />
                     <input
                       type="number"
@@ -186,46 +226,45 @@ export default function PaymentMethodsManager({
                       onChange={(event) =>
                         setEditFeeRate(Number(event.target.value) || 0)
                       }
-                      className={inputClass}
+                      className={embedded ? compactInputClass : inputClass}
                     />
                     <button
                       type="button"
                       onClick={() => handleUpdate(method.id)}
                       disabled={isPending}
-                      className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500"
+                      className="rounded bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 dark:bg-blue-500"
                     >
                       저장
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingId(null)}
-                      className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-600 dark:text-zinc-300"
+                      className={compactBtnClass}
                     >
                       취소
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {method.name}
-                      </p>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 flex-1 text-sm text-zinc-900 dark:text-zinc-100">
+                      <span className="font-semibold">{method.name}</span>
+                      <span className="mx-1 text-zinc-400">·</span>
+                      <span className="text-zinc-600 dark:text-zinc-400">
                         수수료 {method.fee_rate}%
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
+                      </span>
+                    </p>
+                    <div className="flex shrink-0 gap-1">
                       <button
                         type="button"
                         onClick={() => startEdit(method)}
-                        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className={compactBtnClass}
                       >
                         수정
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(method.id, method.name)}
-                        className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:underline dark:text-red-400"
+                        className={compactDeleteBtnClass}
                       >
                         삭제
                       </button>

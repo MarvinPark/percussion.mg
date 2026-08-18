@@ -20,7 +20,12 @@ type DropdownPosition = {
   width: number;
 };
 
-function productLabel(product: SaleProductOption, emphasizeModelName: boolean) {
+function productLabel(
+  product: SaleProductOption,
+  emphasizeModelName: boolean,
+  modelNameOnly = false,
+) {
+  if (modelNameOnly) return product.model_name;
   return emphasizeModelName
     ? `${product.model_name} · ${product.product_name}`
     : `${product.product_name} / ${product.model_name}`;
@@ -29,27 +34,33 @@ function productLabel(product: SaleProductOption, emphasizeModelName: boolean) {
 type ProductSearchSelectProps = {
   selectedProduct?: SaleProductOption | null;
   onSelect: (product: SaleProductOption | null) => void;
+  onCancel?: () => void;
   compact?: boolean;
   showHiddenField?: boolean;
   showHelperText?: boolean;
   inputId?: string;
   emphasizeModelName?: boolean;
+  modelNameOnly?: boolean;
 };
 
 export default function ProductSearchSelect({
   selectedProduct = null,
   onSelect,
+  onCancel,
   compact = false,
   showHiddenField = true,
   showHelperText = true,
   inputId = "product_search",
   emphasizeModelName = false,
+  modelNameOnly = false,
 }: ProductSearchSelectProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
   const [query, setQuery] = useState(() =>
-    selectedProduct ? productLabel(selectedProduct, emphasizeModelName) : "",
+    selectedProduct
+      ? productLabel(selectedProduct, emphasizeModelName, modelNameOnly)
+      : "",
   );
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] =
@@ -59,9 +70,15 @@ export default function ProductSearchSelect({
 
   useEffect(() => {
     setQuery(
-      selectedProduct ? productLabel(selectedProduct, emphasizeModelName) : "",
+      selectedProduct
+        ? productLabel(selectedProduct, emphasizeModelName, modelNameOnly)
+        : "",
     );
-  }, [selectedProduct, emphasizeModelName]);
+  }, [selectedProduct, emphasizeModelName, modelNameOnly]);
+
+  function currentLabel(product: SaleProductOption) {
+    return productLabel(product, emphasizeModelName, modelNameOnly);
+  }
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -83,7 +100,7 @@ export default function ProductSearchSelect({
       return;
     }
 
-    if (selectedProduct && trimmed === productLabel(selectedProduct, emphasizeModelName)) {
+    if (selectedProduct && trimmed === currentLabel(selectedProduct)) {
       setResults([]);
       setIsSearching(false);
       return;
@@ -98,7 +115,7 @@ export default function ProductSearchSelect({
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [query, selectedProduct, emphasizeModelName]);
+  }, [query, selectedProduct, emphasizeModelName, modelNameOnly]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -133,7 +150,7 @@ export default function ProductSearchSelect({
 
   function handleSelect(product: SaleProductOption) {
     onSelect(product);
-    setQuery(productLabel(product, emphasizeModelName));
+    setQuery(currentLabel(product));
     setIsOpen(false);
   }
 
@@ -146,7 +163,7 @@ export default function ProductSearchSelect({
       updateDropdownPosition();
     }
 
-    if (selectedProduct && value !== productLabel(selectedProduct, emphasizeModelName)) {
+    if (selectedProduct && value !== currentLabel(selectedProduct)) {
       onSelect(null);
     }
   }
@@ -154,8 +171,7 @@ export default function ProductSearchSelect({
   const showDropdown =
     isOpen &&
     query.trim().length > 0 &&
-    (!selectedProduct ||
-      query.trim() !== productLabel(selectedProduct, emphasizeModelName));
+    (!selectedProduct || query.trim() !== currentLabel(selectedProduct));
 
   const dropdown =
     showDropdown && dropdownPosition ? (
@@ -217,6 +233,16 @@ export default function ProductSearchSelect({
         }
         value={query}
         onChange={(event) => handleInputChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setIsOpen(false);
+            if (selectedProduct) {
+              setQuery(currentLabel(selectedProduct));
+            }
+            onCancel?.();
+          }
+        }}
         className={compact ? compactInputClass : inputClass}
         style={compact ? { fontSize: 12 } : undefined}
         autoComplete="off"

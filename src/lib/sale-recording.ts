@@ -3,8 +3,8 @@ import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import {
   DEFAULT_SALE_CATEGORY,
   formatSaleCategoryDbError,
-  parseSaleCategory,
 } from "@/lib/sale-categories";
+import { resolveSaleCategory } from "@/lib/sale-category-options";
 import { getModifierInfo } from "@/lib/profile";
 import {
   addLocationStock,
@@ -122,10 +122,13 @@ export async function insertSaleRecord(
   supabase: SupabaseClient,
   payload: SaleLinePayload,
 ) {
+  const sale_category =
+    (await resolveSaleCategory(supabase, payload.sale_category ?? "")) ??
+    DEFAULT_SALE_CATEGORY;
+
   const row = {
     sold_at: payload.sold_at,
-    sale_category:
-      parseSaleCategory(payload.sale_category ?? "") ?? DEFAULT_SALE_CATEGORY,
+    sale_category,
     product_id: payload.product_id,
     quantity: Math.round(payload.quantity),
     unit_sale_price: Math.round(payload.unit_sale_price),
@@ -178,13 +181,7 @@ export async function recordStockOutForSale(
   if (!product) return { error: "제품을 찾을 수 없습니다." as const };
 
   const stockBefore = product.stock_quantity;
-  const locationPatch = deductLocationStock(product, quantity);
-
-  if (!locationPatch) {
-    return {
-      error: `재고가 부족합니다. (현재 ${stockBefore}개, 판매 ${quantity}개)` as const,
-    };
-  }
+  const locationPatch = deductLocationStock(product, quantity, true);
 
   const stockAfter = sumLocationStock({ ...product, ...locationPatch });
 

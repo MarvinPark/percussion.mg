@@ -9,7 +9,7 @@ import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import QuoteConvertDialog from "@/components/quote-convert-dialog";
 import QuoteForm from "@/components/quote-form";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
-import { displaySaleCategory } from "@/lib/sale-categories";
+import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
 import type { PaymentMethod } from "@/types/sale";
@@ -64,6 +64,7 @@ type StaffOption = {
 type QuotesListProps = {
   quotes: QuoteListItem[];
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
   convertedQuoteIds: string[];
   contactSuggestions: SaleContactSuggestions;
   managerName: string;
@@ -97,6 +98,7 @@ const actionButtonClass =
 export default function QuotesList({
   quotes,
   paymentMethods,
+  saleCategories,
   convertedQuoteIds,
   contactSuggestions,
   managerName,
@@ -384,7 +386,10 @@ export default function QuotesList({
               quoteId={editingQuote.id}
               initialQuote={{
                 quote_date: editingQuote.quote_date,
-                sale_category: displaySaleCategory(editingQuote.sale_category),
+                sale_category: displaySaleCategoryFromList(
+                  editingQuote.sale_category,
+                  saleCategories,
+                ),
                 customer_name: editingQuote.customer_name,
                 business_partner: editingQuote.business_partner ?? "",
                 customer_phone: editingQuote.customer_phone ?? "",
@@ -400,6 +405,7 @@ export default function QuotesList({
                 items: editingQuote.quote_items.map(dbQuoteItemToInput),
               }}
               paymentMethods={paymentMethods}
+              saleCategories={saleCategories}
               contactSuggestions={contactSuggestions}
               managerName={managerName}
               managerPhone={managerPhone}

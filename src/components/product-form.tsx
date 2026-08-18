@@ -49,6 +49,46 @@ export default function ProductForm({ product }: ProductFormProps) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
+            <label htmlFor="supplier" className={labelClass}>
+              공급처 <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="supplier"
+              name="supplier"
+              required
+              defaultValue={product?.supplier ?? ""}
+              placeholder="예: A사, B사"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="category" className={labelClass}>
+              카테고리
+            </label>
+            <input
+              id="category"
+              name="category"
+              defaultValue={product?.category ?? ""}
+              placeholder="예: 일렉기타"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="brand" className={labelClass}>
+              브랜드
+            </label>
+            <input
+              id="brand"
+              name="brand"
+              defaultValue={product?.brand ?? ""}
+              placeholder="예: Fender"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
             <label htmlFor="product_name" className={labelClass}>
               제품명 <span className="text-red-500">*</span>
             </label>
@@ -58,6 +98,20 @@ export default function ProductForm({ product }: ProductFormProps) {
               required
               defaultValue={product?.product_name ?? ""}
               placeholder="예: Fender Stratocaster"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="model_name" className={labelClass}>
+              모델명 <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="model_name"
+              name="model_name"
+              required
+              defaultValue={product?.model_name ?? ""}
+              placeholder="예: American Professional II"
               className={inputClass}
             />
           </div>
@@ -77,60 +131,6 @@ export default function ProductForm({ product }: ProductFormProps) {
             <p className="mt-1 text-xs font-medium text-zinc-700 dark:text-zinc-400">
               같은 SKU라도 매입가가 다르면 SKU 뒤에 -1, -2처럼 번호가 붙어 등록됩니다. 매입가가 같으면 등록되지 않습니다.
             </p>
-          </div>
-
-          <div>
-            <label htmlFor="model_name" className={labelClass}>
-              모델명 <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="model_name"
-              name="model_name"
-              required
-              defaultValue={product?.model_name ?? ""}
-              placeholder="예: American Professional II"
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="brand" className={labelClass}>
-              브랜드
-            </label>
-            <input
-              id="brand"
-              name="brand"
-              defaultValue={product?.brand ?? ""}
-              placeholder="예: Fender"
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="category" className={labelClass}>
-              카테고리
-            </label>
-            <input
-              id="category"
-              name="category"
-              defaultValue={product?.category ?? ""}
-              placeholder="예: 일렉기타"
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="supplier" className={labelClass}>
-              공급처 <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="supplier"
-              name="supplier"
-              required
-              defaultValue={product?.supplier ?? ""}
-              placeholder="예: A사, B사"
-              className={inputClass}
-            />
           </div>
 
           <div>

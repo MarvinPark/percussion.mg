@@ -40,6 +40,7 @@ async function recordStockMovement(
     stock_before: number;
     stock_after: number;
     note: string | null;
+    movement_date?: string | null;
   },
 ) {
   const modifier = await getModifierInfo();
@@ -49,12 +50,24 @@ async function recordStockMovement(
   }
 
   const { error } = await supabase.from("stock_movements").insert({
-    ...payload,
+    product_id: payload.product_id,
+    movement_type: payload.movement_type,
+    quantity: payload.quantity,
+    stock_before: payload.stock_before,
+    stock_after: payload.stock_after,
+    note: payload.note,
+    movement_date: payload.movement_date ?? null,
     modified_by_user_id: modifier.userId,
     modified_by_name: modifier.name,
   });
 
   if (error) {
+    if (error.message.includes("movement_date")) {
+      return {
+        error:
+          "입고일 저장에 실패했습니다. Supabase SQL Editor에서 supabase/schema-stock-movement-date.sql을 실행해 주세요.",
+      };
+    }
     return { error: "재고 변동 기록 저장에 실패했습니다." };
   }
 
@@ -405,6 +418,7 @@ export async function updateProductField(
   }
 
   revalidatePath("/products");
+  revalidatePath("/products/stock/list");
   revalidatePath("/products/history");
   revalidatePath("/products/key-stock");
   revalidatePath("/dashboard");
@@ -464,6 +478,7 @@ export async function updateStock(formData: FormData) {
     .eq("id", id);
 
   revalidatePath("/products");
+  revalidatePath("/products/stock/list");
   revalidatePath("/products/history");
   revalidatePath("/products/key-stock");
   revalidatePath("/dashboard");
@@ -543,11 +558,444 @@ export async function registerStockMovement(formData: FormData) {
 
   revalidatePath("/products");
   revalidatePath("/products/stock");
+  revalidatePath("/products/stock/list");
   revalidatePath("/products/history");
   revalidatePath("/products/key-stock");
   revalidatePath("/dashboard");
 
   redirect("/products/history");
+}
+
+type StockInLineInput = {
+  movement_date: string;
+  product_id: string;
+  quantity: number;
+};
+
+function parseStockInLinesJson(raw: string): {
+  lines?: StockInLineInput[];
+  error?: string;
+} {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return { error: "입고할 제품을 한 줄 이상 추가해 주세요." };
+    }
+
+    const lines: StockInLineInput[] = [];
+
+    for (let index = 0; index < parsed.length; index += 1) {
+      const row = parsed[index] as Record<string, unknown>;
+      const lineNumber = index + 1;
+      const product_id = String(row.product_id ?? "");
+      const movement_date = String(row.movement_date ?? "").trim();
+      const quantity = Number(row.quantity ?? 0);
+
+      if (!movement_date) {
+        return { error: `${lineNumber}번째 줄: 입고일을 입력해 주세요.` };
+      }
+
+      if (!product_id) {
+        return { error: `${lineNumber}번째 줄: 제품을 선택해 주세요.` };
+      }
+
+      if (!quantity || quantity <= 0 || Number.isNaN(quantity)) {
+        return { error: `${lineNumber}번째 줄: 수량은 1 이상 입력해 주세요.` };
+      }
+
+      lines.push({
+        movement_date,
+        product_id,
+        quantity: Math.round(quantity),
+      });
+    }
+
+    return { lines };
+  } catch {
+    return { error: "입고 데이터 형식이 올바르지 않습니다." };
+  }
+}
+
+export async function registerStockIns(formData: FormData) {
+  const parsed = parseStockInLinesJson(String(formData.get("lines_json") ?? ""));
+  if (parsed.error || !parsed.lines) {
+    return { error: parsed.error ?? "입고 데이터를 확인해 주세요." };
+  }
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
+  for (let index = 0; index < parsed.lines.length; index += 1) {
+    const line = parsed.lines[index];
+    const lineNumber = index + 1;
+
+    const { data: product } = await supabase
+      .from("products")
+      .select(
+        "product_name, stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+      )
+      .eq("id", line.product_id)
+      .single();
+
+    if (!product) {
+      return { error: `${lineNumber}번째 줄: 제품을 찾을 수 없습니다.` };
+    }
+
+    const stockBefore = product.stock_quantity;
+    const locationPatch = addLocationStock(product, line.quantity);
+    const stockAfter = sumLocationStock({ ...product, ...locationPatch });
+
+    const movementResult = await recordStockMovement(supabase, {
+      product_id: line.product_id,
+      movement_type: "in",
+      quantity: line.quantity,
+      stock_before: stockBefore,
+      stock_after: stockAfter,
+      note: null,
+      movement_date: line.movement_date,
+    });
+
+    if ("error" in movementResult) {
+      return {
+        error: `${lineNumber}번째 줄 (${product.product_name}): ${movementResult.error}`,
+      };
+    }
+
+    await supabase
+      .from("products")
+      .update({
+        ...locationPatch,
+        stock_quantity: stockAfter,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", line.product_id);
+  }
+
+  revalidatePath("/products");
+  revalidatePath("/products/stock");
+  revalidatePath("/products/stock/list");
+  revalidatePath("/products/history");
+  revalidatePath("/products/key-stock");
+  revalidatePath("/dashboard");
+
+  redirect("/products/stock/list");
+}
+
+type StockMovementRow = {
+  id: string;
+  product_id: string;
+  movement_type: string;
+  quantity: number;
+  stock_before: number;
+  stock_after: number;
+  movement_date: string | null;
+};
+
+async function fetchStockInMovement(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  movementId: string,
+): Promise<{ movement?: StockMovementRow; error?: string }> {
+  const { data: movement } = await supabase
+    .from("stock_movements")
+    .select(
+      "id, product_id, movement_type, quantity, stock_before, stock_after, movement_date",
+    )
+    .eq("id", movementId)
+    .single();
+
+  if (!movement) {
+    return { error: "입고 기록을 찾을 수 없습니다." };
+  }
+
+  if (movement.movement_type !== "in") {
+    return { error: "입고 기록만 수정할 수 있습니다." };
+  }
+
+  return { movement: movement as StockMovementRow };
+}
+
+async function applyProductStockDelta(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productId: string,
+  delta: number,
+): Promise<{ error?: string; stockBefore?: number; stockAfter?: number }> {
+  if (delta === 0) {
+    const { data: product } = await supabase
+      .from("products")
+      .select("stock_quantity")
+      .eq("id", productId)
+      .single();
+
+    if (!product) return { error: "제품을 찾을 수 없습니다." };
+    return {
+      stockBefore: Number(product.stock_quantity) || 0,
+      stockAfter: Number(product.stock_quantity) || 0,
+    };
+  }
+
+  const { data: product } = await supabase
+    .from("products")
+    .select(
+      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+    )
+    .eq("id", productId)
+    .single();
+
+  if (!product) return { error: "제품을 찾을 수 없습니다." };
+
+  const stockBefore = Number(product.stock_quantity) || 0;
+  const locationPatch =
+    delta > 0
+      ? addLocationStock(product, delta)
+      : deductLocationStock(product, -delta, true);
+
+  if (!locationPatch) {
+    return { error: "재고 조정에 실패했습니다." };
+  }
+
+  const stockAfter = sumLocationStock({ ...product, ...locationPatch });
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      ...locationPatch,
+      stock_quantity: stockAfter,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId);
+
+  if (error) {
+    return { error: "제품 재고 업데이트에 실패했습니다." };
+  }
+
+  return { stockBefore, stockAfter };
+}
+
+function revalidateStockInPaths() {
+  revalidatePath("/products");
+  revalidatePath("/products/stock");
+  revalidatePath("/products/stock/list");
+  revalidatePath("/products/history");
+  revalidatePath("/products/key-stock");
+  revalidatePath("/dashboard");
+}
+
+export type StockInEditableField = "movement_date" | "quantity" | "product_id";
+
+export async function updateStockInMovement(
+  movementId: string,
+  field: StockInEditableField,
+  rawValue: string,
+): Promise<{ error?: string; ok?: boolean }> {
+  const id = movementId.trim();
+  if (!id) return { error: "입고 기록을 찾을 수 없습니다." };
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
+  const movementResult = await fetchStockInMovement(supabase, id);
+  if (movementResult.error || !movementResult.movement) {
+    return { error: movementResult.error ?? "입고 기록을 찾을 수 없습니다." };
+  }
+
+  const movement = movementResult.movement;
+
+  if (field === "movement_date") {
+    const movement_date = rawValue.trim();
+    if (!movement_date) {
+      return { error: "입고일을 입력해 주세요." };
+    }
+
+    const { error } = await supabase
+      .from("stock_movements")
+      .update({ movement_date })
+      .eq("id", id);
+
+    if (error) {
+      if (error.message.includes("movement_date")) {
+        return {
+          error:
+            "입고일 저장에 실패했습니다. supabase/schema-stock-movement-date.sql을 실행해 주세요.",
+        };
+      }
+      return { error: "입고일 수정에 실패했습니다." };
+    }
+
+    revalidateStockInPaths();
+    return { ok: true };
+  }
+
+  if (field === "quantity") {
+    const quantity = Math.round(Number(rawValue));
+    if (!quantity || quantity <= 0 || Number.isNaN(quantity)) {
+      return { error: "수량은 1 이상 입력해 주세요." };
+    }
+
+    const delta = quantity - movement.quantity;
+    const stockResult = await applyProductStockDelta(
+      supabase,
+      movement.product_id,
+      delta,
+    );
+
+    if (stockResult.error) {
+      return { error: stockResult.error };
+    }
+
+    const { error } = await supabase
+      .from("stock_movements")
+      .update({
+        quantity,
+        stock_after: movement.stock_after + delta,
+      })
+      .eq("id", id);
+
+    if (error) {
+      return { error: "입고 수량 수정에 실패했습니다." };
+    }
+
+    revalidateStockInPaths();
+    return { ok: true };
+  }
+
+  const product_id = rawValue.trim();
+  if (!product_id) {
+    return { error: "제품을 선택해 주세요." };
+  }
+
+  if (product_id === movement.product_id) {
+    return { ok: true };
+  }
+
+  const reverseResult = await applyProductStockDelta(
+    supabase,
+    movement.product_id,
+    -movement.quantity,
+  );
+  if (reverseResult.error) {
+    return { error: reverseResult.error };
+  }
+
+  const { data: targetProduct } = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", product_id)
+    .single();
+
+  if (!targetProduct) {
+    await applyProductStockDelta(
+      supabase,
+      movement.product_id,
+      movement.quantity,
+    );
+    return { error: "선택한 제품을 찾을 수 없습니다." };
+  }
+
+  const stockBeforeResult = await applyProductStockDelta(supabase, product_id, 0);
+  if (stockBeforeResult.error || stockBeforeResult.stockBefore === undefined) {
+    await applyProductStockDelta(
+      supabase,
+      movement.product_id,
+      movement.quantity,
+    );
+    return { error: stockBeforeResult.error ?? "제품 재고 확인에 실패했습니다." };
+  }
+
+  const stockBefore = stockBeforeResult.stockBefore;
+  const applyResult = await applyProductStockDelta(
+    supabase,
+    product_id,
+    movement.quantity,
+  );
+
+  if (applyResult.error || applyResult.stockAfter === undefined) {
+    await applyProductStockDelta(
+      supabase,
+      movement.product_id,
+      movement.quantity,
+    );
+    return { error: applyResult.error ?? "제품 재고 반영에 실패했습니다." };
+  }
+
+  const { error } = await supabase
+    .from("stock_movements")
+    .update({
+      product_id,
+      stock_before: stockBefore,
+      stock_after: applyResult.stockAfter,
+    })
+    .eq("id", id);
+
+  if (error) {
+    await applyProductStockDelta(supabase, product_id, -movement.quantity);
+    await applyProductStockDelta(
+      supabase,
+      movement.product_id,
+      movement.quantity,
+    );
+    return { error: "입고 제품 변경에 실패했습니다." };
+  }
+
+  revalidateStockInPaths();
+  return { ok: true };
+}
+
+export async function deleteStockInMovements(
+  movementIds: string[],
+): Promise<{ error?: string; ok?: boolean; deletedCount?: number }> {
+  const ids = [...new Set(movementIds.map((id) => id.trim()).filter(Boolean))];
+  if (!ids.length) {
+    return { error: "삭제할 입고 기록을 선택해 주세요." };
+  }
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
+  let deletedCount = 0;
+
+  for (const id of ids) {
+    const movementResult = await fetchStockInMovement(supabase, id);
+    if (movementResult.error || !movementResult.movement) {
+      return {
+        error: `${movementResult.error ?? "입고 기록을 찾을 수 없습니다."} (ID: ${id})`,
+      };
+    }
+
+    const movement = movementResult.movement;
+    const stockResult = await applyProductStockDelta(
+      supabase,
+      movement.product_id,
+      -movement.quantity,
+    );
+
+    if (stockResult.error) {
+      return {
+        error: `${stockResult.error} (입고 기록 ID: ${id})`,
+      };
+    }
+
+    const { error } = await supabase
+      .from("stock_movements")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      await applyProductStockDelta(
+        supabase,
+        movement.product_id,
+        movement.quantity,
+      );
+      return { error: "입고 기록 삭제에 실패했습니다." };
+    }
+
+    deletedCount += 1;
+  }
+
+  revalidateStockInPaths();
+  return { ok: true, deletedCount };
 }
 
 export async function deleteProduct(formData: FormData) {

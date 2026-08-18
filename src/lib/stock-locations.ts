@@ -72,10 +72,11 @@ export function formatLocationStockSummary(product: LocationStockProduct): strin
   ).join(" · ");
 }
 
-/** 출고 시 위치별 재고에서 차감 (등록 위치 우선, 이후 3층 → B1 → 의왕) */
+/** 출고 시 위치별 재고에서 차감 (등록 위치 우선, 이후 3층 → B1 → 의왕). allowNegative이면 부족분을 등록 위치에서 마이너스 처리 */
 export function deductLocationStock(
   product: LocationStockProduct,
   quantity: number,
+  allowNegative = false,
 ): Pick<LocationStockProduct, "stock_floor3" | "stock_b1" | "stock_display"> | null {
   if (quantity <= 0) {
     return {
@@ -102,7 +103,10 @@ export function deductLocationStock(
     remaining -= take;
   }
 
-  if (remaining > 0) return null;
+  if (remaining > 0) {
+    if (!allowNegative) return null;
+    stocks[primary] -= remaining;
+  }
 
   return {
     stock_floor3: stocks["3층"],

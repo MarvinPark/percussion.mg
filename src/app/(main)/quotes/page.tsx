@@ -11,6 +11,7 @@ import {
 import QuotesPageClient from "@/components/quotes-page-client";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
+import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -29,6 +30,7 @@ export default async function QuotesPage() {
     { data: linkedSales },
     { data: salesContacts },
     { data: staffProfiles },
+    { names: saleCategories },
   ] = await Promise.all([
     supabase
       .from("quotes")
@@ -54,6 +56,7 @@ export default async function QuotesPage() {
       .select("id, full_name")
       .not("full_name", "is", null)
       .order("full_name"),
+    fetchSaleCategoryOptions(supabase),
   ]);
 
   const paymentMethods = paymentMethodsResult;
@@ -119,6 +122,7 @@ export default async function QuotesPage() {
             quotes={quotes}
             productSkus={productSkus}
             paymentMethods={paymentMethods}
+            saleCategories={saleCategories}
             convertedQuoteIds={convertedQuoteIds}
             contactSuggestions={contactSuggestions}
             managerName={formatManagerDisplayName(

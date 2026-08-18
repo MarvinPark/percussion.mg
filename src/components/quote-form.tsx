@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { btnPrimary, sectionAccent, sectionMuted } from "@/lib/ui-classes";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
@@ -24,7 +23,7 @@ import {
   type FulfillmentLocation,
 } from "@/lib/quote-fulfillment";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
-import { displaySaleCategory, type SaleCategory } from "@/lib/sale-categories";
+import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import { formatKRW } from "@/lib/sales-calculator";
 import type { PaymentMethod } from "@/types/sale";
 import type {
@@ -58,6 +57,7 @@ type QuoteEditInitial = {
 
 type QuoteFormProps = {
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
   managerName: string;
   managerPhone: string;
   contactSuggestions: SaleContactSuggestions;
@@ -128,6 +128,7 @@ function recalculateItem(item: QuoteItemInput): QuoteItemInput {
 
 export default function QuoteForm({
   paymentMethods,
+  saleCategories,
   managerName,
   managerPhone,
   contactSuggestions,
@@ -149,8 +150,8 @@ export default function QuoteForm({
   const [quoteDate, setQuoteDate] = useState(
     initialQuote?.quote_date ?? todayString(),
   );
-  const [saleCategory, setSaleCategory] = useState<SaleCategory>(
-    displaySaleCategory(initialQuote?.sale_category),
+  const [saleCategory, setSaleCategory] = useState(() =>
+    displaySaleCategoryFromList(initialQuote?.sale_category, saleCategories),
   );
   const [editableManagerName, setEditableManagerName] = useState(
     initialQuote?.manager_name ?? managerName,
@@ -364,8 +365,11 @@ export default function QuoteForm({
             </label>
             <SaleCategorySelect
               id="quote_sale_category"
+              categories={saleCategories}
               value={saleCategory}
-              onChange={(value) => setSaleCategory(displaySaleCategory(value))}
+              onChange={(value) =>
+                setSaleCategory(displaySaleCategoryFromList(value, saleCategories))
+              }
               className={inputClass}
             />
           </div>
@@ -689,27 +693,12 @@ export default function QuoteForm({
       </section>
 
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-            결제 방식
-          </p>
-          <Link
-            href="/sales/payment-methods"
-            className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
-          >
-            결제 수단 관리 →
-          </Link>
-        </div>
+        <p className="mb-2 font-semibold text-zinc-900 dark:text-zinc-100">
+          결제 방식
+        </p>
         {paymentMethods.length === 0 ? (
           <p className="text-sm text-red-600 dark:text-red-400">
-            등록된 결제 방식이 없습니다.{" "}
-            <Link
-              href="/sales/payment-methods"
-              className="font-medium text-blue-600 underline dark:text-blue-400"
-            >
-              결제 수단 관리
-            </Link>
-            에서 먼저 등록해 주세요.
+            등록된 결제 방식이 없습니다. 관리자 페이지에서 먼저 등록해 주세요.
           </p>
         ) : (
           <PaymentMethodCombobox

@@ -63,7 +63,7 @@ export default async function StockHistoryPage() {
             href="/products/stock"
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
           >
-            + 입고/출고
+            + 입고기록
           </Link>
         </div>
 
@@ -87,7 +87,7 @@ export default async function StockHistoryPage() {
               href="/products/stock"
               className="mt-4 inline-block text-sm font-medium text-blue-600 underline dark:text-blue-400"
             >
-              첫 입고/출고 기록하기
+              첫 입고 기록하기
             </Link>
           </div>
         ) : (

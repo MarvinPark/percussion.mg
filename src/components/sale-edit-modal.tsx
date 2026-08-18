@@ -25,6 +25,7 @@ type SaleEditModalProps = {
   sale: SaleWithProduct;
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
   staffOptions: StaffOption[];
   onClose: () => void;
 };
@@ -37,6 +38,7 @@ export default function SaleEditModal({
   sale,
   products,
   paymentMethods,
+  saleCategories,
   staffOptions,
   onClose,
 }: SaleEditModalProps) {
@@ -226,6 +228,7 @@ export default function SaleEditModal({
             </label>
             <SaleCategorySelect
               id="edit_sale_category"
+              categories={saleCategories}
               defaultValue={sale.sale_category}
             />
           </div>

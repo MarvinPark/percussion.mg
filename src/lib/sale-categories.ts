@@ -30,7 +30,7 @@ export function formatSaleCategoryDbError(
   ) {
     return `${
       table === "quotes" ? "견적" : "매출"
-    } 구분 값을 저장할 수 없습니다. Supabase SQL Editor에서 supabase/schema-sale-category-rental.sql을 실행해 주세요.`;
+    } 구분 값을 저장할 수 없습니다. 관리자 페이지에서 구분을 확인하거나 supabase/schema-admin-settings.sql을 실행해 주세요.`;
   }
 
   if (table === "quotes") {

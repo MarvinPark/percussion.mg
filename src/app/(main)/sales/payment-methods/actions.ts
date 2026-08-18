@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 function revalidatePaymentPaths() {
-  revalidatePath("/sales/payment-methods");
+  revalidatePath("/settings/users");
   revalidatePath("/sales/new");
   revalidatePath("/sales");
   revalidatePath("/quotes");

@@ -50,6 +50,7 @@ type QuotesPageClientProps = {
   quotes: QuoteListItem[];
   productSkus: { id: string; sku?: string | null }[];
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
   convertedQuoteIds: string[];
   contactSuggestions: SaleContactSuggestions;
   managerName: string;
@@ -62,6 +63,7 @@ export default function QuotesPageClient({
   quotes,
   productSkus,
   paymentMethods,
+  saleCategories,
   convertedQuoteIds,
   contactSuggestions,
   managerName,
@@ -251,6 +253,7 @@ export default function QuotesPageClient({
       <QuotesList
         quotes={filteredQuotes}
         paymentMethods={paymentMethods}
+        saleCategories={saleCategories}
         convertedQuoteIds={convertedQuoteIds}
         contactSuggestions={contactSuggestions}
         managerName={managerName}

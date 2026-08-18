@@ -120,7 +120,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 href="/products/stock"
                 className={btnSecondary}
               >
-                입고/출고
+                입고기록
+              </Link>
+              <Link
+                href="/products/stock/list"
+                className={btnSecondary}
+              >
+                입고목록
               </Link>
               <Link
                 href="/products/history"

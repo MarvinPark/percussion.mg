@@ -1,7 +1,6 @@
 import {
   DEFAULT_SALE_CATEGORY,
   SALE_CATEGORIES,
-  displaySaleCategory,
 } from "@/lib/sale-categories";
 
 const selectClass =
@@ -10,24 +9,41 @@ const selectClass =
 type SaleCategorySelectProps = {
   id?: string;
   name?: string;
+  categories?: readonly string[];
   defaultValue?: string | null;
   value?: string;
   onChange?: (value: string) => void;
   className?: string;
 };
 
+function resolveCategories(categories?: readonly string[]) {
+  if (categories?.length) return categories;
+  return SALE_CATEGORIES;
+}
+
+function displayValue(
+  value: string | null | undefined,
+  categories: readonly string[],
+) {
+  if (value && categories.includes(value)) return value;
+  if (categories.includes(DEFAULT_SALE_CATEGORY)) return DEFAULT_SALE_CATEGORY;
+  return categories[0] ?? DEFAULT_SALE_CATEGORY;
+}
+
 export default function SaleCategorySelect({
   id = "sale_category",
   name = "sale_category",
+  categories: categoriesProp,
   defaultValue,
   value,
   onChange,
   className = selectClass,
 }: SaleCategorySelectProps) {
+  const categories = resolveCategories(categoriesProp);
   const isControlled = value !== undefined;
   const resolvedValue = isControlled
-    ? displaySaleCategory(value)
-    : displaySaleCategory(defaultValue);
+    ? displayValue(value, categories)
+    : displayValue(defaultValue, categories);
 
   return (
     <select
@@ -35,15 +51,13 @@ export default function SaleCategorySelect({
       name={isControlled ? undefined : name}
       required
       value={isControlled ? resolvedValue : undefined}
-      defaultValue={isControlled ? undefined : resolvedValue || DEFAULT_SALE_CATEGORY}
+      defaultValue={isControlled ? undefined : resolvedValue}
       onChange={
-        onChange
-          ? (event) => onChange(event.target.value)
-          : undefined
+        onChange ? (event) => onChange(event.target.value) : undefined
       }
       className={className}
     >
-      {SALE_CATEGORIES.map((category) => (
+      {categories.map((category) => (
         <option key={category} value={category}>
           {category}
         </option>

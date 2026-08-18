@@ -3,14 +3,36 @@ export type KeyStockColumnFilter = {
   brand: string;
 };
 
-export const EMPTY_KEY_STOCK_COLUMN_FILTERS: KeyStockColumnFilter[] = [
-  { category: "", brand: "" },
-  { category: "", brand: "" },
-  { category: "", brand: "" },
-];
+export const MIN_KEY_STOCK_SECTION_COUNT = 1;
+export const MAX_KEY_STOCK_SECTION_COUNT = 6;
+export const DEFAULT_KEY_STOCK_SECTION_COUNT = 3;
+
+export const EMPTY_KEY_STOCK_COLUMN_FILTERS: KeyStockColumnFilter[] = Array.from(
+  { length: DEFAULT_KEY_STOCK_SECTION_COUNT },
+  () => ({ category: "", brand: "" }),
+);
+
+export function createEmptyKeyStockColumnFilters(
+  count: number,
+): KeyStockColumnFilter[] {
+  const safeCount = clampKeyStockSectionCount(count);
+  return Array.from({ length: safeCount }, () => ({ category: "", brand: "" }));
+}
+
+export function clampKeyStockSectionCount(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_KEY_STOCK_SECTION_COUNT;
+  return Math.min(
+    MAX_KEY_STOCK_SECTION_COUNT,
+    Math.max(MIN_KEY_STOCK_SECTION_COUNT, Math.round(value)),
+  );
+}
 
 export function getKeyStockFilterStorageKey(userId: string) {
   return `pc-key-stock-column-filters-${userId}`;
+}
+
+export function getKeyStockSectionCountStorageKey(userId: string) {
+  return `pc-key-stock-section-count-${userId}`;
 }
 
 function isValidFilter(value: unknown): value is KeyStockColumnFilter {
@@ -19,25 +41,54 @@ function isValidFilter(value: unknown): value is KeyStockColumnFilter {
   return typeof filter.category === "string" && typeof filter.brand === "string";
 }
 
-export function loadKeyStockColumnFilters(userId: string): KeyStockColumnFilter[] {
+export function loadKeyStockSectionCount(userId: string): number {
   if (typeof window === "undefined") {
-    return EMPTY_KEY_STOCK_COLUMN_FILTERS.map((filter) => ({ ...filter }));
+    return DEFAULT_KEY_STOCK_SECTION_COUNT;
+  }
+
+  try {
+    const raw = localStorage.getItem(getKeyStockSectionCountStorageKey(userId));
+    if (!raw) return DEFAULT_KEY_STOCK_SECTION_COUNT;
+    return clampKeyStockSectionCount(Number(raw));
+  } catch {
+    return DEFAULT_KEY_STOCK_SECTION_COUNT;
+  }
+}
+
+export function saveKeyStockSectionCount(userId: string, count: number) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    getKeyStockSectionCountStorageKey(userId),
+    String(clampKeyStockSectionCount(count)),
+  );
+}
+
+export function loadKeyStockColumnFilters(
+  userId: string,
+  sectionCount = DEFAULT_KEY_STOCK_SECTION_COUNT,
+): KeyStockColumnFilter[] {
+  const safeCount = clampKeyStockSectionCount(sectionCount);
+  const emptyFilters = createEmptyKeyStockColumnFilters(safeCount);
+
+  if (typeof window === "undefined") {
+    return emptyFilters;
   }
 
   try {
     const raw = localStorage.getItem(getKeyStockFilterStorageKey(userId));
     if (!raw) {
-      return EMPTY_KEY_STOCK_COLUMN_FILTERS.map((filter) => ({ ...filter }));
+      return emptyFilters;
     }
 
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed) || parsed.length !== 3) {
-      return EMPTY_KEY_STOCK_COLUMN_FILTERS.map((filter) => ({ ...filter }));
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return emptyFilters;
     }
 
-    return parsed.map((item, index) => {
+    return emptyFilters.map((fallback, index) => {
+      const item = parsed[index];
       if (!isValidFilter(item)) {
-        return { ...EMPTY_KEY_STOCK_COLUMN_FILTERS[index] };
+        return { ...fallback };
       }
       return {
         category: item.category,
@@ -45,7 +96,7 @@ export function loadKeyStockColumnFilters(userId: string): KeyStockColumnFilter[
       };
     });
   } catch {
-    return EMPTY_KEY_STOCK_COLUMN_FILTERS.map((filter) => ({ ...filter }));
+    return emptyFilters;
   }
 }
 
@@ -55,4 +106,23 @@ export function saveKeyStockColumnFilters(
 ) {
   if (typeof window === "undefined") return;
   localStorage.setItem(getKeyStockFilterStorageKey(userId), JSON.stringify(filters));
+}
+
+export function resizeKeyStockColumnFilters(
+  filters: KeyStockColumnFilter[],
+  nextCount: number,
+): KeyStockColumnFilter[] {
+  const safeCount = clampKeyStockSectionCount(nextCount);
+  if (filters.length === safeCount) {
+    return filters.map((filter) => ({ ...filter }));
+  }
+
+  if (filters.length < safeCount) {
+    return [
+      ...filters.map((filter) => ({ ...filter })),
+      ...createEmptyKeyStockColumnFilters(safeCount - filters.length),
+    ];
+  }
+
+  return filters.slice(0, safeCount).map((filter) => ({ ...filter }));
 }

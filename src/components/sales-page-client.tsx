@@ -33,6 +33,7 @@ type SalesPageClientProps = {
   sales: SaleWithProduct[];
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
   staffOptions: StaffOption[];
   canManageSales?: boolean;
 };
@@ -41,6 +42,7 @@ export default function SalesPageClient({
   sales,
   products,
   paymentMethods,
+  saleCategories,
   staffOptions,
   canManageSales = true,
 }: SalesPageClientProps) {
@@ -157,6 +159,7 @@ export default function SalesPageClient({
         sales={filteredSales}
         products={products}
         paymentMethods={paymentMethods}
+        saleCategories={saleCategories}
         staffOptions={staffOptions}
         rowFontSize={rowFontSize}
         canManageSales={canManageSales}

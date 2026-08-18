@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { createSale } from "@/app/(main)/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
@@ -43,6 +42,7 @@ const bulkBarButtonClass =
 type SaleFormProps = {
   paymentMethods: PaymentMethod[];
   contactSuggestions: SaleContactSuggestions;
+  saleCategories: string[];
 };
 
 type SaleLineDraft = {
@@ -97,6 +97,7 @@ function linePreview(
 export default function SaleForm({
   paymentMethods,
   contactSuggestions,
+  saleCategories,
 }: SaleFormProps) {
   const [lines, setLines] = useState<SaleLineDraft[]>(() => [
     createEmptyLine(paymentMethods),
@@ -231,7 +232,7 @@ export default function SaleForm({
           <label htmlFor="sale_category" className={labelClass}>
             구분 <span className="text-red-500">*</span>
           </label>
-          <SaleCategorySelect />
+          <SaleCategorySelect categories={saleCategories} />
         </div>
 
         <div>
@@ -260,12 +261,6 @@ export default function SaleForm({
               행마다 선택하거나 아래 일괄 적용을 사용하세요.
             </p>
           </div>
-          <Link
-            href="/sales/payment-methods"
-            className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
-          >
-            결제 수단 관리 →
-          </Link>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-800/40">

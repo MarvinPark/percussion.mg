@@ -22,7 +22,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { QuoteProductOption } from "@/types/quote";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { formatSaleCategoryDbError, parseSaleCategory } from "@/lib/sale-categories";
+import { formatSaleCategoryDbError } from "@/lib/sale-categories";
+import { resolveSaleCategory } from "@/lib/sale-category-options";
 import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
@@ -188,8 +189,6 @@ export async function createQuote(formData: FormData) {
   const fields = readQuoteFormFields(formData);
 
   if (!fields.quote_date) return { error: "견적일을 입력해 주세요." };
-  const sale_category = parseSaleCategory(fields.sale_category);
-  if (!sale_category) return { error: "구분을 선택해 주세요." };
   if (!fields.customer_name) return { error: "고객명을 입력해 주세요." };
 
   const parsedItems = parseQuoteItems(fields.itemsRaw);
@@ -198,6 +197,9 @@ export async function createQuote(formData: FormData) {
   const { totalAmount, cardAmount } = calculateQuoteTotals(parsedItems);
 
   const supabase = await createClient();
+  const sale_category = await resolveSaleCategory(supabase, fields.sale_category);
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+
   const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
   const modifier = await getModifierInfo();
@@ -290,9 +292,6 @@ export async function pasteQuote(payload: CopiedQuotePayload) {
   const customer_name = payload.customer_name?.trim();
   if (!customer_name) return { error: "고객명이 없습니다." };
 
-  const sale_category = parseSaleCategory(payload.sale_category ?? "");
-  if (!sale_category) return { error: "구분을 선택해 주세요." };
-
   const parsed = normalizePastedQuoteItems(payload.items);
   if ("error" in parsed) return { error: parsed.error };
 
@@ -300,6 +299,12 @@ export async function pasteQuote(payload: CopiedQuotePayload) {
   const quote_date = new Date().toISOString().slice(0, 10);
 
   const supabase = await createClient();
+  const sale_category = await resolveSaleCategory(
+    supabase,
+    payload.sale_category ?? "",
+  );
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+
   const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
   const modifier = await getModifierInfo();
@@ -360,8 +365,6 @@ export async function updateQuote(formData: FormData) {
   const fields = readQuoteFormFields(formData);
 
   if (!fields.quote_date) return { error: "견적일을 입력해 주세요." };
-  const sale_category = parseSaleCategory(fields.sale_category);
-  if (!sale_category) return { error: "구분을 선택해 주세요." };
   if (!fields.customer_name) return { error: "고객명을 입력해 주세요." };
 
   const parsedItems = parseQuoteItems(fields.itemsRaw);
@@ -370,6 +373,9 @@ export async function updateQuote(formData: FormData) {
   const { totalAmount, cardAmount } = calculateQuoteTotals(parsedItems);
 
   const supabase = await createClient();
+  const sale_category = await resolveSaleCategory(supabase, fields.sale_category);
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+
   const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
   const modifier = await getModifierInfo();
@@ -532,13 +538,6 @@ export async function convertQuoteToSale(
       };
     }
 
-    const stockQuantity = productResult.product.stock_quantity;
-    if (fromStore && stockQuantity > 0 && stockQuantity < quantity) {
-      return {
-        error: `${lineNumber}번째 줄 (${item.model_name}): 재고가 부족합니다. (현재 ${stockQuantity}개, 판매 ${quantity}개)`,
-      };
-    }
-
     const { totalAmount, paymentFeeAmount, marginAmount } =
       buildSaleAmountsForLine(
         quantity,
@@ -592,8 +591,7 @@ export async function convertQuoteToSale(
       };
     }
 
-    const stockOutQuantity =
-      fromStore && stockQuantity > 0 ? Math.min(quantity, stockQuantity) : 0;
+    const stockOutQuantity = fromStore ? quantity : 0;
 
     if (stockOutQuantity > 0) {
       const stockResult = await recordStockOutForSale(

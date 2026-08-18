@@ -37,7 +37,6 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "manageSales",
     "viewQuotes",
     "manageQuotes",
-    "managePaymentMethods",
   ],
   employee: ["viewProducts", "viewSales", "createSales"],
 };
@@ -93,7 +92,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
     label: "주요재고",
     permission: "viewProducts",
   },
-  { href: "/settings/users", label: "사용자", permission: "manageUsers" },
+  { href: "/settings/users", label: "관리자", permission: "manageUsers" },
   { href: "/my-page", label: "마이페이지" },
 ];
 

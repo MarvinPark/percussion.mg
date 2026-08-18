@@ -10,9 +10,16 @@ import {
   productFilterRows,
 } from "@/lib/key-stock-loader";
 import {
-  EMPTY_KEY_STOCK_COLUMN_FILTERS,
+  clampKeyStockSectionCount,
+  createEmptyKeyStockColumnFilters,
+  DEFAULT_KEY_STOCK_SECTION_COUNT,
   loadKeyStockColumnFilters,
+  loadKeyStockSectionCount,
+  MAX_KEY_STOCK_SECTION_COUNT,
+  MIN_KEY_STOCK_SECTION_COUNT,
+  resizeKeyStockColumnFilters,
   saveKeyStockColumnFilters,
+  saveKeyStockSectionCount,
   type KeyStockColumnFilter,
 } from "@/lib/key-stock-filters";
 import type { Product } from "@/types/product";
@@ -42,37 +49,56 @@ function lineTotal(product: Product, reserved: number) {
 }
 
 const headerClass =
-  "whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold text-zinc-600 dark:text-zinc-400";
+  "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold text-zinc-600 dark:text-zinc-400";
 const cellClass =
-  "whitespace-nowrap px-2 py-1.5 text-[12px] text-zinc-800 dark:text-zinc-200";
+  "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-1.5 text-[12px] text-zinc-800 dark:text-zinc-200";
 const dividerClass =
   "w-0 border-l-2 border-blue-200 p-0 dark:border-blue-400/60";
 const filterDividerClass =
   "w-0 border-l-2 border-zinc-300 p-0 dark:border-zinc-600";
 
 const COLUMN_HEADERS = [
-  { key: "brand", label: "제조사", align: "left" as const },
-  { key: "model", label: "모델", align: "left" as const },
-  { key: "floor3", label: "3층", align: "center" as const },
-  { key: "b1", label: "B1", align: "center" as const },
-  { key: "uiwang", label: "의왕", align: "center" as const },
-  { key: "reserved", label: "예약", align: "center" as const },
-  { key: "total", label: "총수량", align: "center" as const },
-  { key: "unit", label: "단가", align: "right" as const },
-];
+  { key: "brand", label: "제조사", align: "left" as const, width: 80 },
+  { key: "model", label: "모델", align: "left" as const, width: 112 },
+  { key: "floor3", label: "3층", align: "center" as const, width: 40 },
+  { key: "b1", label: "B1", align: "center" as const, width: 40 },
+  { key: "uiwang", label: "의왕", align: "center" as const, width: 40 },
+  { key: "reserved", label: "예약", align: "center" as const, width: 48 },
+  { key: "total", label: "총수량", align: "center" as const, width: 44 },
+  { key: "unit", label: "단가", align: "right" as const, width: 76 },
+] as const;
 
 const COLUMN_COUNT = COLUMN_HEADERS.length;
-const SECTION_COUNT = 3;
-const TABLE_COLUMN_COUNT = COLUMN_COUNT * SECTION_COUNT + (SECTION_COUNT - 1);
+const SECTION_WIDTH_PX = COLUMN_HEADERS.reduce(
+  (sum, column) => sum + column.width,
+  0,
+);
+const DIVIDER_WIDTH_PX = 2;
 
-function KeyStockColGroup() {
+function getTableColumnCount(sectionCount: number) {
+  return COLUMN_COUNT * sectionCount + Math.max(0, sectionCount - 1);
+}
+
+function getTableMinWidth(sectionCount: number) {
+  return (
+    sectionCount * SECTION_WIDTH_PX +
+    Math.max(0, sectionCount - 1) * DIVIDER_WIDTH_PX
+  );
+}
+
+function KeyStockColGroup({ sectionCount }: { sectionCount: number }) {
   return (
     <colgroup>
-      {Array.from({ length: SECTION_COUNT }, (_, sectionIndex) => (
+      {Array.from({ length: sectionCount }, (_, sectionIndex) => (
         <Fragment key={`colgroup-section-${sectionIndex}`}>
-          {sectionIndex > 0 ? <col style={{ width: 2 }} /> : null}
+          {sectionIndex > 0 ? (
+            <col style={{ width: DIVIDER_WIDTH_PX }} />
+          ) : null}
           {COLUMN_HEADERS.map((column) => (
-            <col key={`colgroup-${sectionIndex}-${column.key}`} />
+            <col
+              key={`colgroup-${sectionIndex}-${column.key}`}
+              style={{ width: column.width }}
+            />
           ))}
         </Fragment>
       ))}
@@ -138,8 +164,10 @@ function ProductCells({
 
   return (
     <>
-      <td className={cellClass}>{product.brand?.trim() || "-"}</td>
-      <td className={`${cellClass} max-w-[8rem] truncate`} title={product.model_name}>
+      <td className={cellClass} title={product.brand?.trim() || "-"}>
+        {product.brand?.trim() || "-"}
+      </td>
+      <td className={cellClass} title={product.model_name}>
         {product.model_name}
       </td>
       <td className={`${cellClass} text-center`}>{product.stock_floor3}</td>
@@ -236,8 +264,9 @@ export default function KeyStockWorkspace({
     return buildKeyStockBrandOptions(filterOptionRows, categoryFilter);
   }
 
-  const [columnFilters, setColumnFilters] = useState<KeyStockColumnFilter[]>(
-    () => EMPTY_KEY_STOCK_COLUMN_FILTERS.map((filter) => ({ ...filter })),
+  const [sectionCount, setSectionCount] = useState(DEFAULT_KEY_STOCK_SECTION_COUNT);
+  const [columnFilters, setColumnFilters] = useState<KeyStockColumnFilter[]>(() =>
+    createEmptyKeyStockColumnFilters(DEFAULT_KEY_STOCK_SECTION_COUNT),
   );
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [reservedById, setReservedById] = useState<Record<string, number>>({});
@@ -246,7 +275,9 @@ export default function KeyStockWorkspace({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setColumnFilters(loadKeyStockColumnFilters(userId));
+    const savedSectionCount = loadKeyStockSectionCount(userId);
+    setSectionCount(savedSectionCount);
+    setColumnFilters(loadKeyStockColumnFilters(userId, savedSectionCount));
     setFiltersLoaded(true);
   }, [userId]);
 
@@ -254,6 +285,11 @@ export default function KeyStockWorkspace({
     if (!filtersLoaded) return;
     saveKeyStockColumnFilters(userId, columnFilters);
   }, [userId, columnFilters, filtersLoaded]);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    saveKeyStockSectionCount(userId, sectionCount);
+  }, [userId, sectionCount, filtersLoaded]);
 
   useEffect(() => {
     setReservedById(
@@ -286,6 +322,9 @@ export default function KeyStockWorkspace({
     [normalized, reservedById],
   );
 
+  const tableColumnCount = getTableColumnCount(sectionCount);
+  const tableMinWidth = getTableMinWidth(sectionCount);
+
   function getReserved(product: Product) {
     return reservedById[product.id] ?? product.reserved_quantity ?? 0;
   }
@@ -304,6 +343,12 @@ export default function KeyStockWorkspace({
         index === columnIndex ? { ...filter, [field]: value } : filter,
       ),
     );
+  }
+
+  function handleSectionCountChange(rawValue: string) {
+    const nextCount = clampKeyStockSectionCount(Number(rawValue));
+    setSectionCount(nextCount);
+    setColumnFilters((prev) => resizeKeyStockColumnFilters(prev, nextCount));
   }
 
   function saveReserved(productId: string, rawValue: string) {
@@ -350,113 +395,153 @@ export default function KeyStockWorkspace({
           </p>
         </div>
       ) : (
-        <section className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-          <table className="min-w-full table-fixed border-separate border-spacing-0">
-            <KeyStockColGroup />
-            <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
-                {columnFilters.map((filter, columnIndex) => (
-                  <Fragment key={`filter-${columnIndex}`}>
-                    {columnIndex > 0 ? (
-                      <ColumnDivider variant="filter" />
-                    ) : null}
-                    <th
-                      colSpan={COLUMN_COUNT}
-                      className="px-2 py-3 text-left align-top"
-                    >
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label
-                            htmlFor={`category-filter-${columnIndex}`}
-                            className="mb-1 block text-[10px] font-semibold text-zinc-600 dark:text-zinc-400"
-                          >
-                            품목
-                          </label>
-                          <KeyStockFilterCombobox
-                            id={`category-filter-${columnIndex}`}
-                            value={filter.category}
-                            options={categories}
-                            placeholder="품목 검색"
-                            onChange={(value) =>
-                              updateColumnFilter(columnIndex, "category", value)
-                            }
-                            className={selectClass}
-                          />
-                        </div>
-                        <div>
-                          <label
-                            htmlFor={`brand-filter-${columnIndex}`}
-                            className="mb-1 block text-[10px] font-semibold text-zinc-600 dark:text-zinc-400"
-                          >
-                            브랜드
-                          </label>
-                          <KeyStockFilterCombobox
-                            id={`brand-filter-${columnIndex}`}
-                            value={filter.brand}
-                            options={getBrandOptions(filter.category)}
-                            placeholder="브랜드 검색"
-                            onChange={(value) =>
-                              updateColumnFilter(columnIndex, "brand", value)
-                            }
-                            className={selectClass}
-                          />
-                        </div>
-                      </div>
-                      <p className="mt-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-                        {columnProducts[columnIndex].length}건
-                      </p>
-                    </th>
-                  </Fragment>
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              품목·브랜드 필터 단
+            </p>
+            <label
+              htmlFor="key-stock-section-count"
+              className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
+            >
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                단 수
+              </span>
+              <select
+                id="key-stock-section-count"
+                value={sectionCount}
+                onChange={(event) => handleSectionCountChange(event.target.value)}
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-300 dark:focus:ring-zinc-300"
+              >
+                {Array.from(
+                  { length: MAX_KEY_STOCK_SECTION_COUNT - MIN_KEY_STOCK_SECTION_COUNT + 1 },
+                  (_, index) => MIN_KEY_STOCK_SECTION_COUNT + index,
+                ).map((count) => (
+                  <option key={count} value={count}>
+                    {count}단
+                  </option>
                 ))}
-              </tr>
-              <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
-                <HeaderCells prefix="col-0" />
-                <ColumnDivider variant="data" />
-                <HeaderCells prefix="col-1" />
-                <ColumnDivider variant="data" />
-                <HeaderCells prefix="col-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {rowCount === 0 ? (
-                <tr>
-                  <td
-                    colSpan={TABLE_COLUMN_COUNT}
-                    className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
-                  >
-                    선택한 필터에 해당하는 제품이 없습니다.
-                  </td>
+              </select>
+            </label>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <table
+              className="table-fixed border-separate border-spacing-0"
+              style={{
+                width: Math.max(tableMinWidth, 0),
+                minWidth: "100%",
+              }}
+            >
+              <KeyStockColGroup sectionCount={sectionCount} />
+              <thead>
+                <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
+                  {columnFilters.map((filter, columnIndex) => (
+                    <Fragment key={`filter-${columnIndex}`}>
+                      {columnIndex > 0 ? (
+                        <ColumnDivider variant="filter" />
+                      ) : null}
+                      <th
+                        colSpan={COLUMN_COUNT}
+                        className="px-2 py-3 text-left align-top"
+                      >
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label
+                              htmlFor={`category-filter-${columnIndex}`}
+                              className="mb-1 block text-[10px] font-semibold text-zinc-600 dark:text-zinc-400"
+                            >
+                              품목
+                            </label>
+                            <KeyStockFilterCombobox
+                              id={`category-filter-${columnIndex}`}
+                              value={filter.category}
+                              options={categories}
+                              placeholder="품목 검색"
+                              onChange={(value) =>
+                                updateColumnFilter(columnIndex, "category", value)
+                              }
+                              className={selectClass}
+                            />
+                          </div>
+                          <div>
+                            <label
+                              htmlFor={`brand-filter-${columnIndex}`}
+                              className="mb-1 block text-[10px] font-semibold text-zinc-600 dark:text-zinc-400"
+                            >
+                              브랜드
+                            </label>
+                            <KeyStockFilterCombobox
+                              id={`brand-filter-${columnIndex}`}
+                              value={filter.brand}
+                              options={getBrandOptions(filter.category)}
+                              placeholder="브랜드 검색"
+                              onChange={(value) =>
+                                updateColumnFilter(columnIndex, "brand", value)
+                              }
+                              className={selectClass}
+                            />
+                          </div>
+                        </div>
+                        <p className="mt-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+                          {columnProducts[columnIndex]?.length ?? 0}건
+                        </p>
+                      </th>
+                    </Fragment>
+                  ))}
                 </tr>
-              ) : (
-                Array.from({ length: rowCount }, (_, rowIndex) => (
-                  <tr
-                    key={`row-${rowIndex}`}
-                    className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40"
-                  >
-                    {columnProducts.map((items, columnIndex) => {
-                      const product = items[rowIndex] ?? null;
-                      return (
-                        <Fragment key={`row-${rowIndex}-col-${columnIndex}`}>
-                          {columnIndex > 0 ? (
-                            <ColumnDivider variant="data" as="td" />
-                          ) : null}
-                          <ProductCells
-                            side={`col-${columnIndex}`}
-                            product={product}
-                            reserved={product ? getReserved(product) : 0}
-                            isPending={isPending}
-                            pendingId={pendingId}
-                            onReservedChange={handleReservedChange}
-                            onReservedSave={saveReserved}
-                          />
-                        </Fragment>
-                      );
-                    })}
+                <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
+                  {Array.from({ length: sectionCount }, (_, sectionIndex) => (
+                    <Fragment key={`header-section-${sectionIndex}`}>
+                      {sectionIndex > 0 ? (
+                        <ColumnDivider variant="data" />
+                      ) : null}
+                      <HeaderCells prefix={`col-${sectionIndex}`} />
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {rowCount === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={tableColumnCount}
+                      className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                    >
+                      선택한 필터에 해당하는 제품이 없습니다.
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  Array.from({ length: rowCount }, (_, rowIndex) => (
+                    <tr
+                      key={`row-${rowIndex}`}
+                      className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40"
+                    >
+                      {columnProducts.map((items, columnIndex) => {
+                        const product = items[rowIndex] ?? null;
+                        return (
+                          <Fragment key={`row-${rowIndex}-col-${columnIndex}`}>
+                            {columnIndex > 0 ? (
+                              <ColumnDivider variant="data" as="td" />
+                            ) : null}
+                            <ProductCells
+                              side={`col-${columnIndex}`}
+                              product={product}
+                              reserved={product ? getReserved(product) : 0}
+                              isPending={isPending}
+                              pendingId={pendingId}
+                              onReservedChange={handleReservedChange}
+                              onReservedSave={saveReserved}
+                            />
+                          </Fragment>
+                        );
+                      })}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </div>

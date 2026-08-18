@@ -1,7 +1,7 @@
 "use server";
 
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
-import { parseSaleCategory } from "@/lib/sale-categories";
+import { resolveSaleCategory } from "@/lib/sale-category-options";
 import {
   isStoreFulfillment,
   parseFulfillmentLocation,
@@ -36,13 +36,7 @@ async function recordStockOutForSale(
   if (!product) return { error: "제품을 찾을 수 없습니다." };
 
   const stockBefore = product.stock_quantity;
-  const locationPatch = deductLocationStock(product, quantity);
-
-  if (!locationPatch) {
-    return {
-      error: `재고가 부족합니다. (현재 ${stockBefore}개, 판매 ${quantity}개)`,
-    };
-  }
+  const locationPatch = deductLocationStock(product, quantity, true);
 
   const stockAfter = sumLocationStock({ ...product, ...locationPatch });
 
@@ -214,7 +208,6 @@ function parseSaleLinesJson(
 
 export async function createSale(formData: FormData) {
   const sale_category_raw = String(formData.get("sale_category") ?? "");
-  const sale_category = parseSaleCategory(sale_category_raw);
   const sold_at = String(formData.get("sold_at") ?? "").trim();
   const lines_json = String(formData.get("lines_json") ?? "");
   const customer_name = String(formData.get("customer_name") ?? "").trim();
@@ -226,10 +219,12 @@ export async function createSale(formData: FormData) {
   const parsedLines = parseSaleLinesJson(lines_json);
   if ("error" in parsedLines) return { error: parsedLines.error };
 
-  if (!sale_category) return { error: "구분을 선택해 주세요." };
   if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
 
   const supabase = await createClient();
+  const sale_category = await resolveSaleCategory(supabase, sale_category_raw);
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+
   const modifier = await requirePermission("createSales");
   if ("error" in modifier) return { error: modifier.error };
 
@@ -241,7 +236,7 @@ export async function createSale(formData: FormData) {
 
     const { data: product } = await supabase
       .from("products")
-      .select("product_name, purchase_price, stock_quantity")
+      .select("product_name, purchase_price")
       .eq("id", line.product_id)
       .single();
 
@@ -250,13 +245,6 @@ export async function createSale(formData: FormData) {
     }
 
     const fromStore = isStoreFulfillment(line.fulfillment_location);
-    const stockQuantity = Number(product.stock_quantity) || 0;
-
-    if (fromStore && stockQuantity > 0 && stockQuantity < line.quantity) {
-      return {
-        error: `${lineNumber}번째 줄 (${product.product_name}): 재고가 부족합니다. (현재 ${stockQuantity}개, 판매 ${line.quantity}개)`,
-      };
-    }
 
     const { data: paymentMethod } = await supabase
       .from("payment_methods")
@@ -280,10 +268,7 @@ export async function createSale(formData: FormData) {
     const lineNote =
       [note || null, fulfillmentNote].filter(Boolean).join(" / ") || null;
 
-    const stockOutQuantity =
-      fromStore && stockQuantity > 0
-        ? Math.min(line.quantity, stockQuantity)
-        : 0;
+    const stockOutQuantity = fromStore ? line.quantity : 0;
 
     if (stockOutQuantity > 0) {
       const stockResult = await recordStockOutForSale(
@@ -340,7 +325,6 @@ export async function createSale(formData: FormData) {
 export async function updateSale(formData: FormData) {
   const sale_id = String(formData.get("sale_id") ?? "");
   const sale_category_raw = String(formData.get("sale_category") ?? "");
-  const sale_category = parseSaleCategory(sale_category_raw);
   const product_id = String(formData.get("product_id") ?? "");
   const sold_at = String(formData.get("sold_at") ?? "").trim();
   const quantity = Number(formData.get("quantity") ?? 0);
@@ -356,14 +340,16 @@ export async function updateSale(formData: FormData) {
 
   if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
   if (!created_by_name) return { error: "담당자를 선택해 주세요." };
-  if (!sale_category) return { error: "구분을 선택해 주세요." };
   if (!product_id) return { error: "제품을 선택해 주세요." };
+
+  const supabase = await createClient();
+  const sale_category = await resolveSaleCategory(supabase, sale_category_raw);
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
   if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
   if (!quantity || quantity <= 0) return { error: "수량은 1 이상 입력해 주세요." };
   if (unit_sale_price < 0) return { error: "소비자가는 0 이상이어야 합니다." };
   if (!payment_method_id) return { error: "결제 방식을 선택해 주세요." };
 
-  const supabase = await createClient();
   const auth = await requirePermission("manageSales");
   if ("error" in auth) return { error: auth.error };
 
