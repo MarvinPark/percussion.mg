@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
-import AppBrandFooter from "@/components/app-brand-footer";
+import ConditionalBrandFooter from "@/components/conditional-brand-footer";
 import ThemeToggle from "@/components/theme-toggle";
 import "./globals.css";
 
@@ -43,7 +43,7 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-        <AppBrandFooter />
+        <ConditionalBrandFooter />
         <ThemeToggle />
       </body>
     </html>
