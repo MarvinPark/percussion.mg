@@ -101,6 +101,7 @@ export default function SmartstoreImportPanel({
   const [localProducts, setLocalProducts] = useState(products);
   const [schemaReady, setSchemaReady] = useState(true);
   const [autoCreateProducts, setAutoCreateProducts] = useState(true);
+  const [hideImported, setHideImported] = useState(true);
   const [manualMatches, setManualMatches] = useState<Record<string, string>>(
     {},
   );
@@ -144,12 +145,31 @@ export default function SmartstoreImportPanel({
 
   if (!canImport) return null;
 
+  const visibleItems = useMemo(
+    () => (hideImported ? items.filter((item) => !item.alreadyImported) : items),
+    [hideImported, items],
+  );
+
   const previewSummary = summarizePreview(
     items,
     manualMatches,
     dismissedAutoMatches,
     autoCreateProducts,
   );
+
+  async function refreshPreviewItems() {
+    const result = await previewSmartstoreOrders(fromDate, toDate);
+    if ("error" in result) {
+      setError(result.error ?? "주문 조회에 실패했습니다.");
+      return false;
+    }
+
+    setItems(result.items);
+    setSchemaReady(result.schemaReady);
+    setManualMatches({});
+    setDismissedAutoMatches(new Set());
+    return true;
+  }
 
   function handlePreview() {
     setError(null);
@@ -203,9 +223,12 @@ export default function SmartstoreImportPanel({
         setError(result.errors.slice(0, 3).join("\n"));
       }
 
-      setItems([]);
-      setManualMatches({});
-      setDismissedAutoMatches(new Set());
+      const refreshed = await refreshPreviewItems();
+      if (refreshed && result.imported === 0 && result.skippedExisting > 0) {
+        setMessage(
+          `이미 등록된 주문 ${result.skippedExisting}건은 건너뛰었습니다. 미리보기에서 「기등록」 상태로 표시됩니다.`,
+        );
+      }
       router.refresh();
     });
   }
@@ -273,6 +296,8 @@ export default function SmartstoreImportPanel({
           </p>
           <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-200/80">
             결제 완료 주문을 매출로 가져옵니다. 재고는 자동 차감하지 않습니다.
+            이미 등록한 주문은 스마트스토어 주문번호로 추적되어 다시 등록되지
+            않습니다.
           </p>
         </div>
         <button
@@ -331,6 +356,16 @@ export default function SmartstoreImportPanel({
               {isImportPending ? "가져오는 중..." : "매출 등록"}
             </button>
           </div>
+
+          <label className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={hideImported}
+              onChange={(event) => setHideImported(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>기등록 주문 숨기기</span>
+          </label>
 
           <label className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
             <input
@@ -398,6 +433,9 @@ export default function SmartstoreImportPanel({
               <p className="text-sm text-zinc-700 dark:text-zinc-300">
                 총 {previewSummary.total}건 · 등록 가능 {previewSummary.importable}
                 건 · 기등록 {previewSummary.existing}건
+                {hideImported && previewSummary.existing > 0
+                  ? ` (${previewSummary.existing}건 숨김)`
+                  : ""}
                 {previewSummary.needsLink
                   ? ` · 연결필요 ${previewSummary.needsLink}건`
                   : ""}
@@ -418,7 +456,18 @@ export default function SmartstoreImportPanel({
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item) => {
+                    {visibleItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                        >
+                          표시할 주문이 없습니다. 기등록 주문 숨기기를 해제하면
+                          이미 등록된 주문을 확인할 수 있습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      visibleItems.map((item) => {
                       const manualProductId =
                         manualMatches[item.productOrderId] ?? "";
                       const linkedProductId = getEffectiveProductId(
@@ -495,7 +544,8 @@ export default function SmartstoreImportPanel({
                           <td className="px-3 py-2 whitespace-nowrap">{status}</td>
                         </tr>
                       );
-                    })}
+                    })
+                    )}
                   </tbody>
                 </table>
               </div>

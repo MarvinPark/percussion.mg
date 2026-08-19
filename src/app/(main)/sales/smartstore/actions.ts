@@ -404,27 +404,19 @@ export async function importSmartstoreOrders(
         note: noteParts.join(" · "),
         created_by_user_id: auth.userId,
         created_by_name: auth.name,
+        external_source: SMARTSTORE_SOURCE,
+        external_order_id: order.productOrderId,
       });
 
       if ("error" in insertResult) {
+        if (insertResult.error === "DUPLICATE_EXTERNAL_ORDER") {
+          result.skippedExisting += 1;
+          existingIds.add(order.productOrderId);
+          continue;
+        }
+
         result.errors.push(
           `${order.productOrderId}: ${insertResult.error ?? formatSaleInsertError({})}`,
-        );
-        continue;
-      }
-
-      const { error: externalUpdateError } = await supabase
-        .from("sales")
-        .update({
-          external_source: SMARTSTORE_SOURCE,
-          external_order_id: order.productOrderId,
-        })
-        .eq("id", insertResult.saleId);
-
-      if (externalUpdateError) {
-        await supabase.from("sales").delete().eq("id", insertResult.saleId);
-        result.errors.push(
-          `${order.productOrderId}: 스마트스토어 주문 ID 저장에 실패했습니다. schema-smartstore.sql 실행 여부를 확인해 주세요.`,
         );
         continue;
       }

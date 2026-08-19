@@ -38,6 +38,8 @@ type SaleLinePayload = {
   created_by_user_id: string;
   created_by_name: string;
   quote_id?: string | null;
+  external_source?: string | null;
+  external_order_id?: string | null;
 };
 
 export function formatSaleInsertError(error: {
@@ -72,6 +74,14 @@ export function formatSaleInsertError(error: {
 
   if (error.code === "23503") {
     return "연결된 제품 또는 사용자 정보가 유효하지 않습니다.";
+  }
+
+  if (error.code === "23505" && message.includes("sales_external_order_unique")) {
+    return "DUPLICATE_EXTERNAL_ORDER";
+  }
+
+  if (error.code === "23505") {
+    return "DUPLICATE_EXTERNAL_ORDER";
   }
 
   if (message) {
@@ -152,6 +162,12 @@ export async function insertSaleRecord(
     created_by_user_id: payload.created_by_user_id,
     created_by_name: payload.created_by_name,
     ...(payload.quote_id ? { quote_id: payload.quote_id } : {}),
+    ...(payload.external_source
+      ? { external_source: payload.external_source }
+      : {}),
+    ...(payload.external_order_id
+      ? { external_order_id: payload.external_order_id }
+      : {}),
   };
 
   const { data, error } = await supabase
