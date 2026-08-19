@@ -25,7 +25,11 @@ export function mapNaverCommerceError(message: string) {
     return "NAVER_COMMERCE_CLIENT_SECRET 값이 깨졌습니다. .env.local에서 $마다 \\$로 이스케이프해 주세요. 예: NAVER_COMMERCE_CLIENT_SECRET=\\$2a\\$04\\$...";
   }
   if (message.includes("GW.IP_NOT_ALLOWED")) {
-    return "API 호출 IP가 허용되지 않습니다. 커머스 API 센터에서 API 호출 IP를 등록했는지 확인해 주세요.";
+    const vercelHint =
+      process.env.VERCEL === "1"
+        ? " 배포 사이트(Vercel)에서는 PC 공인 IP가 아니라 Vercel Static IP(고정 IP)를 커머스 API 센터에 등록해야 합니다. Vercel → Project Settings → Connectivity → Static IPs에서 IP를 확인하세요."
+        : " 로컬에서 사용 중이라면 ifconfig.me 등으로 확인한 본인 공인 IP(IPv4)를 등록하세요.";
+    return `API 호출 IP가 허용되지 않습니다. 커머스 API 센터 → 내 스토어 애플리케이션 → 수정 → API호출 IP에 실제 API를 호출하는 서버의 IP를 등록해 주세요.${vercelHint}`;
   }
   if (message.includes("GW.AUTHN") || message.includes("요청을 보낼 권한")) {
     return "네이버 API 주문 조회 권한이 없습니다. 커머스 API 센터 → 내스토어 애플리케이션 → 애플리케이션 상세에서 API 그룹에 「주문 판매자」가 포함되어 있는지 확인해 주세요. 없으면 애플리케이션을 수정해 해당 그룹을 추가한 뒤 다시 시도해 주세요.";

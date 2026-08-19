@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  searchSaleProductsForOrderLink,
+  type SmartstoreOrderLinkHint,
+} from "@/lib/product-search";
 import type { SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -11,6 +15,7 @@ type SmartstoreProductComboboxProps = {
   selectedProductId: string;
   autoMatchedProductId?: string | null;
   autoCreateEnabled: boolean;
+  orderHint?: SmartstoreOrderLinkHint;
   disabled?: boolean;
   onSelect: (productId: string) => void;
   onClear: () => void;
@@ -22,33 +27,16 @@ function productLabel(product: SaleProductOption) {
     .join(" · ");
 }
 
-function filterProducts(products: SaleProductOption[], query: string) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) {
-    return products.slice(0, 12);
-  }
-
-  return products
-    .filter((product) => {
-      const haystack = [
-        product.product_name,
-        product.model_name,
-        product.sku ?? "",
-        product.keywords ?? "",
-        product.supplier,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(normalized);
-    })
-    .slice(0, 12);
-}
+type DropdownEntry =
+  | { kind: "match"; product: SaleProductOption }
+  | { kind: "similar"; product: SaleProductOption };
 
 export default function SmartstoreProductCombobox({
   products,
   selectedProductId,
   autoMatchedProductId,
   autoCreateEnabled,
+  orderHint,
   disabled = false,
   onSelect,
   onClear,
@@ -82,14 +70,34 @@ export default function SmartstoreProductCombobox({
 
   const searchQuery = isEditing || query ? query : "";
 
-  const matches = useMemo(
-    () => filterProducts(products, searchQuery),
-    [products, searchQuery],
+  const { matches, similar } = useMemo(
+    () => searchSaleProductsForOrderLink(products, searchQuery, orderHint),
+    [products, searchQuery, orderHint],
   );
+
+  const dropdownEntries = useMemo<DropdownEntry[]>(() => {
+    const entries: DropdownEntry[] = matches.map((product) => ({
+      kind: "match",
+      product,
+    }));
+
+    if (similar.length > 0) {
+      for (const product of similar) {
+        entries.push({ kind: "similar", product });
+      }
+    }
+
+    return entries;
+  }, [matches, similar]);
+
+  const showDropdown =
+    open && !disabled && searchQuery.trim().length > 0 && dropdownEntries.length > 0;
+  const showEmptyState =
+    open && !disabled && searchQuery.trim().length > 0 && dropdownEntries.length === 0;
 
   useEffect(() => {
     setHighlightIndex(0);
-  }, [matches.length, displayValue]);
+  }, [dropdownEntries.length, searchQuery]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -117,7 +125,7 @@ export default function SmartstoreProductCombobox({
   function handleInputChange(value: string) {
     setQuery(value);
     setIsEditing(true);
-    setOpen(true);
+    setOpen(value.trim().length > 0);
 
     if (!value.trim()) {
       onClear();
@@ -127,8 +135,44 @@ export default function SmartstoreProductCombobox({
   function handleClearClick() {
     setQuery("");
     setIsEditing(false);
+    setOpen(false);
     onClear();
     inputRef.current?.focus();
+  }
+
+  function renderProductRow(
+    entry: DropdownEntry,
+    index: number,
+    showSimilarLabel: boolean,
+  ) {
+    const { product } = entry;
+    return (
+      <li key={`${entry.kind}-${product.id}`}>
+        {showSimilarLabel && index === matches.length ? (
+          <div className="border-t border-zinc-200 px-3 py-1.5 text-[10px] font-semibold text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            주문과 유사
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => handleSelect(product)}
+          className={`grid w-full grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-2 px-3 py-2 text-left text-xs ${
+            index === highlightIndex
+              ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
+              : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          }`}
+        >
+          <span className="truncate">{product.product_name}</span>
+          <span className="truncate text-zinc-500 dark:text-zinc-400">
+            {product.sku || "—"}
+          </span>
+          <span className="truncate text-zinc-500 dark:text-zinc-400">
+            {product.model_name || "—"}
+          </span>
+        </button>
+      </li>
+    );
   }
 
   return (
@@ -140,29 +184,37 @@ export default function SmartstoreProductCombobox({
           value={displayValue}
           disabled={disabled}
           placeholder={
-            autoCreateEnabled ? "제품 검색 또는 자동 등록" : "제품명·SKU·모델명 검색"
+            autoCreateEnabled
+              ? "제품명·SKU 검색 또는 자동 등록"
+              : "제품명·SKU·모델명 검색"
           }
           onChange={(event) => handleInputChange(event.target.value)}
           onFocus={() => {
-            setOpen(true);
-            window.requestAnimationFrame(() => {
-              inputRef.current?.select();
-            });
+            setIsEditing(true);
+            if (displayValue) {
+              window.requestAnimationFrame(() => {
+                inputRef.current?.select();
+              });
+            }
           }}
           onKeyDown={(event) => {
-            if (!open || matches.length === 0) return;
+            if (!open || dropdownEntries.length === 0) return;
 
             if (event.key === "ArrowDown") {
               event.preventDefault();
-              setHighlightIndex((prev) => (prev + 1) % matches.length);
+              setHighlightIndex((prev) => (prev + 1) % dropdownEntries.length);
             } else if (event.key === "ArrowUp") {
               event.preventDefault();
               setHighlightIndex(
-                (prev) => (prev - 1 + matches.length) % matches.length,
+                (prev) =>
+                  (prev - 1 + dropdownEntries.length) % dropdownEntries.length,
               );
-            } else if (event.key === "Enter" && matches[highlightIndex]) {
+            } else if (
+              event.key === "Enter" &&
+              dropdownEntries[highlightIndex]
+            ) {
               event.preventDefault();
-              handleSelect(matches[highlightIndex]);
+              handleSelect(dropdownEntries[highlightIndex].product);
             } else if (event.key === "Escape") {
               setOpen(false);
               setQuery("");
@@ -184,7 +236,7 @@ export default function SmartstoreProductCombobox({
         ) : null}
       </div>
 
-      {open && !disabled ? (
+      {showDropdown ? (
         <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
           <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[10px] font-semibold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50">
             <span>제품명</span>
@@ -192,35 +244,16 @@ export default function SmartstoreProductCombobox({
             <span>모델명</span>
           </div>
           <ul className="max-h-56 overflow-auto">
-            {matches.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-zinc-500">
-                검색 결과가 없습니다.
-              </li>
-            ) : (
-              matches.map((product, index) => (
-                <li key={product.id}>
-                  <button
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => handleSelect(product)}
-                    className={`grid w-full grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-2 px-3 py-2 text-left text-xs ${
-                      index === highlightIndex
-                        ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
-                        : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    <span className="truncate">{product.product_name}</span>
-                    <span className="truncate text-zinc-500 dark:text-zinc-400">
-                      {product.sku || "—"}
-                    </span>
-                    <span className="truncate text-zinc-500 dark:text-zinc-400">
-                      {product.model_name || "—"}
-                    </span>
-                  </button>
-                </li>
-              ))
+            {dropdownEntries.map((entry, index) =>
+              renderProductRow(entry, index, similar.length > 0),
             )}
           </ul>
+        </div>
+      ) : null}
+
+      {showEmptyState ? (
+        <div className="absolute z-30 mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          검색 결과가 없습니다.
         </div>
       ) : null}
     </div>
