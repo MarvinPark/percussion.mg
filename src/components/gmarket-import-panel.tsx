@@ -423,12 +423,6 @@ export default function GmarketImportPanel({
                                 products={sortedProducts}
                                 selectedProductId={manualProductId}
                                 autoMatchedProductId={item.matchedProductId}
-                                autoCreateEnabled={autoCreateProducts}
-                                orderHint={{
-                                  productName: item.productName,
-                                  productOption: item.productOption,
-                                  sellerProductCode: item.sellerProductCode,
-                                }}
                                 onSelect={(productId) =>
                                   handleManualMatch(item.productOrderId, productId)
                                 }
