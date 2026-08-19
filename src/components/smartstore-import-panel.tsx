@@ -12,6 +12,7 @@ import {
 import SmartstoreProductCombobox from "@/components/smartstore-product-combobox";
 import SmartstoreProductCreateModal from "@/components/smartstore-product-create-modal";
 import { formatKRW } from "@/lib/sales-calculator";
+import { formatLinkedProductDisplayLabel } from "@/lib/product-search";
 import { SMARTSTORE_SCHEMA_SQL } from "@/lib/smartstore-schema-sql";
 import type { SaleProductOption } from "@/types/sale";
 
@@ -38,11 +39,11 @@ function getEffectiveProductId(
 }
 
 function formatMatchedProductLabel(item: SmartstoreImportPreviewItem) {
-  if (!item.matchedProductName) return null;
-  if (item.matchedProductModelName) {
-    return `${item.matchedProductModelName} · ${item.matchedProductName}`;
-  }
-  return item.matchedProductName;
+  return formatLinkedProductDisplayLabel({
+    brand: item.matchedProductBrand,
+    model_name: item.matchedProductModelName,
+    sku: item.matchedProductSku,
+  });
 }
 
 function summarizePreview(

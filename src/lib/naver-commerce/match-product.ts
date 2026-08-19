@@ -3,6 +3,7 @@ export type ProductMatchCandidate = {
   sku: string;
   product_name: string;
   model_name: string;
+  brand?: string | null;
   purchase_price: number;
   sale_price: number;
 };

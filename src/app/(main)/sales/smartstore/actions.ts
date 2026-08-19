@@ -35,6 +35,8 @@ export type SmartstoreImportPreviewItem = {
   matchedProductId: string | null;
   matchedProductName: string | null;
   matchedProductModelName: string | null;
+  matchedProductBrand: string | null;
+  matchedProductSku: string | null;
   alreadyImported: boolean;
 };
 
@@ -93,7 +95,7 @@ function parseDateRange(
 async function loadProducts(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await supabase
     .from("products")
-    .select("id, sku, product_name, model_name, purchase_price, sale_price");
+    .select("id, sku, product_name, model_name, brand, purchase_price, sale_price");
 
   if (error) {
     throw new Error("제품 목록을 불러오지 못했습니다.");
@@ -275,6 +277,8 @@ export async function previewSmartstoreOrders(
         matchedProductId: matched?.id ?? null,
         matchedProductName: matched?.product_name ?? null,
         matchedProductModelName: matched?.model_name ?? null,
+        matchedProductBrand: matched?.brand ?? null,
+        matchedProductSku: matched?.sku ?? null,
         alreadyImported: existingIds.has(order.productOrderId),
       };
     });

@@ -32,6 +32,24 @@ export function matchesSaleProductSearch(
   return saleProductSearchHaystack(product).includes(normalized);
 }
 
+export function formatLinkedProductDisplayLabel(
+  product:
+    | Partial<{
+        brand: string | null;
+        model_name: string | null;
+        sku: string | null;
+      }>
+    | null
+    | undefined,
+): string {
+  if (!product) return "";
+
+  return [product.brand, product.model_name, product.sku]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .join(" · ");
+}
+
 export function productSearchHaystack(product: Product): string {
   return [
     product.supplier,

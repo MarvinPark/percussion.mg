@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { searchProductsForSaleDropdown } from "@/app/(main)/products/actions";
 import ProductSearchResultRow from "@/components/product-search-result-row";
+import {
+  formatLinkedProductDisplayLabel,
+} from "@/lib/product-search";
 import type { SaleProductOption } from "@/types/sale";
 
 const compactInputClass =
@@ -28,7 +31,7 @@ type SmartstoreProductComboboxProps = {
 };
 
 function productLabel(product: SaleProductOption) {
-  return `${product.model_name} · ${product.product_name}`;
+  return formatLinkedProductDisplayLabel(product);
 }
 
 function resolveLinkedProduct(
