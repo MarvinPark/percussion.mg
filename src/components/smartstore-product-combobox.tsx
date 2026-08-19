@@ -21,8 +21,9 @@ type SmartstoreProductComboboxProps = {
   products: SaleProductOption[];
   selectedProductId: string;
   autoMatchedProductId?: string | null;
+  linkedProductLabel?: string | null;
   disabled?: boolean;
-  onSelect: (productId: string) => void;
+  onSelect: (product: SaleProductOption) => void;
   onClear: () => void;
 };
 
@@ -30,10 +31,33 @@ function productLabel(product: SaleProductOption) {
   return `${product.model_name} · ${product.product_name}`;
 }
 
+function resolveLinkedProduct(
+  products: SaleProductOption[],
+  selectedProductId: string,
+  pinnedProduct: SaleProductOption | null,
+) {
+  if (!selectedProductId) return null;
+
+  return (
+    products.find((product) => product.id === selectedProductId) ??
+    (pinnedProduct?.id === selectedProductId ? pinnedProduct : null)
+  );
+}
+
+function resolveDisplayLabel(
+  linkedProduct: SaleProductOption | null,
+  selectedProductId: string,
+  linkedProductLabel?: string | null,
+) {
+  if (linkedProduct) return productLabel(linkedProduct);
+  if (selectedProductId && linkedProductLabel) return linkedProductLabel;
+  return "";
+}
+
 export default function SmartstoreProductCombobox({
   products,
   selectedProductId,
-  autoMatchedProductId,
+  linkedProductLabel,
   disabled = false,
   onSelect,
   onClear,
@@ -47,28 +71,37 @@ export default function SmartstoreProductCombobox({
   const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-
-  const selectedProduct = useMemo(
-    () => products.find((product) => product.id === selectedProductId) ?? null,
-    [products, selectedProductId],
+  const [pinnedProduct, setPinnedProduct] = useState<SaleProductOption | null>(
+    null,
   );
 
-  const autoMatchedProduct = useMemo(
+  const linkedProduct = useMemo(
     () =>
-      products.find((product) => product.id === autoMatchedProductId) ?? null,
-    [products, autoMatchedProductId],
+      resolveLinkedProduct(products, selectedProductId, pinnedProduct),
+    [products, selectedProductId, pinnedProduct],
   );
 
-  const linkedProduct = selectedProduct ?? autoMatchedProduct;
-
-  const [query, setQuery] = useState(() =>
-    linkedProduct ? productLabel(linkedProduct) : "",
+  const displayLabel = useMemo(
+    () => resolveDisplayLabel(linkedProduct, selectedProductId, linkedProductLabel),
+    [linkedProduct, selectedProductId, linkedProductLabel],
   );
+
+  const [query, setQuery] = useState(() => displayLabel);
 
   useEffect(() => {
     if (isEditing) return;
-    setQuery(linkedProduct ? productLabel(linkedProduct) : "");
-  }, [linkedProduct, isEditing]);
+
+    if (selectedProductId && !linkedProduct && !linkedProductLabel) {
+      return;
+    }
+
+    setQuery(displayLabel);
+  }, [selectedProductId, displayLabel, linkedProduct, linkedProductLabel, isEditing]);
+
+  useEffect(() => {
+    if (selectedProductId) return;
+    setPinnedProduct(null);
+  }, [selectedProductId]);
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -84,13 +117,13 @@ export default function SmartstoreProductCombobox({
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) {
+    if (!trimmed || !isEditing) {
       setResults([]);
       setIsSearching(false);
       return;
     }
 
-    if (linkedProduct && trimmed === productLabel(linkedProduct)) {
+    if (displayLabel && trimmed === displayLabel) {
       setResults([]);
       setIsSearching(false);
       return;
@@ -105,7 +138,7 @@ export default function SmartstoreProductCombobox({
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [query, linkedProduct]);
+  }, [query, displayLabel, isEditing]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -122,7 +155,7 @@ export default function SmartstoreProductCombobox({
       }
       setIsOpen(false);
       setIsEditing(false);
-      setQuery(linkedProduct ? productLabel(linkedProduct) : "");
+      setQuery(displayLabel);
     }
 
     function handleReposition() {
@@ -138,13 +171,14 @@ export default function SmartstoreProductCombobox({
       window.removeEventListener("resize", handleReposition);
       window.removeEventListener("scroll", handleReposition, true);
     };
-  }, [isOpen, linkedProduct]);
+  }, [isOpen, displayLabel]);
 
   function handleSelect(product: SaleProductOption) {
-    onSelect(product.id);
+    setPinnedProduct(product);
     setQuery(productLabel(product));
     setIsEditing(false);
     setIsOpen(false);
+    onSelect(product);
   }
 
   function handleInputChange(value: string) {
@@ -158,11 +192,12 @@ export default function SmartstoreProductCombobox({
     }
 
     if (!value.trim()) {
+      setPinnedProduct(null);
       onClear();
       return;
     }
 
-    if (linkedProduct && value !== productLabel(linkedProduct)) {
+    if (selectedProductId || displayLabel) {
       onClear();
     }
   }
@@ -171,8 +206,9 @@ export default function SmartstoreProductCombobox({
   const showDropdown =
     isOpen &&
     !disabled &&
+    isEditing &&
     trimmedQuery.length > 0 &&
-    (!linkedProduct || trimmedQuery !== productLabel(linkedProduct));
+    trimmedQuery !== displayLabel;
 
   const dropdown =
     showDropdown && dropdownPosition ? (
@@ -235,7 +271,7 @@ export default function SmartstoreProductCombobox({
             event.preventDefault();
             setIsOpen(false);
             setIsEditing(false);
-            setQuery(linkedProduct ? productLabel(linkedProduct) : "");
+            setQuery(displayLabel);
           }
         }}
         className={compactInputClass}

@@ -174,10 +174,17 @@ export default function GmarketImportPanel({
     });
   }
 
-  function handleManualMatch(productOrderId: string, productId: string) {
+  function handleManualMatch(
+    productOrderId: string,
+    product: SaleProductOption,
+  ) {
+    setLocalProducts((current) => {
+      if (current.some((entry) => entry.id === product.id)) return current;
+      return [...current, product];
+    });
     setManualMatches((current) => ({
       ...current,
-      [productOrderId]: productId,
+      [productOrderId]: product.id,
     }));
   }
 
@@ -197,7 +204,7 @@ export default function GmarketImportPanel({
       if (current.some((entry) => entry.id === product.id)) return current;
       return [...current, product];
     });
-    handleManualMatch(item.productOrderId, product.id);
+    handleManualMatch(item.productOrderId, product);
     setMessage(`「${product.product_name}」 제품을 등록하고 연결했습니다.`);
     router.refresh();
   }
@@ -423,8 +430,8 @@ export default function GmarketImportPanel({
                                 products={sortedProducts}
                                 selectedProductId={manualProductId}
                                 autoMatchedProductId={item.matchedProductId}
-                                onSelect={(productId) =>
-                                  handleManualMatch(item.productOrderId, productId)
+                                onSelect={(product) =>
+                                  handleManualMatch(item.productOrderId, product)
                                 }
                                 onClear={() =>
                                   handleManualClear(item.productOrderId)

@@ -16,6 +16,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { DUPLICATE_SKU_MESSAGE } from "@/lib/product-duplicate";
 import { revalidatePath } from "next/cache";
+import type { SaleProductOption } from "@/types/sale";
+import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
 const SMARTSTORE_SOURCE = "smartstore";
 const NAVER_PAY_METHOD = "네이버페이";
@@ -32,6 +34,7 @@ export type SmartstoreImportPreviewItem = {
   customerPhone: string;
   matchedProductId: string | null;
   matchedProductName: string | null;
+  matchedProductModelName: string | null;
   alreadyImported: boolean;
 };
 
@@ -46,6 +49,7 @@ export type SmartstoreImportResult = {
 export type SmartstoreImportOptions = {
   autoCreateProducts?: boolean;
   manualMatches?: Record<string, string>;
+  dismissedAutoMatches?: string[];
 };
 
 function defaultDateRange() {
@@ -178,6 +182,7 @@ async function resolveProductForOrder(
   options: {
     autoCreateProducts: boolean;
     manualProductId?: string;
+    skipAutoMatch?: boolean;
     createdProductIds: Set<string>;
   },
 ): Promise<
@@ -193,7 +198,9 @@ async function resolveProductForOrder(
     return { product: manual, created: false };
   }
 
-  const matched = matchProductForSmartstoreOrder(products, order);
+  const matched = options.skipAutoMatch
+    ? null
+    : matchProductForSmartstoreOrder(products, order);
   if (matched) {
     return { product: matched, created: false };
   }
@@ -267,6 +274,7 @@ export async function previewSmartstoreOrders(
         customerPhone: order.customerPhone,
         matchedProductId: matched?.id ?? null,
         matchedProductName: matched?.product_name ?? null,
+        matchedProductModelName: matched?.model_name ?? null,
         alreadyImported: existingIds.has(order.productOrderId),
       };
     });
@@ -291,6 +299,7 @@ export async function importSmartstoreOrders(
 ): Promise<{ error: string } | SmartstoreImportResult> {
   const autoCreateProducts = options.autoCreateProducts ?? true;
   const manualMatches = options.manualMatches ?? {};
+  const dismissedAutoMatches = new Set(options.dismissedAutoMatches ?? []);
   const supabase = await createClient();
   const auth = await requirePermission("createSales");
   if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
@@ -333,6 +342,7 @@ export async function importSmartstoreOrders(
         {
           autoCreateProducts,
           manualProductId: manualMatches[order.productOrderId],
+          skipAutoMatch: dismissedAutoMatches.has(order.productOrderId),
           createdProductIds,
         },
       );
@@ -435,17 +445,7 @@ export async function getSmartstoreDefaultRange() {
   return defaultDateRange();
 }
 
-export type SmartstoreLinkedProduct = {
-  id: string;
-  product_name: string;
-  model_name: string;
-  sku: string;
-  supplier: string;
-  sale_price: number;
-  purchase_price: number;
-  stock_quantity: number;
-  keywords?: string | null;
-};
+export type SmartstoreLinkedProduct = SaleProductOption;
 
 export async function createProductForSmartstoreLink(input: {
   product_name: string;
@@ -454,13 +454,21 @@ export async function createProductForSmartstoreLink(input: {
   supplier: string;
   sale_price: number;
   purchase_price: number;
+  category?: string;
+  brand?: string;
+  color?: string;
   product_option?: string;
+  size?: string;
 }): Promise<{ error: string } | { product: SmartstoreLinkedProduct }> {
   const product_name = input.product_name.trim();
   const model_name = input.model_name.trim();
   const sku = input.sku.trim();
   const supplier = input.supplier.trim() || "스마트스토어";
+  const category = input.category?.trim() || null;
+  const brand = input.brand?.trim() || null;
+  const color = input.color?.trim() || null;
   const product_option = input.product_option?.trim() || null;
+  const size = input.size?.trim() || null;
 
   if (!product_name) return { error: "제품명을 입력해 주세요." };
   if (!model_name) return { error: "모델명을 입력해 주세요." };
@@ -475,7 +483,7 @@ export async function createProductForSmartstoreLink(input: {
 
   const { data: existing } = await supabase
     .from("products")
-    .select("id, product_name, model_name, sku, supplier, sale_price, purchase_price, stock_quantity, keywords")
+    .select(SALE_PRODUCT_OPTION_SELECT)
     .eq("sku", sku)
     .eq("supplier", supplier)
     .maybeSingle();
@@ -487,11 +495,13 @@ export async function createProductForSmartstoreLink(input: {
         product_name: existing.product_name,
         model_name: existing.model_name,
         sku: existing.sku,
+        category: existing.category,
+        brand: existing.brand,
+        keywords: existing.keywords,
         supplier: existing.supplier,
         sale_price: Number(existing.sale_price) || 0,
         purchase_price: Number(existing.purchase_price) || 0,
         stock_quantity: Number(existing.stock_quantity) || 0,
-        keywords: existing.keywords,
       },
     };
   }
@@ -503,7 +513,11 @@ export async function createProductForSmartstoreLink(input: {
       product_name,
       model_name,
       supplier,
+      category,
+      brand,
+      color,
       product_option,
+      size,
       purchase_price: Math.round(input.purchase_price),
       sale_price: Math.round(input.sale_price),
       stock_quantity: 0,
@@ -514,9 +528,7 @@ export async function createProductForSmartstoreLink(input: {
       stock_location: "3층",
       is_key_stock: false,
     })
-    .select(
-      "id, product_name, model_name, sku, supplier, sale_price, purchase_price, stock_quantity, keywords",
-    )
+    .select(SALE_PRODUCT_OPTION_SELECT)
     .single();
 
   if (error) {
@@ -535,11 +547,13 @@ export async function createProductForSmartstoreLink(input: {
       product_name: data.product_name,
       model_name: data.model_name,
       sku: data.sku,
+      category: data.category,
+      brand: data.brand,
+      keywords: data.keywords,
       supplier: data.supplier,
       sale_price: Number(data.sale_price) || 0,
       purchase_price: Number(data.purchase_price) || 0,
       stock_quantity: Number(data.stock_quantity) || 0,
-      keywords: data.keywords,
     },
   };
 }

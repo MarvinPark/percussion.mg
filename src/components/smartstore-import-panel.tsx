@@ -29,34 +29,52 @@ const primaryButtonClass =
 function getEffectiveProductId(
   item: SmartstoreImportPreviewItem,
   manualMatches: Record<string, string>,
+  dismissedAutoMatches: Set<string>,
 ) {
-  return manualMatches[item.productOrderId] ?? item.matchedProductId ?? "";
+  const manualProductId = manualMatches[item.productOrderId];
+  if (manualProductId) return manualProductId;
+  if (dismissedAutoMatches.has(item.productOrderId)) return "";
+  return item.matchedProductId ?? "";
+}
+
+function formatMatchedProductLabel(item: SmartstoreImportPreviewItem) {
+  if (!item.matchedProductName) return null;
+  if (item.matchedProductModelName) {
+    return `${item.matchedProductModelName} · ${item.matchedProductName}`;
+  }
+  return item.matchedProductName;
 }
 
 function summarizePreview(
   items: SmartstoreImportPreviewItem[],
   manualMatches: Record<string, string>,
+  dismissedAutoMatches: Set<string>,
   autoCreateProducts: boolean,
 ) {
   const importable = items.filter((item) => {
     if (item.alreadyImported) return false;
-    if (getEffectiveProductId(item, manualMatches)) return true;
+    if (getEffectiveProductId(item, manualMatches, dismissedAutoMatches)) {
+      return true;
+    }
     return autoCreateProducts;
   }).length;
   const existing = items.filter((item) => item.alreadyImported).length;
   const unmatched = items.filter((item) => {
     if (item.alreadyImported) return false;
-    if (getEffectiveProductId(item, manualMatches)) return false;
+    if (getEffectiveProductId(item, manualMatches, dismissedAutoMatches)) {
+      return false;
+    }
     return !autoCreateProducts;
   }).length;
-  const autoRegister = items.filter((item) => {
-    if (item.alreadyImported || getEffectiveProductId(item, manualMatches)) {
+  const needsLink = items.filter((item) => {
+    if (item.alreadyImported) return false;
+    if (getEffectiveProductId(item, manualMatches, dismissedAutoMatches)) {
       return false;
     }
     return autoCreateProducts;
   }).length;
 
-  return { importable, existing, unmatched, autoRegister, total: items.length };
+  return { importable, existing, unmatched, needsLink, total: items.length };
 }
 
 function summarizeResult(result: SmartstoreImportResult) {
@@ -84,6 +102,9 @@ export default function SmartstoreImportPanel({
   const [autoCreateProducts, setAutoCreateProducts] = useState(true);
   const [manualMatches, setManualMatches] = useState<Record<string, string>>(
     {},
+  );
+  const [dismissedAutoMatches, setDismissedAutoMatches] = useState<Set<string>>(
+    () => new Set(),
   );
   const [createModalItem, setCreateModalItem] =
     useState<SmartstoreImportPreviewItem | null>(null);
@@ -125,6 +146,7 @@ export default function SmartstoreImportPanel({
   const previewSummary = summarizePreview(
     items,
     manualMatches,
+    dismissedAutoMatches,
     autoCreateProducts,
   );
 
@@ -133,6 +155,7 @@ export default function SmartstoreImportPanel({
     setMessage(null);
     setItems([]);
     setManualMatches({});
+    setDismissedAutoMatches(new Set());
 
     startPreviewTransition(async () => {
       const result = await previewSmartstoreOrders(fromDate, toDate);
@@ -157,6 +180,7 @@ export default function SmartstoreImportPanel({
       const result = await importSmartstoreOrders(fromDate, toDate, {
         autoCreateProducts,
         manualMatches,
+        dismissedAutoMatches: [...dismissedAutoMatches],
       });
       if ("error" in result) {
         setError(result.error ?? "가져오기에 실패했습니다.");
@@ -170,23 +194,43 @@ export default function SmartstoreImportPanel({
 
       setItems([]);
       setManualMatches({});
+      setDismissedAutoMatches(new Set());
       router.refresh();
     });
   }
 
-  function handleManualMatch(productOrderId: string, productId: string) {
+  function handleManualMatch(
+    productOrderId: string,
+    product: SaleProductOption,
+  ) {
+    setDismissedAutoMatches((current) => {
+      const next = new Set(current);
+      next.delete(productOrderId);
+      return next;
+    });
+    setLocalProducts((current) => {
+      if (current.some((entry) => entry.id === product.id)) return current;
+      return [...current, product];
+    });
     setManualMatches((current) => ({
       ...current,
-      [productOrderId]: productId,
+      [productOrderId]: product.id,
     }));
   }
 
-  function handleManualClear(productOrderId: string) {
+  function handleManualClear(productOrderId: string, hadAutoMatch: boolean) {
     setManualMatches((current) => {
       const next = { ...current };
       delete next[productOrderId];
       return next;
     });
+    if (hadAutoMatch) {
+      setDismissedAutoMatches((current) => {
+        const next = new Set(current);
+        next.add(productOrderId);
+        return next;
+      });
+    }
   }
 
   function handleProductCreated(
@@ -197,7 +241,7 @@ export default function SmartstoreImportPanel({
       if (current.some((entry) => entry.id === product.id)) return current;
       return [...current, product];
     });
-    handleManualMatch(item.productOrderId, product.id);
+    handleManualMatch(item.productOrderId, product);
     setMessage(`「${product.product_name}」 제품을 등록하고 연결했습니다.`);
     router.refresh();
   }
@@ -343,8 +387,8 @@ export default function SmartstoreImportPanel({
               <p className="text-sm text-zinc-700 dark:text-zinc-300">
                 총 {previewSummary.total}건 · 등록 가능 {previewSummary.importable}
                 건 · 기등록 {previewSummary.existing}건
-                {previewSummary.autoRegister
-                  ? ` · 자동 등록 ${previewSummary.autoRegister}건`
+                {previewSummary.needsLink
+                  ? ` · 연결필요 ${previewSummary.needsLink}건`
                   : ""}
                 {previewSummary.unmatched
                   ? ` · 미매칭 ${previewSummary.unmatched}건`
@@ -366,19 +410,21 @@ export default function SmartstoreImportPanel({
                     {items.map((item) => {
                       const manualProductId =
                         manualMatches[item.productOrderId] ?? "";
-                      const effectiveProductId = getEffectiveProductId(
+                      const linkedProductId = getEffectiveProductId(
                         item,
                         manualMatches,
+                        dismissedAutoMatches,
                       );
                       const status = item.alreadyImported
                         ? "기등록"
                         : manualProductId
                           ? "수동 연결"
-                          : effectiveProductId
+                          : linkedProductId
                             ? "등록 가능"
                             : autoCreateProducts
-                              ? "자동 등록"
+                              ? "연결필요"
                               : "미매칭";
+                      const linkedProductLabel = formatMatchedProductLabel(item);
 
                       return (
                         <tr
@@ -416,13 +462,17 @@ export default function SmartstoreImportPanel({
                             ) : (
                               <SmartstoreProductCombobox
                                 products={sortedProducts}
-                                selectedProductId={manualProductId}
+                                selectedProductId={linkedProductId}
                                 autoMatchedProductId={item.matchedProductId}
-                                onSelect={(productId) =>
-                                  handleManualMatch(item.productOrderId, productId)
+                                linkedProductLabel={linkedProductLabel}
+                                onSelect={(product) =>
+                                  handleManualMatch(item.productOrderId, product)
                                 }
                                 onClear={() =>
-                                  handleManualClear(item.productOrderId)
+                                  handleManualClear(
+                                    item.productOrderId,
+                                    Boolean(item.matchedProductId),
+                                  )
                                 }
                               />
                             )}

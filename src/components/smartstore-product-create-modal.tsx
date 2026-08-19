@@ -35,15 +35,19 @@ export default function SmartstoreProductCreateModal({
   onClose,
   onCreated,
 }: SmartstoreProductCreateModalProps) {
+  const [supplier, setSupplier] = useState("스마트스토어");
+  const [category, setCategory] = useState("");
+  const [brand, setBrand] = useState("");
   const [productName, setProductName] = useState(item.productName);
   const [modelName, setModelName] = useState(
     item.productOption.trim() || item.productName,
   );
   const [sku, setSku] = useState(defaultSku(item));
-  const [supplier, setSupplier] = useState("스마트스토어");
-  const [salePrice, setSalePrice] = useState(defaultSalePrice(item));
-  const [purchasePrice, setPurchasePrice] = useState(0);
+  const [color, setColor] = useState("");
   const [productOption, setProductOption] = useState(item.productOption);
+  const [size, setSize] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState(0);
+  const [salePrice, setSalePrice] = useState(defaultSalePrice(item));
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -53,13 +57,17 @@ export default function SmartstoreProductCreateModal({
 
     startTransition(async () => {
       const result = await createProductForSmartstoreLink({
+        supplier,
+        category,
+        brand,
         product_name: productName,
         model_name: modelName,
         sku,
-        supplier,
-        sale_price: salePrice,
-        purchase_price: purchasePrice,
+        color,
         product_option: productOption,
+        size,
+        purchase_price: purchasePrice,
+        sale_price: salePrice,
       });
 
       if ("error" in result) {
@@ -74,9 +82,7 @@ export default function SmartstoreProductCreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-      >
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             제품 등록
@@ -87,58 +93,6 @@ export default function SmartstoreProductCreateModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="smartstore_product_name" className={labelClass}>
-              제품명
-            </label>
-            <input
-              id="smartstore_product_name"
-              value={productName}
-              onChange={(event) => setProductName(event.target.value)}
-              required
-              className={inputClass}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="smartstore_sku" className={labelClass}>
-                SKU
-              </label>
-              <input
-                id="smartstore_sku"
-                value={sku}
-                onChange={(event) => setSku(event.target.value)}
-                required
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="smartstore_model_name" className={labelClass}>
-                모델명
-              </label>
-              <input
-                id="smartstore_model_name"
-                value={modelName}
-                onChange={(event) => setModelName(event.target.value)}
-                required
-                className={inputClass}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="smartstore_product_option" className={labelClass}>
-              옵션
-            </label>
-            <input
-              id="smartstore_product_option"
-              value={productOption}
-              onChange={(event) => setProductOption(event.target.value)}
-              className={inputClass}
-            />
-          </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="smartstore_supplier" className={labelClass}>
@@ -152,9 +106,131 @@ export default function SmartstoreProductCreateModal({
                 className={inputClass}
               />
             </div>
+
+            <div>
+              <label htmlFor="smartstore_category" className={labelClass}>
+                카테고리
+              </label>
+              <input
+                id="smartstore_category"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                placeholder="예: 일렉기타"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="smartstore_brand" className={labelClass}>
+                브랜드
+              </label>
+              <input
+                id="smartstore_brand"
+                value={brand}
+                onChange={(event) => setBrand(event.target.value)}
+                placeholder="예: Fender"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="smartstore_product_name" className={labelClass}>
+                제품명
+              </label>
+              <input
+                id="smartstore_product_name"
+                value={productName}
+                onChange={(event) => setProductName(event.target.value)}
+                required
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="smartstore_model_name" className={labelClass}>
+                모델명
+              </label>
+              <input
+                id="smartstore_model_name"
+                value={modelName}
+                onChange={(event) => setModelName(event.target.value)}
+                required
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="smartstore_sku" className={labelClass}>
+                SKU
+              </label>
+              <input
+                id="smartstore_sku"
+                value={sku}
+                onChange={(event) => setSku(event.target.value)}
+                required
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="smartstore_color" className={labelClass}>
+                색상
+              </label>
+              <input
+                id="smartstore_color"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                placeholder="예: 레드"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="smartstore_product_option" className={labelClass}>
+                옵션
+              </label>
+              <input
+                id="smartstore_product_option"
+                value={productOption}
+                onChange={(event) => setProductOption(event.target.value)}
+                placeholder="예: HSS 픽업"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="smartstore_size" className={labelClass}>
+                사이즈
+              </label>
+              <input
+                id="smartstore_size"
+                value={size}
+                onChange={(event) => setSize(event.target.value)}
+                placeholder="예: 14인치"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="smartstore_purchase_price" className={labelClass}>
+                매입가
+              </label>
+              <PriceInput
+                id="smartstore_purchase_price"
+                min={0}
+                value={purchasePrice}
+                onChange={setPurchasePrice}
+                className={inputClass}
+              />
+            </div>
+
             <div>
               <label htmlFor="smartstore_sale_price" className={labelClass}>
-                판매가
+                소비자가
               </label>
               <PriceInput
                 id="smartstore_sale_price"
@@ -164,19 +240,6 @@ export default function SmartstoreProductCreateModal({
                 className={inputClass}
               />
             </div>
-          </div>
-
-          <div>
-            <label htmlFor="smartstore_purchase_price" className={labelClass}>
-              매입가
-            </label>
-            <PriceInput
-              id="smartstore_purchase_price"
-              min={0}
-              value={purchasePrice}
-              onChange={setPurchasePrice}
-              className={inputClass}
-            />
           </div>
 
           {error ? (
