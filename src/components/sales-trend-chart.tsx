@@ -5,20 +5,35 @@ import {
   formatManwonLabel,
   toManwon,
   type SalesPeriodBucket,
+  type SalesPeriodGranularity,
 } from "@/lib/sales-analytics";
 
 type SalesTrendChartProps = {
   buckets: SalesPeriodBucket[];
+  granularity?: SalesPeriodGranularity;
 };
 
-const CHART_HEIGHT = 150;
+const CHART_HEIGHT = 180;
 const BAR_WIDTH = 22;
-const PADDING = { top: 20, right: 12, bottom: 32, left: 12 };
+const PADDING = { top: 24, right: 12, bottom: 40, left: 12 };
 
-export default function SalesTrendChart({ buckets }: SalesTrendChartProps) {
+function getGroupWidth(granularity: SalesPeriodGranularity | undefined): number {
+  if (granularity === "day") return 64;
+  return 56;
+}
+
+export default function SalesTrendChart({
+  buckets,
+  granularity,
+}: SalesTrendChartProps) {
+  const isDaily = granularity === "day";
+  const xAxisFontSize = isDaily ? 12 : 11;
+  const barLabelFontSize = isDaily ? 12 : 11;
+
   const layout = useMemo(() => {
     const count = Math.max(buckets.length, 1);
-    const chartWidth = Math.max(640, count * 56);
+    const groupUnit = getGroupWidth(granularity);
+    const chartWidth = Math.max(640, count * groupUnit);
     const innerWidth = chartWidth - PADDING.left - PADDING.right;
     const innerHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
 
@@ -63,7 +78,7 @@ export default function SalesTrendChart({ buckets }: SalesTrendChartProps) {
       bars,
       innerBottom: PADDING.top + innerHeight,
     };
-  }, [buckets]);
+  }, [buckets, granularity]);
 
   if (buckets.length === 0) {
     return (
@@ -76,8 +91,9 @@ export default function SalesTrendChart({ buckets }: SalesTrendChartProps) {
   return (
     <div className="overflow-x-auto">
       <svg
+        width={layout.chartWidth}
+        height={layout.chartHeight}
         viewBox={`0 0 ${layout.chartWidth} ${layout.chartHeight}`}
-        className="min-w-full"
         role="img"
         aria-label="매출·마진 추이 세로 막대 차트"
       >
@@ -95,9 +111,10 @@ export default function SalesTrendChart({ buckets }: SalesTrendChartProps) {
                 />
                 <text
                   x={bar.salesX + layout.barWidth / 2}
-                  y={bar.salesY - 4}
+                  y={bar.salesY - 6}
                   textAnchor="middle"
-                  className="fill-blue-700 text-[9px] font-semibold dark:fill-blue-300"
+                  fontSize={barLabelFontSize}
+                  className="fill-blue-700 font-semibold dark:fill-blue-300"
                 >
                   {formatManwonLabel(bar.sales)}
                 </text>
@@ -116,9 +133,10 @@ export default function SalesTrendChart({ buckets }: SalesTrendChartProps) {
                 />
                 <text
                   x={bar.marginX + layout.barWidth / 2}
-                  y={bar.marginY - 4}
+                  y={bar.marginY - 6}
                   textAnchor="middle"
-                  className="fill-emerald-700 text-[9px] font-semibold dark:fill-emerald-300"
+                  fontSize={barLabelFontSize}
+                  className="fill-emerald-700 font-semibold dark:fill-emerald-300"
                 >
                   {formatManwonLabel(bar.margin)}
                 </text>
@@ -127,9 +145,10 @@ export default function SalesTrendChart({ buckets }: SalesTrendChartProps) {
 
             <text
               x={bar.centerX}
-              y={layout.innerBottom + 12}
+              y={layout.innerBottom + 16}
               textAnchor="middle"
-              className="fill-zinc-600 text-[6px] dark:fill-zinc-400"
+              fontSize={xAxisFontSize}
+              className="fill-zinc-600 dark:fill-zinc-400"
             >
               {bar.label}
             </text>

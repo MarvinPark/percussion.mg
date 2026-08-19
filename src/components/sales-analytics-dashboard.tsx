@@ -190,7 +190,7 @@ export default function SalesAnalyticsDashboard({
           </div>
         </div>
 
-        <SalesTrendChart buckets={trendBuckets} />
+        <SalesTrendChart buckets={trendBuckets} granularity={granularity} />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
