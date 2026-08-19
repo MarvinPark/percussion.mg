@@ -8,8 +8,8 @@ import {
   useState,
 } from "react";
 import { searchQuoteProductsForAutocomplete } from "@/app/(main)/quotes/actions";
+import ProductSearchResultRow from "@/components/product-search-result-row";
 import type { QuoteProductOption } from "@/types/quote";
-import { formatKRW } from "@/lib/sales-calculator";
 
 const inputClass =
   "w-full rounded border border-zinc-400 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
@@ -160,30 +160,15 @@ const ModelNameAutocomplete = forwardRef<
         ) : matches.length > 0 ? (
           <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
             {matches.map((product, index) => (
-              <li key={product.id}>
-                <button
-                  type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => handleSelect(product)}
-                  className={`block w-full px-3 py-2 text-left text-sm ${
-                    index === highlightIndex
-                      ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
-                      : "text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <span className="font-medium">
-                    {productSearchLabel(product)}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-zinc-500">
-                    {product.supplier ? `[${product.supplier}] ` : ""}
-                    {product.product_name}
-                    {product.brand ? ` · ${product.brand}` : ""}
-                    {" · 매입가 "}
-                    {formatKRW(product.purchase_price)}원
-                    {product.sku ? ` · ${product.sku}` : ""}
-                  </span>
-                </button>
-              </li>
+              <ProductSearchResultRow
+                key={product.id}
+                product={product}
+                emphasizeModelName
+                highlighted={index === highlightIndex}
+                onHighlight={() => setHighlightIndex(index)}
+                resultIndex={index}
+                onSelect={() => handleSelect(product)}
+              />
             ))}
           </ul>
         ) : showRegisterOption ? (

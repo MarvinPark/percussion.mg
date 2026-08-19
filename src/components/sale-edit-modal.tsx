@@ -346,6 +346,7 @@ export default function SaleEditModal({
             <ProductSearchSelect
               selectedProduct={selectedProduct}
               onSelect={handleProductChange}
+              emphasizeModelName
               showHiddenField={false}
             />
           </div>

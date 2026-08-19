@@ -58,13 +58,18 @@ export default function ProductSearchResultRow({
             highlighted ? highlightOptionClass : ""
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <p className="min-w-0 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
+          <div className="flex items-center justify-between gap-4">
+            <p className="min-w-0 flex-1 truncate text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
               {product.model_name}
             </p>
             {displayPrice != null ? (
-              <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-blue-700 dark:text-blue-300">
-                {formatKRW(displayPrice)}원
+              <span className="shrink-0 text-right leading-tight">
+                <span className="block text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                  매입가
+                </span>
+                <span className="block whitespace-nowrap text-[13px] font-bold tabular-nums text-blue-700 dark:text-blue-300">
+                  {formatKRW(displayPrice)}원
+                </span>
               </span>
             ) : null}
           </div>
