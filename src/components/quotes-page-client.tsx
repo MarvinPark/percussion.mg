@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { pasteQuote } from "@/app/(main)/quotes/actions";
 import QuotesList, { type QuoteListItem } from "@/components/quotes-list";
 import QuotesListSearch from "@/components/quotes-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
-import { quoteToCopiedPayload } from "@/lib/quote-clipboard";
 import {
   buildProductSkuMap,
   filterQuotes,
@@ -77,8 +75,6 @@ export default function QuotesPageClient({
     () => new Set(),
   );
   const [toast, setToast] = useState<string | null>(null);
-  const [duplicateError, setDuplicateError] = useState<string | null>(null);
-  const [isDuplicating, startDuplicate] = useTransition();
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,71 +124,26 @@ export default function QuotesPageClient({
     setAppliedQuery("");
   }, []);
 
-  const handleDuplicateQuotes = useCallback(() => {
-    if (isDuplicating) return;
-
-    if (!appliedQuery.trim()) {
-      showToast("검색 후 복제해 주세요");
-      return;
-    }
-
-    if (filteredQuotes.length === 0) {
-      showToast("복제할 견적이 없습니다");
-      return;
-    }
-
-    setDuplicateError(null);
-    startDuplicate(async () => {
-      const newQuoteIds: string[] = [];
-
-      for (const quote of filteredQuotes) {
-        const result = await pasteQuote(quoteToCopiedPayload(quote));
-        if (result.error) {
-          setDuplicateError(result.error);
-          if (newQuoteIds.length > 0) {
-            router.refresh();
-          }
-          return;
-        }
-        if (result.quoteId) {
-          newQuoteIds.push(result.quoteId);
-        }
-      }
-
-      showToast(`복제 ${newQuoteIds.length}건`);
-      if (newQuoteIds.length > 0) {
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        setHighlightedQuoteIds(new Set(newQuoteIds));
-        highlightTimerRef.current = setTimeout(() => {
-          setHighlightedQuoteIds(new Set());
-        }, 2000);
-      }
+  const handleQuoteDuplicated = useCallback(
+    (quoteId: string) => {
+      showToast("견적을 복제했습니다");
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      setHighlightedQuoteIds(new Set([quoteId]));
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedQuoteIds(new Set());
+      }, 2000);
       router.refresh();
-    });
-  }, [
-    appliedQuery,
-    filteredQuotes,
-    isDuplicating,
-    router,
-    showToast,
-  ]);
+    },
+    [router, showToast],
+  );
 
   const hasActiveFilter = Boolean(
     sellerFilter.trim() || appliedQuery.trim(),
   );
 
-  const canDuplicate =
-    Boolean(appliedQuery.trim()) && filteredQuotes.length > 0 && !isDuplicating;
-
   return (
     <>
       {toast ? <ActionToast message={toast} /> : null}
-
-      {duplicateError ? (
-        <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {duplicateError}
-        </p>
-      ) : null}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex flex-wrap items-center gap-2">
@@ -211,15 +162,6 @@ export default function QuotesPageClient({
             onConfirm={applySearch}
             onSelectQuote={handleSelectQuote}
           />
-
-          <button
-            type="button"
-            onClick={() => void handleDuplicateQuotes()}
-            disabled={!canDuplicate}
-            className={buttonClass}
-          >
-            {isDuplicating ? "복제 중..." : "복제"}
-          </button>
 
           <button type="button" onClick={applySearch} className={buttonClass}>
             확인
@@ -275,6 +217,7 @@ export default function QuotesPageClient({
         staffOptions={staffOptions}
         rowFontSize={rowFontSize}
         highlightedQuoteIds={highlightedQuoteIds}
+        onQuoteDuplicated={handleQuoteDuplicated}
         emptyMessage={
           hasActiveFilter || draftQuery.trim()
             ? "검색 조건에 맞는 견적 기록이 없습니다."

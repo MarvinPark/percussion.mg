@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { deleteQuote, convertQuoteToSale, cancelQuoteConversion } from "@/app/(main)/quotes/actions";
+import { deleteQuote, convertQuoteToSale, cancelQuoteConversion, pasteQuote } from "@/app/(main)/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import QuoteConvertDialog, {
@@ -12,6 +12,7 @@ import QuoteConvertDialog, {
 } from "@/components/quote-convert-dialog";
 import QuoteForm from "@/components/quote-form";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
+import { quoteToCopiedPayload } from "@/lib/quote-clipboard";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
@@ -77,6 +78,7 @@ type QuotesListProps = {
   rowFontSize?: number;
   emptyMessage?: string;
   highlightedQuoteIds?: Set<string>;
+  onQuoteDuplicated?: (quoteId: string) => void;
 };
 
 function formatDate(value: string) {
@@ -110,6 +112,7 @@ export default function QuotesList({
   rowFontSize = 12,
   emptyMessage,
   highlightedQuoteIds,
+  onQuoteDuplicated,
 }: QuotesListProps) {
   const router = useRouter();
   const convertedQuoteIdSet = new Set(convertedQuoteIds);
@@ -126,6 +129,10 @@ export default function QuotesList({
   const [isConverting, startConvert] = useTransition();
   const [isCancelling, startCancel] = useTransition();
   const [isDeleting, startDelete] = useTransition();
+  const [isDuplicating, startDuplicate] = useTransition();
+  const [duplicatingQuoteId, setDuplicatingQuoteId] = useState<string | null>(
+    null,
+  );
   const [preview, setPreview] = useState<{
     quote: QuoteListItem;
     mode: "quote" | "invoice";
@@ -204,6 +211,29 @@ export default function QuotesList({
       await deleteQuote(formData);
       setDeletingQuote(null);
       router.refresh();
+    });
+  }
+
+  function handleDuplicateQuote(quote: QuoteListItem) {
+    if (isDuplicating) return;
+
+    setActionError(null);
+    setDuplicatingQuoteId(quote.id);
+
+    startDuplicate(async () => {
+      const result = await pasteQuote(quoteToCopiedPayload(quote));
+      setDuplicatingQuoteId(null);
+
+      if (result.error) {
+        setActionError(result.error);
+        return;
+      }
+
+      if (result.quoteId) {
+        onQuoteDuplicated?.(result.quoteId);
+      } else {
+        router.refresh();
+      }
     });
   }
 
@@ -337,6 +367,14 @@ export default function QuotesList({
                     매출전환
                   </button>
                 )}
+                <button
+                  type="button"
+                  disabled={isDuplicating}
+                  onClick={() => handleDuplicateQuote(quote)}
+                  className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+                >
+                  {duplicatingQuoteId === quote.id ? "복제 중..." : "복제"}
+                </button>
                 <button
                   type="button"
                   disabled={isDeleting}

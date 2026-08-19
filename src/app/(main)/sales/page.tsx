@@ -100,6 +100,7 @@ export default async function SalesPage() {
               <SalesImportPanels
                 canImport={canCreateSales}
                 products={products ?? []}
+                paymentMethods={paymentMethods ?? []}
               />
             </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { searchProductsForSaleDropdown } from "@/app/(main)/products/actions";
 import ProductSearchResultRow from "@/components/product-search-result-row";
@@ -28,6 +28,7 @@ type SmartstoreProductComboboxProps = {
   disabled?: boolean;
   onSelect: (product: SaleProductOption) => void;
   onClear: () => void;
+  nextFocusRef?: RefObject<HTMLInputElement | null>;
 };
 
 function productLabel(product: SaleProductOption) {
@@ -64,6 +65,7 @@ export default function SmartstoreProductCombobox({
   disabled = false,
   onSelect,
   onClear,
+  nextFocusRef,
 }: SmartstoreProductComboboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +79,7 @@ export default function SmartstoreProductCombobox({
   const [pinnedProduct, setPinnedProduct] = useState<SaleProductOption | null>(
     null,
   );
+  const [highlightIndex, setHighlightIndex] = useState(0);
 
   const linkedProduct = useMemo(
     () =>
@@ -213,6 +216,25 @@ export default function SmartstoreProductCombobox({
     trimmedQuery.length > 0 &&
     trimmedQuery !== displayLabel;
 
+  function handleSelectHighlighted() {
+    const product = results[highlightIndex];
+    if (!product) return;
+    handleSelect(product);
+  }
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [results, trimmedQuery]);
+
+  useEffect(() => {
+    if (!showDropdown || !dropdownRef.current || results.length === 0) return;
+
+    const option = dropdownRef.current.querySelector<HTMLElement>(
+      `[data-result-index="${highlightIndex}"]`,
+    );
+    option?.scrollIntoView({ block: "nearest" });
+  }, [highlightIndex, showDropdown, results.length]);
+
   const dropdown =
     showDropdown && dropdownPosition ? (
       <ul
@@ -236,12 +258,15 @@ export default function SmartstoreProductCombobox({
             검색 결과가 없습니다.
           </li>
         ) : (
-          results.map((product) => (
+          results.map((product, index) => (
             <ProductSearchResultRow
               key={product.id}
               product={product}
               emphasizeModelName
               priceField="purchase_price"
+              highlighted={index === highlightIndex}
+              onHighlight={() => setHighlightIndex(index)}
+              resultIndex={index}
               onSelect={() => handleSelect(product)}
             />
           ))
@@ -271,6 +296,55 @@ export default function SmartstoreProductCombobox({
           }
         }}
         onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            if (!showDropdown) {
+              if (trimmedQuery) {
+                setIsOpen(true);
+                updateDropdownPosition();
+              }
+              return;
+            }
+            event.preventDefault();
+            if (results.length > 0) {
+              setHighlightIndex((prev) => (prev + 1) % results.length);
+            }
+            return;
+          }
+
+          if (event.key === "ArrowUp") {
+            if (!showDropdown) return;
+            event.preventDefault();
+            if (results.length > 0) {
+              setHighlightIndex(
+                (prev) => (prev - 1 + results.length) % results.length,
+              );
+            }
+            return;
+          }
+
+          if (event.key === "Enter") {
+            if (showDropdown && !isSearching && results.length > 0) {
+              event.preventDefault();
+              handleSelectHighlighted();
+            }
+            return;
+          }
+
+          if (event.key === "Tab") {
+            if (showDropdown) {
+              setIsOpen(false);
+              setIsEditing(false);
+              if (!pinnedProduct && !selectedProductId) {
+                setQuery(displayLabel);
+              }
+            }
+            if (!event.shiftKey && nextFocusRef?.current) {
+              event.preventDefault();
+              nextFocusRef.current.focus();
+            }
+            return;
+          }
+
           if (event.key === "Escape") {
             event.preventDefault();
             setIsOpen(false);

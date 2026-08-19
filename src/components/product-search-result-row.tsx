@@ -22,13 +22,22 @@ type ProductSearchResultRowProps = {
   onSelect: () => void;
   emphasizeModelName?: boolean;
   priceField?: "sale_price" | "purchase_price";
+  highlighted?: boolean;
+  onHighlight?: () => void;
+  resultIndex?: number;
 };
+
+const highlightOptionClass =
+  "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100";
 
 export default function ProductSearchResultRow({
   product,
   onSelect,
   emphasizeModelName = false,
   priceField = "sale_price",
+  highlighted = false,
+  onHighlight,
+  resultIndex,
 }: ProductSearchResultRowProps) {
   const displayPrice =
     priceField === "purchase_price"
@@ -37,13 +46,17 @@ export default function ProductSearchResultRow({
 
   if (emphasizeModelName) {
     return (
-      <li>
+      <li data-result-index={resultIndex}>
         <button
           type="button"
           role="option"
+          aria-selected={highlighted}
           onMouseDown={(event) => event.preventDefault()}
+          onMouseEnter={onHighlight}
           onClick={onSelect}
-          className="w-full border-b border-zinc-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
+          className={`w-full border-b border-zinc-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 ${
+            highlighted ? highlightOptionClass : ""
+          }`}
         >
           <div className="flex items-start justify-between gap-3">
             <p className="min-w-0 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
@@ -93,13 +106,17 @@ export default function ProductSearchResultRow({
   }
 
   return (
-    <li>
+    <li data-result-index={resultIndex}>
       <button
         type="button"
         role="option"
+        aria-selected={highlighted}
         onMouseDown={(event) => event.preventDefault()}
+        onMouseEnter={onHighlight}
         onClick={onSelect}
-        className="w-full border-b border-zinc-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
+        className={`w-full border-b border-zinc-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 ${
+          highlighted ? highlightOptionClass : ""
+        }`}
       >
         <div className="grid gap-1 text-[11px] leading-snug sm:grid-cols-3">
           <span>

@@ -23,6 +23,7 @@ type PaymentMethodComboboxProps = {
   required?: boolean;
   showFeeInLabel?: boolean;
   "aria-label"?: string;
+  registerInput?: (element: HTMLInputElement | null) => void;
 };
 
 function methodLabel(method: PaymentMethod, showFee: boolean) {
@@ -58,6 +59,7 @@ export default function PaymentMethodCombobox({
   required = false,
   showFeeInLabel = true,
   "aria-label": ariaLabel,
+  registerInput,
 }: PaymentMethodComboboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -313,7 +315,10 @@ export default function PaymentMethodCombobox({
         <input type="hidden" name={name} value={value} required={required} />
       ) : null}
       <input
-        ref={inputRef}
+        ref={(node) => {
+          inputRef.current = node;
+          registerInput?.(node);
+        }}
         id={id}
         type="text"
         role="combobox"
