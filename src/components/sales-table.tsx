@@ -7,6 +7,7 @@ import { deleteSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import SaleEditModal from "@/components/sale-edit-modal";
+import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
 import { formatKRW } from "@/lib/sales-calculator";
 import { displaySaleCategory } from "@/lib/sale-categories";
@@ -38,6 +39,8 @@ const actionButtonClass =
 
 const deleteButtonClass =
   "rounded bg-red-600 px-1.5 py-0.5 leading-none font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
+
+const tableClassName = "w-full table-fixed text-sm";
 
 type SalesTableProps = {
   userId: string;
@@ -90,13 +93,27 @@ export default function SalesTable({
     baseColumns,
     { fixedEnd: SALES_FIXED_END_COLUMN_IDS },
   );
+  const { widths, startResize } = useSalesColumnWidths(userId);
 
   const subFontSize = Math.max(8, rowFontSize - 2);
   const actionFontSize = Math.max(9, rowFontSize - 1);
   const cellPaddingClass = getTableRowPaddingClass(rowFontSize);
   const headerPaddingClass = getTableHeaderPaddingClass(rowFontSize);
-  const cellClass = `whitespace-nowrap px-3 ${cellPaddingClass} leading-tight`;
+  const cellClass = `max-w-0 whitespace-nowrap px-3 ${cellPaddingClass} leading-tight`;
   const headerClass = `whitespace-nowrap px-3 ${headerPaddingClass} text-xs font-semibold`;
+  const tableMinWidth = orderedColumns.reduce(
+    (sum, column) => sum + widths[column.id],
+    0,
+  );
+  const tableStyle = { minWidth: tableMinWidth };
+
+  const colGroup = (
+    <colgroup>
+      {orderedColumns.map((column) => (
+        <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
+      ))}
+    </colgroup>
+  );
 
   function getHeaderDragProps(columnId: SalesTableColumnId) {
     if (!isReorderableSalesColumn(columnId)) {
@@ -137,10 +154,10 @@ export default function SalesTable({
       case "product":
         return (
           <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
-            <p className="font-medium">{sale.products?.model_name ?? "-"}</p>
+            <p className="truncate font-medium">{sale.products?.model_name ?? "-"}</p>
             {sale.products?.product_name ? (
               <p
-                className="text-zinc-500 dark:text-zinc-400"
+                className="truncate text-zinc-500 dark:text-zinc-400"
                 style={{ fontSize: `${subFontSize}px` }}
               >
                 {sale.products.product_name}
@@ -175,10 +192,10 @@ export default function SalesTable({
       case "customer":
         return (
           <td className={`${cellClass} text-zinc-700 dark:text-zinc-300`}>
-            <p>{sale.customer_name ?? "-"}</p>
+            <p className="truncate">{sale.customer_name ?? "-"}</p>
             {sale.business_partner ? (
               <p
-                className="text-zinc-500 dark:text-zinc-400"
+                className="truncate text-zinc-500 dark:text-zinc-400"
                 style={{ fontSize: `${subFontSize}px` }}
               >
                 {sale.business_partner}
@@ -194,7 +211,7 @@ export default function SalesTable({
         );
       case "actions":
         return (
-          <td className={cellClass}>
+          <td className={`${cellPaddingClass} whitespace-nowrap px-3 leading-tight`}>
             <div
               className="flex items-center justify-end gap-1"
               onDoubleClick={(event) => event.stopPropagation()}
@@ -251,7 +268,8 @@ export default function SalesTable({
   return (
     <>
       <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-        <table className="min-w-full">
+        <table className={tableClassName} style={tableStyle}>
+          {colGroup}
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
               {orderedColumns.map((column) => (
@@ -261,6 +279,8 @@ export default function SalesTable({
                   label={column.label}
                   align={column.align ?? "left"}
                   className={headerClass}
+                  resizable={column.resizable}
+                  onResizeStart={startResize}
                   {...getHeaderDragProps(column.id)}
                 />
               ))}

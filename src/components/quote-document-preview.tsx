@@ -17,7 +17,6 @@ import {
 import { formatKoreanWonLabel } from "@/lib/korean-number";
 import { getQuoteItemVariantLines } from "@/lib/quote-item-display";
 import { formatKRW } from "@/lib/sales-calculator";
-import { displaySaleCategory } from "@/lib/sale-categories";
 import {
   SUPPLIER_INFO,
   type QuoteFormData,
@@ -267,6 +266,8 @@ function DocumentHeader({
   data: QuoteFormData;
 }) {
   const title = mode === "quote" ? "견적서" : "거래명세서";
+  const customerEmail = data.customer_email?.trim() ?? "";
+  const customerNote = data.customer_note?.trim() ?? "";
 
   return (
     <>
@@ -292,13 +293,12 @@ function DocumentHeader({
         <SupplierInfoBox />
         <div className="box rounded border border-zinc-400 p-3 text-sm">
           <p className="mb-2 font-semibold">고객 정보</p>
-          <p>구분: {displaySaleCategory(data.sale_category)}</p>
           <p>거래처명: {data.business_partner ?? ""}</p>
           <p>고객명: {data.customer_name}</p>
           <p>연락처: {data.customer_phone ?? ""}</p>
           <p>주소: {data.customer_address ?? ""}</p>
-          <p>이메일: {data.customer_email ?? ""}</p>
-          <p>비고: {data.customer_note ?? ""}</p>
+          {customerEmail ? <p>이메일: {customerEmail}</p> : null}
+          {customerNote ? <p>비고: {customerNote}</p> : null}
         </div>
       </div>
     </>

@@ -7,6 +7,7 @@ import type { ProductInlineField } from "@/app/(main)/products/actions";
 import EditableProductCell from "@/components/editable-product-cell";
 import KeyStockStarToggle from "@/components/key-stock-star-toggle";
 import ResizableHeaderCell from "@/components/resizable-header-cell";
+import TableRowSizeControl from "@/components/table-row-size-control";
 import { useProductColumnOrder } from "@/hooks/use-product-column-order";
 import { useProductColumnWidths } from "@/hooks/use-product-column-widths";
 import { isReorderableProductColumn } from "@/lib/product-table-column-order";
@@ -24,6 +25,13 @@ import {
   tableFocusRingClass,
   type TableFocusState,
 } from "@/lib/product-table-navigation";
+import {
+  DEFAULT_TABLE_ROW_FONT_SIZE,
+  getTableHeaderPaddingClass,
+  getTableRowPaddingClass,
+  loadTableRowFontSize,
+  saveTableRowFontSize,
+} from "@/lib/table-row-preferences";
 import {
   alertAccentInline,
   btnPrimarySm,
@@ -56,7 +64,7 @@ const stickyTableHeaderCellClass =
   "bg-zinc-50 dark:bg-zinc-800";
 
 const tableClassName =
-  "w-full table-fixed text-sm max-md:min-w-[720px]";
+  "w-full table-fixed max-md:min-w-[720px]";
 const horizontalScrollClass =
   "overflow-x-auto overscroll-x-contain";
 const hiddenScrollbarClass =
@@ -370,6 +378,8 @@ export default function ProductsList({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [focusTarget, setFocusTarget] = useState<TableFocusState | null>(null);
+  const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
+  const [rowFontSizeLoaded, setRowFontSizeLoaded] = useState(false);
   const checkboxRefs = useRef(new Map<string, HTMLInputElement>());
   const editRefs = useRef(new Map<string, HTMLAnchorElement>());
   const deleteRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -398,6 +408,19 @@ export default function ProductsList({
     () => getEditableFieldOrder(tableColumns.map((column) => column.id)),
     [tableColumns],
   );
+
+  useEffect(() => {
+    setRowFontSize(loadTableRowFontSize("products", userId));
+    setRowFontSizeLoaded(true);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!rowFontSizeLoaded) return;
+    saveTableRowFontSize("products", userId, rowFontSize);
+  }, [rowFontSize, rowFontSizeLoaded, userId]);
+
+  const rowPaddingClass = getTableRowPaddingClass(rowFontSize);
+  const headerPaddingClass = getTableHeaderPaddingClass(rowFontSize);
 
   const navigateFocus = useCallback(
     (from: TableFocusState, direction: "forward" | "backward") => {
@@ -553,7 +576,7 @@ export default function ProductsList({
       bg = "max-md:bg-red-50/80 dark:max-md:bg-red-950/25";
     }
 
-    return `px-2 py-1.5 max-md:sticky max-md:left-0 max-md:z-10 ${bg}`;
+    return `px-2 ${rowPaddingClass} max-md:sticky max-md:left-0 max-md:z-10 ${bg}`;
   }
 
   function stickyKeyStockCellClass(product: Product) {
@@ -567,18 +590,25 @@ export default function ProductsList({
       bg = "max-md:bg-red-50/80 dark:max-md:bg-red-950/25";
     }
 
-    return `px-1 py-1.5 max-md:sticky max-md:left-[44px] max-md:z-10 ${bg}`;
+    return `px-1 ${rowPaddingClass} max-md:sticky max-md:left-[44px] max-md:z-10 ${bg}`;
   }
 
   const narrowScrollCellClass =
-    "px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100 max-md:min-w-[5.5rem] max-md:whitespace-nowrap";
+    `px-3 ${rowPaddingClass} font-normal text-zinc-900 dark:text-zinc-100 max-md:min-w-[5.5rem] max-md:whitespace-nowrap`;
   const narrowScrollProductCellClass =
-    "px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100 max-md:min-w-[9rem] max-md:whitespace-nowrap";
+    `px-3 ${rowPaddingClass} font-normal text-zinc-900 dark:text-zinc-100 max-md:min-w-[9rem] max-md:whitespace-nowrap`;
 
   const headerCellClass =
-    "whitespace-nowrap px-3 py-2 font-semibold";
+    `whitespace-nowrap px-3 ${headerPaddingClass} font-semibold`;
   const priceHeaderCellClass =
-    "whitespace-nowrap px-3 py-2 font-normal";
+    `whitespace-nowrap px-3 ${headerPaddingClass} font-normal`;
+  const standardCellClass =
+    `px-3 ${rowPaddingClass} font-normal text-zinc-900 dark:text-zinc-100`;
+  const truncateCellClass = `truncate ${standardCellClass}`;
+  const nowrapCellClass = `whitespace-nowrap ${standardCellClass}`;
+  const semiboldCellClass =
+    `px-3 ${rowPaddingClass} font-semibold text-zinc-900 dark:text-zinc-100`;
+  const actionsCellClass = `px-3 ${rowPaddingClass}`;
 
   function getHeaderReorderProps(columnId: ProductTableColumnId) {
     if (!isReorderableProductColumn(columnId)) {
@@ -730,7 +760,7 @@ export default function ProductsList({
       case "model_name":
         return (
           <td
-            className="truncate px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            className={truncateCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
           >
             <EditableProductCell
@@ -744,7 +774,7 @@ export default function ProductsList({
       case "sku":
         return (
           <td
-            className="truncate px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            className={truncateCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
           >
             <EditableProductCell
@@ -758,7 +788,7 @@ export default function ProductsList({
       case "purchase_price":
         return (
           <td
-            className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            className={nowrapCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
           >
             <EditableProductCell
@@ -775,7 +805,7 @@ export default function ProductsList({
       case "stock_floor3":
         return (
           <td
-            className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            className={standardCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
             onContextMenu={(event) => event.stopPropagation()}
           >
@@ -791,7 +821,7 @@ export default function ProductsList({
       case "stock_b1":
         return (
           <td
-            className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            className={standardCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
             onContextMenu={(event) => event.stopPropagation()}
           >
@@ -807,7 +837,7 @@ export default function ProductsList({
       case "stock_display":
         return (
           <td
-            className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            className={standardCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
             onContextMenu={(event) => event.stopPropagation()}
           >
@@ -823,7 +853,7 @@ export default function ProductsList({
       case "stock_quantity":
         return (
           <td
-            className="px-3 py-1.5 font-semibold text-zinc-900 dark:text-zinc-100"
+            className={semiboldCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
             onContextMenu={(event) => event.stopPropagation()}
           >
@@ -840,7 +870,7 @@ export default function ProductsList({
       case "sale_price":
         return (
           <td
-            className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            className={nowrapCellClass}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
           >
             <EditableProductCell
@@ -857,7 +887,7 @@ export default function ProductsList({
       case "actions":
         return (
           <td
-            className="px-3 py-1.5"
+            className={actionsCellClass}
             onClick={(event) => event.stopPropagation()}
             onContextMenu={(event) => event.stopPropagation()}
           >
@@ -950,7 +980,7 @@ export default function ProductsList({
               columnId={column.id}
               label=""
               resizable={column.resizable}
-              className={`${stickyTableHeaderCornerClass} px-2 py-2 font-semibold shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)]`}
+              className={`${stickyTableHeaderCornerClass} px-2 ${headerPaddingClass} font-semibold shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)]`}
               onResizeStart={startResize}
             >
               <input
@@ -974,7 +1004,7 @@ export default function ProductsList({
               columnId={column.id}
               label=""
               resizable={column.resizable}
-              className={`${stickyTableHeaderKeyStockClass} px-1 py-2 font-semibold shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)]`}
+              className={`${stickyTableHeaderKeyStockClass} px-1 ${headerPaddingClass} font-semibold shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)]`}
               onResizeStart={startResize}
             />
           );
@@ -1029,6 +1059,9 @@ export default function ProductsList({
     <>
       <div className="max-w-full min-w-0 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
         <div className="sticky top-[var(--app-header-height)] z-20 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
+          <div className="flex items-center justify-end border-b border-zinc-200 px-3 py-1 dark:border-zinc-700">
+            <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
+          </div>
           <div
             ref={headerScrollRef}
             onScroll={syncBodyScroll}
@@ -1036,7 +1069,10 @@ export default function ProductsList({
           >
             <table className={tableClassName} style={tableStyle}>
               {colGroup}
-              <thead className="text-left text-zinc-800 dark:text-zinc-200">
+              <thead
+                className="text-left text-zinc-800 dark:text-zinc-200"
+                style={{ fontSize: `${rowFontSize}px` }}
+              >
                 {headerRow}
               </thead>
             </table>
@@ -1050,7 +1086,10 @@ export default function ProductsList({
         >
           <table className={tableClassName} style={tableStyle}>
             {colGroup}
-            <tbody className="font-normal">
+            <tbody
+              className="font-normal"
+              style={{ fontSize: `${rowFontSize}px` }}
+            >
             {products.map((product) => (
                 <tr
                   key={product.id}

@@ -12,6 +12,8 @@ type DraggableTableHeaderCellProps<T extends string> = {
   onColumnDragEnd?: () => void;
   onColumnDragOver?: (columnId: T) => void;
   onColumnDrop?: (columnId: T) => void;
+  resizable?: boolean;
+  onResizeStart?: (columnId: T, startX: number) => void;
   children?: React.ReactNode;
 };
 
@@ -27,6 +29,8 @@ export default function DraggableTableHeaderCell<T extends string>({
   onColumnDragEnd,
   onColumnDragOver,
   onColumnDrop,
+  resizable = false,
+  onResizeStart,
   children,
 }: DraggableTableHeaderCellProps<T>) {
   const dragStateClass = isDragging
@@ -68,19 +72,37 @@ export default function DraggableTableHeaderCell<T extends string>({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {children ?? (
-        <span
-          draggable={reorderable}
-          onDragStart={handleDragStart}
-          onDragEnd={() => onColumnDragEnd?.()}
-          className={`inline-block truncate ${
-            reorderable ? "cursor-grab active:cursor-grabbing" : ""
-          }`}
-          title={reorderable ? "드래그하여 열 이동" : undefined}
+      <div className="flex items-center pr-2">
+        {children ?? (
+          <span
+            draggable={reorderable}
+            onDragStart={handleDragStart}
+            onDragEnd={() => onColumnDragEnd?.()}
+            className={`inline-block truncate ${
+              reorderable ? "cursor-grab active:cursor-grabbing" : ""
+            }`}
+            title={reorderable ? "드래그하여 열 이동" : undefined}
+          >
+            {label}
+          </span>
+        )}
+      </div>
+
+      {resizable ? (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={`${label} 열 너비 조절`}
+          className="group absolute right-0 top-0 z-10 flex h-full w-3 cursor-col-resize items-stretch justify-center"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onResizeStart?.(columnId, event.clientX);
+          }}
         >
-          {label}
-        </span>
-      )}
+          <div className="my-1.5 w-px bg-zinc-300 transition group-hover:w-0.5 group-hover:bg-blue-400 dark:bg-zinc-500 dark:group-hover:bg-blue-400" />
+        </div>
+      ) : null}
     </th>
   );
 }
