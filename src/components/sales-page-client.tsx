@@ -1,28 +1,35 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import SalesListSearch from "@/components/sales-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
 import SalesTable from "@/components/sales-table";
+import TablePageSizeSelect from "@/components/table-page-size-select";
+import TablePagination from "@/components/table-pagination";
+import TableRowSizeControl from "@/components/table-row-size-control";
+import {
+  loadSalesPageSize,
+  saveSalesPageSize,
+} from "@/lib/sales-list-preferences";
 import {
   filterSales,
   filterSalesBySeller,
   getUniqueSellerNames,
 } from "@/lib/sales-search";
+import {
+  paginateItems,
+  TABLE_PAGE_SIZE,
+  type TablePageSize,
+} from "@/lib/table-page-size";
+import {
+  DEFAULT_TABLE_ROW_FONT_SIZE,
+  loadTableRowFontSize,
+  saveTableRowFontSize,
+} from "@/lib/table-row-preferences";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
 
 const buttonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
-
-const fontControlBoxClass =
-  "inline-flex h-[26px] shrink-0 items-center overflow-hidden rounded border border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900";
-
-const fontControlButtonClass =
-  "inline-flex h-[26px] w-[26px] items-center justify-center text-[11px] leading-none text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-200 dark:hover:bg-zinc-800";
-
-const MIN_ROW_FONT_SIZE = 9;
-const MAX_ROW_FONT_SIZE = 16;
-const DEFAULT_ROW_FONT_SIZE = 12;
 
 export type StaffOption = {
   id: string;
@@ -30,6 +37,7 @@ export type StaffOption = {
 };
 
 type SalesPageClientProps = {
+  userId: string;
   sales: SaleWithProduct[];
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
@@ -39,6 +47,7 @@ type SalesPageClientProps = {
 };
 
 export default function SalesPageClient({
+  userId,
   sales,
   products,
   paymentMethods,
@@ -49,7 +58,32 @@ export default function SalesPageClient({
   const [sellerFilter, setSellerFilter] = useState("");
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [rowFontSize, setRowFontSize] = useState(DEFAULT_ROW_FONT_SIZE);
+  const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
+  const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+
+  useEffect(() => {
+    setPageSize(loadSalesPageSize(userId));
+    setRowFontSize(loadTableRowFontSize("sales", userId));
+    setPageSizeLoaded(true);
+    setPreferencesLoaded(true);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!pageSizeLoaded) return;
+    saveSalesPageSize(userId, pageSize);
+  }, [pageSizeLoaded, pageSize, userId]);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    saveTableRowFontSize("sales", userId, rowFontSize);
+  }, [preferencesLoaded, rowFontSize, userId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sellerFilter, appliedQuery, pageSize]);
 
   const sellerOptions = useMemo(() => getUniqueSellerNames(sales), [sales]);
 
@@ -67,8 +101,22 @@ export default function SalesPageClient({
     [sales, sellerFilter, appliedQuery],
   );
 
+  const pagination = useMemo(
+    () => paginateItems(filteredSales, currentPage, pageSize),
+    [filteredSales, currentPage, pageSize],
+  );
+
+  useEffect(() => {
+    if (currentPage !== pagination.currentPage) {
+      setCurrentPage(pagination.currentPage);
+    }
+  }, [currentPage, pagination.currentPage]);
+
+  const paginatedSales = pagination.items;
+
   const applySearch = useCallback(() => {
     setAppliedQuery(draftQuery);
+    setCurrentPage(1);
   }, [draftQuery]);
 
   const handleSelectSale = useCallback(
@@ -81,6 +129,7 @@ export default function SalesPageClient({
         "";
       setDraftQuery(value);
       setAppliedQuery(value);
+      setCurrentPage(1);
     },
     [],
   );
@@ -89,6 +138,12 @@ export default function SalesPageClient({
     setSellerFilter("");
     setDraftQuery("");
     setAppliedQuery("");
+    setCurrentPage(1);
+  }, []);
+
+  const handlePageSizeChange = useCallback((nextPageSize: TablePageSize) => {
+    setPageSize(nextPageSize);
+    setCurrentPage(1);
   }, []);
 
   const hasActiveFilter = Boolean(
@@ -129,34 +184,19 @@ export default function SalesPageClient({
           </button>
         </div>
 
-        <div className={fontControlBoxClass}>
-          <button
-            type="button"
-            aria-label="행 글자 크기 줄이기"
-            disabled={rowFontSize <= MIN_ROW_FONT_SIZE}
-            onClick={() =>
-              setRowFontSize((size) => Math.max(MIN_ROW_FONT_SIZE, size - 1))
-            }
-            className={`${fontControlButtonClass} border-r border-zinc-300 dark:border-zinc-600`}
-          >
-            -
-          </button>
-          <button
-            type="button"
-            aria-label="행 글자 크기 키우기"
-            disabled={rowFontSize >= MAX_ROW_FONT_SIZE}
-            onClick={() =>
-              setRowFontSize((size) => Math.min(MAX_ROW_FONT_SIZE, size + 1))
-            }
-            className={fontControlButtonClass}
-          >
-            +
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <TablePageSizeSelect
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            compact
+          />
+          <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
         </div>
       </div>
 
       <SalesTable
-        sales={filteredSales}
+        userId={userId}
+        sales={paginatedSales}
         products={products}
         paymentMethods={paymentMethods}
         saleCategories={saleCategories}
@@ -168,6 +208,13 @@ export default function SalesPageClient({
             ? "검색 조건에 맞는 판매 기록이 없습니다."
             : undefined
         }
+      />
+
+      <TablePagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        onPageChange={setCurrentPage}
+        ariaLabel="매출 목록 페이지"
       />
     </>
   );

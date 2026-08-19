@@ -1,12 +1,27 @@
 "use client";
 
+import { Fragment, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
+import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import SaleEditModal from "@/components/sale-edit-modal";
+import { useTableColumnOrder } from "@/hooks/use-table-column-order";
 import { formatKRW } from "@/lib/sales-calculator";
 import { displaySaleCategory } from "@/lib/sale-categories";
+import {
+  getDefaultSalesColumnOrder,
+  getSalesBaseColumns,
+  getSalesColumnOrderStorageKey,
+  isReorderableSalesColumn,
+  SALES_FIXED_END_COLUMN_IDS,
+  type SalesTableColumnId,
+} from "@/lib/sales-table-columns";
+import {
+  getTableHeaderPaddingClass,
+  getTableRowPaddingClass,
+} from "@/lib/table-row-preferences";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
 import type { StaffOption } from "@/components/sales-page-client";
 
@@ -18,9 +33,6 @@ function formatDateCompact(value: string) {
   return `${yy}${mm}${dd}`;
 }
 
-const headerClass = "whitespace-nowrap px-3 py-2 text-xs font-semibold";
-const cellClass = "whitespace-nowrap px-3 py-1.5 leading-tight";
-
 const actionButtonClass =
   "rounded border border-zinc-300 px-1.5 py-0.5 leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
@@ -28,6 +40,7 @@ const deleteButtonClass =
   "rounded bg-red-600 px-1.5 py-0.5 leading-none font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
 
 type SalesTableProps = {
+  userId: string;
   sales: SaleWithProduct[];
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
@@ -39,6 +52,7 @@ type SalesTableProps = {
 };
 
 export default function SalesTable({
+  userId,
   sales,
   products,
   paymentMethods,
@@ -54,8 +68,167 @@ export default function SalesTable({
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
 
+  const baseColumns = useMemo(
+    () => getSalesBaseColumns(canManageSales),
+    [canManageSales],
+  );
+  const defaultOrder = useMemo(
+    () => getDefaultSalesColumnOrder(canManageSales),
+    [canManageSales],
+  );
+  const {
+    orderedColumns,
+    draggingColumnId,
+    dragOverColumnId,
+    handleColumnDragStart,
+    handleColumnDragEnd,
+    handleColumnDragOver,
+    handleColumnDrop,
+  } = useTableColumnOrder(
+    getSalesColumnOrderStorageKey(userId),
+    defaultOrder,
+    baseColumns,
+    { fixedEnd: SALES_FIXED_END_COLUMN_IDS },
+  );
+
   const subFontSize = Math.max(8, rowFontSize - 2);
   const actionFontSize = Math.max(9, rowFontSize - 1);
+  const cellPaddingClass = getTableRowPaddingClass(rowFontSize);
+  const headerPaddingClass = getTableHeaderPaddingClass(rowFontSize);
+  const cellClass = `whitespace-nowrap px-3 ${cellPaddingClass} leading-tight`;
+  const headerClass = `whitespace-nowrap px-3 ${headerPaddingClass} text-xs font-semibold`;
+
+  function getHeaderDragProps(columnId: SalesTableColumnId) {
+    if (!isReorderableSalesColumn(columnId)) {
+      return {};
+    }
+
+    return {
+      reorderable: true,
+      isDragging: draggingColumnId === columnId,
+      isDragOver: dragOverColumnId === columnId,
+      onColumnDragStart: handleColumnDragStart,
+      onColumnDragEnd: handleColumnDragEnd,
+      onColumnDragOver: handleColumnDragOver,
+      onColumnDrop: handleColumnDrop,
+    };
+  }
+
+  function renderSaleCell(columnId: SalesTableColumnId, sale: SaleWithProduct) {
+    switch (columnId) {
+      case "seller":
+        return (
+          <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
+            {sale.created_by_name ?? "-"}
+          </td>
+        );
+      case "category":
+        return (
+          <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
+            {displaySaleCategory(sale.sale_category)}
+          </td>
+        );
+      case "date":
+        return (
+          <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
+            {formatDateCompact(sale.sold_at)}
+          </td>
+        );
+      case "product":
+        return (
+          <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
+            <p className="font-medium">{sale.products?.model_name ?? "-"}</p>
+            {sale.products?.product_name ? (
+              <p
+                className="text-zinc-500 dark:text-zinc-400"
+                style={{ fontSize: `${subFontSize}px` }}
+              >
+                {sale.products.product_name}
+              </p>
+            ) : null}
+          </td>
+        );
+      case "quantity":
+        return (
+          <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
+            {sale.quantity}개
+          </td>
+        );
+      case "total_amount":
+        return (
+          <td className={`${cellClass} font-medium text-zinc-900 dark:text-zinc-100`}>
+            {formatKRW(sale.total_amount)}원
+          </td>
+        );
+      case "fee":
+        return (
+          <td className={`${cellClass} text-orange-700 dark:text-orange-300`}>
+            -{formatKRW(sale.payment_fee_amount)}원
+          </td>
+        );
+      case "margin":
+        return (
+          <td className={`${cellClass} font-semibold text-green-700 dark:text-green-300`}>
+            {formatKRW(sale.margin_amount)}원
+          </td>
+        );
+      case "customer":
+        return (
+          <td className={`${cellClass} text-zinc-700 dark:text-zinc-300`}>
+            <p>{sale.customer_name ?? "-"}</p>
+            {sale.business_partner ? (
+              <p
+                className="text-zinc-500 dark:text-zinc-400"
+                style={{ fontSize: `${subFontSize}px` }}
+              >
+                {sale.business_partner}
+              </p>
+            ) : null}
+          </td>
+        );
+      case "payment":
+        return (
+          <td className={`${cellClass} text-zinc-700 dark:text-zinc-300`}>
+            {sale.payment_method}
+          </td>
+        );
+      case "actions":
+        return (
+          <td className={cellClass}>
+            <div
+              className="flex items-center justify-end gap-1"
+              onDoubleClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setEditingSale(sale);
+                }}
+                className={actionButtonClass}
+                style={{ fontSize: `${actionFontSize}px` }}
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDeletingSale(sale);
+                }}
+                className={deleteButtonClass}
+                style={{ fontSize: `${actionFontSize}px` }}
+                aria-label="삭제"
+              >
+                -
+              </button>
+            </div>
+          </td>
+        );
+      default:
+        return null;
+    }
+  }
 
   function handleDeleteConfirm() {
     if (!deletingSale) return;
@@ -81,26 +254,23 @@ export default function SalesTable({
         <table className="min-w-full">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
-              <th className={headerClass}>판매자</th>
-              <th className={headerClass}>구분</th>
-              <th className={headerClass}>날짜</th>
-              <th className={headerClass}>제품</th>
-              <th className={headerClass}>수량</th>
-              <th className={headerClass}>매출</th>
-              <th className={headerClass}>수수료</th>
-              <th className={headerClass}>마진</th>
-              <th className={headerClass}>고객</th>
-              <th className={headerClass}>결제</th>
-              {canManageSales ? (
-              <th className={`${headerClass} text-right`}>수정</th>
-              ) : null}
+              {orderedColumns.map((column) => (
+                <DraggableTableHeaderCell
+                  key={column.id}
+                  columnId={column.id}
+                  label={column.label}
+                  align={column.align ?? "left"}
+                  className={headerClass}
+                  {...getHeaderDragProps(column.id)}
+                />
+              ))}
             </tr>
           </thead>
           <tbody style={{ fontSize: `${rowFontSize}px` }}>
             {sales.length === 0 ? (
               <tr>
                 <td
-                  colSpan={canManageSales ? 11 : 10}
+                  colSpan={orderedColumns.length}
                   className="px-3 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
                 >
                   {emptyMessage ?? "표시할 판매 기록이 없습니다."}
@@ -118,86 +288,11 @@ export default function SalesTable({
                     : ""
                 }`}
               >
-                <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
-                  {sale.created_by_name ?? "-"}
-                </td>
-                <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
-                  {displaySaleCategory(sale.sale_category)}
-                </td>
-                <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
-                  {formatDateCompact(sale.sold_at)}
-                </td>
-                <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
-                  <p className="font-medium">
-                    {sale.products?.model_name ?? "-"}
-                  </p>
-                  {sale.products?.product_name ? (
-                    <p
-                      className="text-zinc-500 dark:text-zinc-400"
-                      style={{ fontSize: `${subFontSize}px` }}
-                    >
-                      {sale.products.product_name}
-                    </p>
-                  ) : null}
-                </td>
-                <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
-                  {sale.quantity}개
-                </td>
-                <td className={`${cellClass} font-medium text-zinc-900 dark:text-zinc-100`}>
-                  {formatKRW(sale.total_amount)}원
-                </td>
-                <td className={`${cellClass} text-orange-700 dark:text-orange-300`}>
-                  -{formatKRW(sale.payment_fee_amount)}원
-                </td>
-                <td className={`${cellClass} font-semibold text-green-700 dark:text-green-300`}>
-                  {formatKRW(sale.margin_amount)}원
-                </td>
-                <td className={`${cellClass} text-zinc-700 dark:text-zinc-300`}>
-                  <p>{sale.customer_name ?? "-"}</p>
-                  {sale.business_partner ? (
-                    <p
-                      className="text-zinc-500 dark:text-zinc-400"
-                      style={{ fontSize: `${subFontSize}px` }}
-                    >
-                      {sale.business_partner}
-                    </p>
-                  ) : null}
-                </td>
-                <td className={`${cellClass} text-zinc-700 dark:text-zinc-300`}>
-                  {sale.payment_method}
-                </td>
-                {canManageSales ? (
-                <td className={`${cellClass}`}>
-                  <div
-                    className="flex items-center justify-end gap-1"
-                    onDoubleClick={(event) => event.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setEditingSale(sale);
-                      }}
-                      className={actionButtonClass}
-                      style={{ fontSize: `${actionFontSize}px` }}
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDeletingSale(sale);
-                      }}
-                      className={deleteButtonClass}
-                      style={{ fontSize: `${actionFontSize}px` }}
-                      aria-label="삭제"
-                    >
-                      -
-                    </button>
-                  </div>
-                </td>
-                ) : null}
+                {orderedColumns.map((column) => (
+                  <Fragment key={column.id}>
+                    {renderSaleCell(column.id, sale)}
+                  </Fragment>
+                ))}
               </tr>
             ))}
           </tbody>

@@ -3,7 +3,10 @@
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateKeyStockReserved } from "@/app/(main)/products/actions";
+import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import KeyStockFilterCombobox from "@/components/key-stock-filter-combobox";
+import TableRowSizeControl from "@/components/table-row-size-control";
+import { useTableColumnOrder } from "@/hooks/use-table-column-order";
 import {
   buildKeyStockBrandOptions,
   buildKeyStockCategoryOptions,
@@ -22,6 +25,21 @@ import {
   saveKeyStockSectionCount,
   type KeyStockColumnFilter,
 } from "@/lib/key-stock-filters";
+import {
+  getDefaultKeyStockColumnOrder,
+  getKeyStockColumnOrderStorageKey,
+  getKeyStockSectionWidth,
+  KEY_STOCK_TABLE_COLUMNS,
+  type KeyStockTableColumn,
+  type KeyStockTableColumnId,
+} from "@/lib/key-stock-table-columns";
+import {
+  DEFAULT_TABLE_ROW_FONT_SIZE,
+  getTableHeaderPaddingClass,
+  getTableRowPaddingClass,
+  loadTableRowFontSize,
+  saveTableRowFontSize,
+} from "@/lib/table-row-preferences";
 import type { Product } from "@/types/product";
 import { formatKRW } from "@/lib/sales-calculator";
 
@@ -48,45 +66,31 @@ function lineTotal(product: Product, reserved: number) {
   return netStock(product, reserved) * product.purchase_price;
 }
 
-const headerClass =
-  "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold text-zinc-600 dark:text-zinc-400";
-const cellClass =
-  "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-1.5 text-[12px] text-zinc-800 dark:text-zinc-200";
 const dividerClass =
   "w-0 border-l-2 border-blue-200 p-0 dark:border-blue-400/60";
 const filterDividerClass =
   "w-0 border-l-2 border-zinc-300 p-0 dark:border-zinc-600";
 
-const COLUMN_HEADERS = [
-  { key: "brand", label: "제조사", align: "left" as const, width: 80 },
-  { key: "model", label: "모델", align: "left" as const, width: 112 },
-  { key: "floor3", label: "3층", align: "center" as const, width: 40 },
-  { key: "b1", label: "B1", align: "center" as const, width: 40 },
-  { key: "uiwang", label: "의왕", align: "center" as const, width: 40 },
-  { key: "reserved", label: "예약", align: "center" as const, width: 48 },
-  { key: "total", label: "총수량", align: "center" as const, width: 44 },
-  { key: "unit", label: "단가", align: "right" as const, width: 76 },
-] as const;
-
-const COLUMN_COUNT = COLUMN_HEADERS.length;
-const SECTION_WIDTH_PX = COLUMN_HEADERS.reduce(
-  (sum, column) => sum + column.width,
-  0,
-);
 const DIVIDER_WIDTH_PX = 2;
 
-function getTableColumnCount(sectionCount: number) {
-  return COLUMN_COUNT * sectionCount + Math.max(0, sectionCount - 1);
+function getTableColumnCount(sectionCount: number, columnCount: number) {
+  return columnCount * sectionCount + Math.max(0, sectionCount - 1);
 }
 
-function getTableMinWidth(sectionCount: number) {
+function getTableMinWidth(sectionCount: number, sectionWidthPx: number) {
   return (
-    sectionCount * SECTION_WIDTH_PX +
+    sectionCount * sectionWidthPx +
     Math.max(0, sectionCount - 1) * DIVIDER_WIDTH_PX
   );
 }
 
-function KeyStockColGroup({ sectionCount }: { sectionCount: number }) {
+function KeyStockColGroup({
+  sectionCount,
+  columns,
+}: {
+  sectionCount: number;
+  columns: KeyStockTableColumn[];
+}) {
   return (
     <colgroup>
       {Array.from({ length: sectionCount }, (_, sectionIndex) => (
@@ -94,9 +98,9 @@ function KeyStockColGroup({ sectionCount }: { sectionCount: number }) {
           {sectionIndex > 0 ? (
             <col style={{ width: DIVIDER_WIDTH_PX }} />
           ) : null}
-          {COLUMN_HEADERS.map((column) => (
+          {columns.map((column) => (
             <col
-              key={`colgroup-${sectionIndex}-${column.key}`}
+              key={`colgroup-${sectionIndex}-${column.id}`}
               style={{ width: column.width }}
             />
           ))}
@@ -120,14 +124,44 @@ function ColumnDivider({
   return <th className={className} aria-hidden />;
 }
 
-function HeaderCells({ prefix }: { prefix: string }) {
-  return COLUMN_HEADERS.map((column) => (
-    <th
-      key={`${prefix}-${column.key}`}
-      className={`${headerClass} ${column.align === "center" ? "text-center" : column.align === "right" ? "text-right" : ""}`}
-    >
-      {column.label}
-    </th>
+type HeaderCellsProps = {
+  prefix: string;
+  columns: KeyStockTableColumn[];
+  headerClass: string;
+  draggingColumnId: KeyStockTableColumnId | null;
+  dragOverColumnId: KeyStockTableColumnId | null;
+  onColumnDragStart: (columnId: KeyStockTableColumnId) => void;
+  onColumnDragEnd: () => void;
+  onColumnDragOver: (columnId: KeyStockTableColumnId) => void;
+  onColumnDrop: (columnId: KeyStockTableColumnId) => void;
+};
+
+function HeaderCells({
+  prefix,
+  columns,
+  headerClass,
+  draggingColumnId,
+  dragOverColumnId,
+  onColumnDragStart,
+  onColumnDragEnd,
+  onColumnDragOver,
+  onColumnDrop,
+}: HeaderCellsProps) {
+  return columns.map((column) => (
+    <DraggableTableHeaderCell
+      key={`${prefix}-${column.id}`}
+      columnId={column.id}
+      label={column.label}
+      align={column.align}
+      className={headerClass}
+      reorderable
+      isDragging={draggingColumnId === column.id}
+      isDragOver={dragOverColumnId === column.id}
+      onColumnDragStart={onColumnDragStart}
+      onColumnDragEnd={onColumnDragEnd}
+      onColumnDragOver={onColumnDragOver}
+      onColumnDrop={onColumnDrop}
+    />
   ));
 }
 
@@ -138,6 +172,9 @@ type ProductCellsProps = {
   pendingId: string | null;
   onReservedChange: (productId: string, value: number) => void;
   onReservedSave: (productId: string, rawValue: string) => void;
+  columns: KeyStockTableColumn[];
+  cellClass: string;
+  side: string;
 };
 
 function ProductCells({
@@ -147,12 +184,14 @@ function ProductCells({
   pendingId,
   onReservedChange,
   onReservedSave,
+  columns,
+  cellClass,
   side,
-}: ProductCellsProps & { side: string }) {
+}: ProductCellsProps) {
   if (!product) {
-    return COLUMN_HEADERS.map((column) => (
+    return columns.map((column) => (
       <td
-        key={`${side}-${column.key}-empty`}
+        key={`${side}-${column.id}-empty`}
         className={`${cellClass} text-zinc-300 dark:text-zinc-600`}
       >
         —
@@ -160,52 +199,88 @@ function ProductCells({
     ));
   }
 
-  const totalQty = netStock(product, reserved);
+  const item = product;
+  const totalQty = netStock(item, reserved);
+
+  function renderCell(columnId: KeyStockTableColumnId) {
+    switch (columnId) {
+      case "brand":
+        return (
+          <td className={cellClass} title={item.brand?.trim() || "-"}>
+            {item.brand?.trim() || "-"}
+          </td>
+        );
+      case "model":
+        return (
+          <td className={cellClass} title={item.model_name}>
+            {item.model_name}
+          </td>
+        );
+      case "floor3":
+        return (
+          <td className={`${cellClass} text-center`}>{item.stock_floor3}</td>
+        );
+      case "b1":
+        return (
+          <td className={`${cellClass} text-center`}>{item.stock_b1}</td>
+        );
+      case "uiwang":
+        return (
+          <td className={`${cellClass} text-center`}>{item.stock_display}</td>
+        );
+      case "reserved":
+        return (
+          <td className={`${cellClass} text-center`}>
+            <input
+              type="number"
+              min={0}
+              max={grossStock(item)}
+              value={reserved}
+              disabled={isPending && pendingId === item.id}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (Number.isNaN(next) || next < 0) return;
+                onReservedChange(
+                  item.id,
+                  Math.min(next, grossStock(item)),
+                );
+              }}
+              onBlur={(event) => {
+                const next = event.target.value;
+                const saved = String(item.reserved_quantity ?? 0);
+                if (next !== saved) onReservedSave(item.id, next);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
+              className="w-12 rounded border border-zinc-300 bg-white px-1 py-0.5 text-center dark:border-zinc-600 dark:bg-zinc-800"
+              style={{ fontSize: "inherit" }}
+              aria-label={`${item.model_name} 예약 수량`}
+            />
+          </td>
+        );
+      case "total":
+        return (
+          <td className={`${cellClass} text-center font-semibold`}>{totalQty}</td>
+        );
+      case "unit":
+        return (
+          <td className={`${cellClass} text-right`}>
+            {formatKRW(item.purchase_price)}
+          </td>
+        );
+      default:
+        return null;
+    }
+  }
 
   return (
     <>
-      <td className={cellClass} title={product.brand?.trim() || "-"}>
-        {product.brand?.trim() || "-"}
-      </td>
-      <td className={cellClass} title={product.model_name}>
-        {product.model_name}
-      </td>
-      <td className={`${cellClass} text-center`}>{product.stock_floor3}</td>
-      <td className={`${cellClass} text-center`}>{product.stock_b1}</td>
-      <td className={`${cellClass} text-center`}>{product.stock_display}</td>
-      <td className={`${cellClass} text-center`}>
-        <input
-          type="number"
-          min={0}
-          max={grossStock(product)}
-          value={reserved}
-          disabled={isPending && pendingId === product.id}
-          onChange={(event) => {
-            const next = Number(event.target.value);
-            if (Number.isNaN(next) || next < 0) return;
-            onReservedChange(
-              product.id,
-              Math.min(next, grossStock(product)),
-            );
-          }}
-          onBlur={(event) => {
-            const next = event.target.value;
-            const saved = String(product.reserved_quantity ?? 0);
-            if (next !== saved) onReservedSave(product.id, next);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur();
-            }
-          }}
-          className="w-12 rounded border border-zinc-300 bg-white px-1 py-0.5 text-center text-[12px] dark:border-zinc-600 dark:bg-zinc-800"
-          aria-label={`${product.model_name} 예약 수량`}
-        />
-      </td>
-      <td className={`${cellClass} text-center font-semibold`}>{totalQty}</td>
-      <td className={`${cellClass} text-right`}>
-        {formatKRW(product.purchase_price)}
-      </td>
+      {columns.map((column) => (
+        <Fragment key={`${side}-${column.id}`}>{renderCell(column.id)}</Fragment>
+      ))}
     </>
   );
 }
@@ -269,16 +344,40 @@ export default function KeyStockWorkspace({
     createEmptyKeyStockColumnFilters(DEFAULT_KEY_STOCK_SECTION_COUNT),
   );
   const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
+  const [rowPreferencesLoaded, setRowPreferencesLoaded] = useState(false);
   const [reservedById, setReservedById] = useState<Record<string, number>>({});
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const defaultColumnOrder = useMemo(() => getDefaultKeyStockColumnOrder(), []);
+  const {
+    orderedColumns,
+    draggingColumnId,
+    dragOverColumnId,
+    handleColumnDragStart,
+    handleColumnDragEnd,
+    handleColumnDragOver,
+    handleColumnDrop,
+  } = useTableColumnOrder(
+    getKeyStockColumnOrderStorageKey(userId),
+    defaultColumnOrder,
+    KEY_STOCK_TABLE_COLUMNS,
+  );
+
+  const headerClass = `overflow-hidden text-ellipsis whitespace-nowrap px-2 ${getTableHeaderPaddingClass(rowFontSize)} font-semibold text-zinc-600 dark:text-zinc-400`;
+  const cellClass = `overflow-hidden text-ellipsis whitespace-nowrap px-2 ${getTableRowPaddingClass(rowFontSize)} text-zinc-800 dark:text-zinc-200`;
+  const sectionWidthPx = getKeyStockSectionWidth(orderedColumns);
+  const columnCount = orderedColumns.length;
+
   useEffect(() => {
     const savedSectionCount = loadKeyStockSectionCount(userId);
     setSectionCount(savedSectionCount);
     setColumnFilters(loadKeyStockColumnFilters(userId, savedSectionCount));
+    setRowFontSize(loadTableRowFontSize("key-stock", userId));
     setFiltersLoaded(true);
+    setRowPreferencesLoaded(true);
   }, [userId]);
 
   useEffect(() => {
@@ -290,6 +389,11 @@ export default function KeyStockWorkspace({
     if (!filtersLoaded) return;
     saveKeyStockSectionCount(userId, sectionCount);
   }, [userId, sectionCount, filtersLoaded]);
+
+  useEffect(() => {
+    if (!rowPreferencesLoaded) return;
+    saveTableRowFontSize("key-stock", userId, rowFontSize);
+  }, [rowFontSize, rowPreferencesLoaded, userId]);
 
   useEffect(() => {
     setReservedById(
@@ -322,8 +426,8 @@ export default function KeyStockWorkspace({
     [normalized, reservedById],
   );
 
-  const tableColumnCount = getTableColumnCount(sectionCount);
-  const tableMinWidth = getTableMinWidth(sectionCount);
+  const tableColumnCount = getTableColumnCount(sectionCount, columnCount);
+  const tableMinWidth = getTableMinWidth(sectionCount, sectionWidthPx);
 
   function getReserved(product: Product) {
     return reservedById[product.id] ?? product.reserved_quantity ?? 0;
@@ -400,29 +504,32 @@ export default function KeyStockWorkspace({
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               품목·브랜드 필터 단
             </p>
-            <label
-              htmlFor="key-stock-section-count"
-              className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
-            >
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                단 수
-              </span>
-              <select
-                id="key-stock-section-count"
-                value={sectionCount}
-                onChange={(event) => handleSectionCountChange(event.target.value)}
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-300 dark:focus:ring-zinc-300"
+            <div className="flex flex-wrap items-center gap-3">
+              <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
+              <label
+                htmlFor="key-stock-section-count"
+                className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
               >
-                {Array.from(
-                  { length: MAX_KEY_STOCK_SECTION_COUNT - MIN_KEY_STOCK_SECTION_COUNT + 1 },
-                  (_, index) => MIN_KEY_STOCK_SECTION_COUNT + index,
-                ).map((count) => (
-                  <option key={count} value={count}>
-                    {count}단
-                  </option>
-                ))}
-              </select>
-            </label>
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  단 수
+                </span>
+                <select
+                  id="key-stock-section-count"
+                  value={sectionCount}
+                  onChange={(event) => handleSectionCountChange(event.target.value)}
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-300 dark:focus:ring-zinc-300"
+                >
+                  {Array.from(
+                    { length: MAX_KEY_STOCK_SECTION_COUNT - MIN_KEY_STOCK_SECTION_COUNT + 1 },
+                    (_, index) => MIN_KEY_STOCK_SECTION_COUNT + index,
+                  ).map((count) => (
+                    <option key={count} value={count}>
+                      {count}단
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
@@ -433,7 +540,7 @@ export default function KeyStockWorkspace({
                 minWidth: "100%",
               }}
             >
-              <KeyStockColGroup sectionCount={sectionCount} />
+              <KeyStockColGroup sectionCount={sectionCount} columns={orderedColumns} />
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
                   {columnFilters.map((filter, columnIndex) => (
@@ -442,7 +549,7 @@ export default function KeyStockWorkspace({
                         <ColumnDivider variant="filter" />
                       ) : null}
                       <th
-                        colSpan={COLUMN_COUNT}
+                        colSpan={columnCount}
                         className="px-2 py-3 text-left align-top"
                       >
                         <div className="grid grid-cols-2 gap-2">
@@ -496,12 +603,25 @@ export default function KeyStockWorkspace({
                       {sectionIndex > 0 ? (
                         <ColumnDivider variant="data" />
                       ) : null}
-                      <HeaderCells prefix={`col-${sectionIndex}`} />
+                      <HeaderCells
+                        prefix={`col-${sectionIndex}`}
+                        columns={orderedColumns}
+                        headerClass={headerClass}
+                        draggingColumnId={draggingColumnId}
+                        dragOverColumnId={dragOverColumnId}
+                        onColumnDragStart={handleColumnDragStart}
+                        onColumnDragEnd={handleColumnDragEnd}
+                        onColumnDragOver={handleColumnDragOver}
+                        onColumnDrop={handleColumnDrop}
+                      />
                     </Fragment>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <tbody
+                className="divide-y divide-zinc-100 dark:divide-zinc-800"
+                style={{ fontSize: `${rowFontSize}px` }}
+              >
                 {rowCount === 0 ? (
                   <tr>
                     <td
@@ -532,6 +652,8 @@ export default function KeyStockWorkspace({
                               pendingId={pendingId}
                               onReservedChange={handleReservedChange}
                               onReservedSave={saveReserved}
+                              columns={orderedColumns}
+                              cellClass={cellClass}
                             />
                           </Fragment>
                         );

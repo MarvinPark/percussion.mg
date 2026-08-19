@@ -37,7 +37,7 @@ export default async function SalesPage() {
         .select("*, products(product_name, model_name, sku)")
         .order("sold_at", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(100),
+        .limit(5000),
       supabase
         .from("products")
         .select(SALE_PRODUCT_OPTION_SELECT)
@@ -118,6 +118,7 @@ export default async function SalesPage() {
               </div>
             ) : (
               <SalesPageClient
+                userId={user.id}
                 sales={sales as SaleWithProduct[]}
                 products={products ?? []}
                 paymentMethods={paymentMethods ?? []}
