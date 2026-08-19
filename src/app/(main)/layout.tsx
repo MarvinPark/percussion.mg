@@ -1,8 +1,8 @@
 import AppHeader from "@/components/app-header";
-import WorkspaceTabs from "@/components/workspace-tabs";
-import { getNavItems, normalizeRole } from "@/lib/permissions";
+import WorkspaceShell from "@/components/workspace/workspace-shell";
 import { getCurrentUserProfile } from "@/lib/profile";
-import { getWorkspaceTabItems } from "@/lib/workspace-tabs";
+import { normalizeRole } from "@/lib/permissions";
+import { getAvailableWorkspaceTabs } from "@/lib/workspace-tabs";
 
 export default async function MainLayout({
   children,
@@ -11,13 +11,12 @@ export default async function MainLayout({
 }) {
   const { profile } = await getCurrentUserProfile();
   const role = normalizeRole(profile?.role);
-  const workspaceTabs = getWorkspaceTabItems(role);
+  const availableTabs = getAvailableWorkspaceTabs(role);
 
   return (
     <div className="min-h-full bg-background">
       <AppHeader />
-      {children}
-      <WorkspaceTabs tabs={workspaceTabs} />
+      <WorkspaceShell availableTabs={availableTabs}>{children}</WorkspaceShell>
     </div>
   );
 }
