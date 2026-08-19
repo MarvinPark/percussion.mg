@@ -50,12 +50,54 @@ function unwrapOrderContent(raw: NaverProductOrderContent) {
   };
 }
 
+const CANCELLED_ORDER_STATUSES = new Set(["CANCELED", "CANCELLED", "RETURNED"]);
+
+function normalizeStatus(value: string) {
+  return value.trim().toUpperCase();
+}
+
+function isCancelledSmartstoreOrder(input: {
+  productOrderStatus: string;
+  claimStatus: string;
+  remainQuantity: number | null;
+  quantity: number;
+  totalPaymentAmount: number;
+}) {
+  const productOrderStatus = normalizeStatus(input.productOrderStatus);
+  const claimStatus = normalizeStatus(input.claimStatus);
+
+  if (CANCELLED_ORDER_STATUSES.has(productOrderStatus)) {
+    return true;
+  }
+
+  if (input.remainQuantity !== null && input.remainQuantity <= 0) {
+    return true;
+  }
+
+  if (input.quantity <= 0 || input.totalPaymentAmount <= 0) {
+    return true;
+  }
+
+  if (
+    claimStatus === "CANCEL_DONE" &&
+    input.remainQuantity !== null &&
+    input.remainQuantity <= 0
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function parseOrderContent(
   content: NaverProductOrderContent,
 ): ParsedSmartstoreOrder | null {
   const { productOrder, order, productOrderId } = unwrapOrderContent(content);
 
   if (!productOrderId) return null;
+
+  const productOrderStatus = pickString(productOrder.productOrderStatus);
+  const claimStatus = pickString(productOrder.claimStatus);
 
   const soldAtSource = pickString(
     order.paymentDate,
@@ -66,22 +108,32 @@ export function parseOrderContent(
   );
   const soldAt = (soldAtSource || new Date().toISOString()).slice(0, 10);
 
-  const quantity =
-    pickNumber(
-      productOrder.initialQuantity,
-      productOrder.remainQuantity,
-      productOrder.quantity,
-    ) ?? 1;
+  const remainQuantity = pickNumber(productOrder.remainQuantity);
+  const initialQuantity =
+    pickNumber(productOrder.initialQuantity, productOrder.quantity) ?? 1;
+  const quantity = Math.max(0, Math.round(remainQuantity ?? initialQuantity));
 
   const totalPaymentAmount =
     pickNumber(
-      productOrder.initialPaymentAmount,
       productOrder.remainPaymentAmount,
+      productOrder.remainProductAmount,
+      productOrder.initialPaymentAmount,
       productOrder.totalPaymentAmount,
       productOrder.initialProductAmount,
-      productOrder.remainProductAmount,
       productOrder.totalProductAmount,
     ) ?? 0;
+
+  if (
+    isCancelledSmartstoreOrder({
+      productOrderStatus,
+      claimStatus,
+      remainQuantity,
+      quantity,
+      totalPaymentAmount: Math.max(0, Math.round(totalPaymentAmount)),
+    })
+  ) {
+    return null;
+  }
 
   return {
     productOrderId,
@@ -101,10 +153,10 @@ export function parseOrderContent(
       productOrder.optionManageCode,
       productOrder.productId,
     ),
-    quantity: Math.max(1, Math.round(quantity)),
+    quantity: Math.max(1, quantity),
     totalPaymentAmount: Math.max(0, Math.round(totalPaymentAmount)),
     customerName: pickString(order.ordererName),
     customerPhone: pickString(order.ordererTel, order.ordererPhone),
-    status: pickString(productOrder.productOrderStatus, productOrder.claimStatus),
+    status: productOrderStatus || claimStatus,
   };
 }

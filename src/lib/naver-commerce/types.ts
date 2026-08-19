@@ -24,6 +24,9 @@ export type NaverProductOrderContent = {
     remainPaymentAmount?: number;
     initialProductAmount?: number;
     productOrderStatus?: string;
+    claimStatus?: string;
+    claimType?: string;
+    remainProductAmount?: number;
   };
   productOrderId?: string;
   productName?: string;

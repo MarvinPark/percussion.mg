@@ -20,7 +20,7 @@ import type { SaleProductOption } from "@/types/sale";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
 const SMARTSTORE_SOURCE = "smartstore";
-const NAVER_PAY_METHOD = "네이버페이";
+const SMARTSTORE_PAYMENT_METHOD = "스마트스토어";
 
 export type SmartstoreImportPreviewItem = {
   productOrderId: string;
@@ -141,18 +141,18 @@ async function loadExistingOrderIds(
   );
 }
 
-async function loadNaverPayMethod(
+async function loadSmartstorePaymentMethod(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ) {
   const { data, error } = await supabase
     .from("payment_methods")
     .select("name, fee_rate")
-    .eq("name", NAVER_PAY_METHOD)
+    .eq("name", SMARTSTORE_PAYMENT_METHOD)
     .maybeSingle();
 
   if (error || !data) {
     throw new Error(
-      "네이버페이 결제 수단이 없습니다. supabase/schema-smartstore.sql을 실행해 주세요.",
+      "스마트스토어 결제 수단이 없습니다. supabase/schema-smartstore.sql을 실행해 주세요.",
     );
   }
 
@@ -315,7 +315,7 @@ export async function importSmartstoreOrders(
     const [orders, products, paymentMethod] = await Promise.all([
       fetchSmartstoreOrders(range.fromDate, range.toDate),
       loadProducts(supabase),
-      loadNaverPayMethod(supabase),
+      loadSmartstorePaymentMethod(supabase),
     ]);
 
     const existingIds = await loadExistingOrderIds(

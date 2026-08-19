@@ -541,9 +541,9 @@ create unique index if not exists sales_external_order_unique
   where external_order_id is not null;
 
 insert into payment_methods (name, fee_rate, sort_order)
-select '네이버페이', 3.0, 10
+select '스마트스토어', 5.5, 10
 where not exists (
-  select 1 from payment_methods where name = '네이버페이'
+  select 1 from payment_methods where name = '스마트스토어'
 );
 
 -- ===== schema-sales-shipping-cost.sql =====
