@@ -154,7 +154,7 @@ export default function GmarketProductCreateModal({
             </div>
             <div>
               <label htmlFor="gmarket_sale_price" className={labelClass}>
-                판매가
+                소비자가
               </label>
               <PriceInput
                 id="gmarket_sale_price"

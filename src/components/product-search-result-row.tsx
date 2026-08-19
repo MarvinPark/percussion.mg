@@ -10,6 +10,7 @@ export type ProductSearchResultItem = {
   model_name: string;
   sku?: string | null;
   sale_price?: number;
+  purchase_price?: number;
 };
 
 function displayText(value: string | null | undefined) {
@@ -20,13 +21,20 @@ type ProductSearchResultRowProps = {
   product: ProductSearchResultItem;
   onSelect: () => void;
   emphasizeModelName?: boolean;
+  priceField?: "sale_price" | "purchase_price";
 };
 
 export default function ProductSearchResultRow({
   product,
   onSelect,
   emphasizeModelName = false,
+  priceField = "sale_price",
 }: ProductSearchResultRowProps) {
+  const displayPrice =
+    priceField === "purchase_price"
+      ? product.purchase_price
+      : product.sale_price;
+
   if (emphasizeModelName) {
     return (
       <li>
@@ -41,9 +49,9 @@ export default function ProductSearchResultRow({
             <p className="min-w-0 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
               {product.model_name}
             </p>
-            {product.sale_price != null ? (
+            {displayPrice != null ? (
               <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-blue-700 dark:text-blue-300">
-                {formatKRW(product.sale_price)}원
+                {formatKRW(displayPrice)}원
               </span>
             ) : null}
           </div>

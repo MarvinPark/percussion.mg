@@ -568,7 +568,7 @@ export default function QuoteForm({
             </div>
           </div>
           <div className="w-36 sm:w-32">
-            <label className={labelClass}>판매가</label>
+            <label className={labelClass}>소비자가</label>
             <PriceInput
               min={0}
               value={addSalePrice}
@@ -604,7 +604,7 @@ export default function QuoteForm({
               <th className="px-2 py-2">제품 설명</th>
               <th className="px-2 py-2">수량</th>
               <th className="px-2 py-2">판매단가</th>
-              <th className="px-2 py-2">총 판매가</th>
+              <th className="px-2 py-2">총 소비자가</th>
               <th className="px-2 py-2">매입가</th>
               <th className="px-2 py-2">마진</th>
               <th className="px-2 py-2">마진율</th>
