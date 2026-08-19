@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
 import EditableProductCell from "@/components/editable-product-cell";
 import KeyStockStarToggle from "@/components/key-stock-star-toggle";
 import ResizableHeaderCell from "@/components/resizable-header-cell";
+import { useProductColumnOrder } from "@/hooks/use-product-column-order";
 import { useProductColumnWidths } from "@/hooks/use-product-column-widths";
-import { PRODUCT_TABLE_COLUMNS } from "@/lib/product-table-columns";
+import { isReorderableProductColumn } from "@/lib/product-table-column-order";
+import { PRODUCT_TABLE_COLUMNS, type ProductTableColumnId } from "@/lib/product-table-columns";
 import {
   getSortDirectionForColumn,
   isSortableProductColumn,
@@ -18,6 +20,7 @@ import {
 import { isLowStockProduct } from "@/lib/product-stock";
 import {
   getNextTableFocus,
+  TABLE_FIELD_ORDER,
   tableFocusRingClass,
   type TableFocusState,
 } from "@/lib/product-table-navigation";
@@ -99,6 +102,13 @@ function toggleSelection(
     next.delete(productId);
   }
   onSelectionChange(next);
+}
+
+function getEditableFieldOrder(columnIds: ProductTableColumnId[]) {
+  const editable = new Set<ProductInlineField>(TABLE_FIELD_ORDER);
+  return columnIds.filter((columnId): columnId is ProductInlineField =>
+    editable.has(columnId as ProductInlineField),
+  );
 }
 
 function ProductDetailModal({
@@ -367,20 +377,34 @@ export default function ProductsList({
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
   const { widths, startResize, tableMinWidth } = useProductColumnWidths(userId);
-  const tableColumns = useMemo(
+  const baseColumns = useMemo(
     () =>
       readOnly
         ? PRODUCT_TABLE_COLUMNS.filter((column) => column.id !== "actions")
         : PRODUCT_TABLE_COLUMNS,
     [readOnly],
   );
+  const {
+    orderedColumns: tableColumns,
+    draggingColumnId,
+    dragOverColumnId,
+    handleColumnDragStart,
+    handleColumnDragEnd,
+    handleColumnDragOver,
+    handleColumnDrop,
+    shouldIgnoreSortClick,
+  } = useProductColumnOrder(userId, baseColumns);
+  const editableFieldOrder = useMemo(
+    () => getEditableFieldOrder(tableColumns.map((column) => column.id)),
+    [tableColumns],
+  );
 
   const navigateFocus = useCallback(
     (from: TableFocusState, direction: "forward" | "backward") => {
-      const next = getNextTableFocus(from, products, direction);
+      const next = getNextTableFocus(from, products, direction, editableFieldOrder);
       if (next) setFocusTarget(next);
     },
-    [products],
+    [editableFieldOrder, products],
   );
 
   const syncBodyScroll = useCallback(() => {
@@ -556,6 +580,356 @@ export default function ProductsList({
   const priceHeaderCellClass =
     "whitespace-nowrap px-3 py-2 font-normal";
 
+  function getHeaderReorderProps(columnId: ProductTableColumnId) {
+    if (!isReorderableProductColumn(columnId)) {
+      return {};
+    }
+
+    return {
+      reorderable: true,
+      isDragging: draggingColumnId === columnId,
+      isDragOver: dragOverColumnId === columnId,
+      onColumnDragStart: handleColumnDragStart,
+      onColumnDragEnd: handleColumnDragEnd,
+      onColumnDragOver: handleColumnDragOver,
+      onColumnDrop: handleColumnDrop,
+    };
+  }
+
+  function renderProductCell(columnId: ProductTableColumnId, product: Product) {
+    const isLowStock = isLowStockProduct(product);
+
+    switch (columnId) {
+      case "checkbox":
+        return (
+          <td
+            className={stickyCheckboxCellClass(product)}
+            onClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              ref={(element) => {
+                if (element) {
+                  checkboxRefs.current.set(product.id, element);
+                } else {
+                  checkboxRefs.current.delete(product.id);
+                }
+              }}
+              checked={selectedIds.has(product.id)}
+              onChange={(event) =>
+                toggleSelection(
+                  selectedIds,
+                  product.id,
+                  event.target.checked,
+                  onSelectionChange,
+                )
+              }
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Tab") {
+                  event.preventDefault();
+                  navigateFocus(
+                    { kind: "checkbox", productId: product.id },
+                    event.shiftKey ? "backward" : "forward",
+                  );
+                }
+              }}
+              className={`h-4 w-4 rounded border-zinc-300 ${
+                focusTarget?.kind === "checkbox" &&
+                focusTarget.productId === product.id
+                  ? tableFocusRingClass
+                  : ""
+              }`}
+              aria-label={`${product.product_name} 선택`}
+            />
+          </td>
+        );
+      case "key_stock":
+        return (
+          <td
+            className={stickyKeyStockCellClass(product)}
+            onClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <KeyStockStarToggle
+              productId={product.id}
+              productName={product.product_name}
+              isKeyStock={product.is_key_stock ?? false}
+              readOnly={readOnly}
+            />
+          </td>
+        );
+      case "supplier":
+        return (
+          <td
+            className={narrowScrollCellClass}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="supplier"
+              value={product.supplier}
+              {...cellFocusProps(product.id, "supplier")}
+            />
+          </td>
+        );
+      case "category":
+        return (
+          <td
+            className={narrowScrollCellClass}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="category"
+              value={product.category ?? ""}
+              displayValue={displayText(product.category)}
+              {...cellFocusProps(product.id, "category")}
+            />
+          </td>
+        );
+      case "brand":
+        return (
+          <td
+            className={narrowScrollCellClass}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="brand"
+              value={product.brand ?? ""}
+              displayValue={displayText(product.brand)}
+              {...cellFocusProps(product.id, "brand")}
+            />
+          </td>
+        );
+      case "product_name":
+        return (
+          <td
+            className={narrowScrollProductCellClass}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <EditableProductCell
+                productId={product.id}
+                field="product_name"
+                value={product.product_name}
+                className="truncate"
+                {...cellFocusProps(product.id, "product_name")}
+              />
+              {isLowStock ? (
+                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-normal text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                  부족
+                </span>
+              ) : null}
+            </div>
+          </td>
+        );
+      case "model_name":
+        return (
+          <td
+            className="truncate px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="model_name"
+              value={product.model_name}
+              {...cellFocusProps(product.id, "model_name")}
+            />
+          </td>
+        );
+      case "sku":
+        return (
+          <td
+            className="truncate px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="sku"
+              value={product.sku}
+              {...cellFocusProps(product.id, "sku")}
+            />
+          </td>
+        );
+      case "purchase_price":
+        return (
+          <td
+            className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="purchase_price"
+              value={String(product.purchase_price)}
+              displayValue={`${formatKRW(product.purchase_price)}원`}
+              inputType="number"
+              formatAsPrice
+              {...cellFocusProps(product.id, "purchase_price")}
+            />
+          </td>
+        );
+      case "stock_floor3":
+        return (
+          <td
+            className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="stock_floor3"
+              value={String(product.stock_floor3 ?? 0)}
+              inputType="number"
+              {...cellFocusProps(product.id, "stock_floor3")}
+            />
+          </td>
+        );
+      case "stock_b1":
+        return (
+          <td
+            className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="stock_b1"
+              value={String(product.stock_b1 ?? 0)}
+              inputType="number"
+              {...cellFocusProps(product.id, "stock_b1")}
+            />
+          </td>
+        );
+      case "stock_display":
+        return (
+          <td
+            className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="stock_display"
+              value={String(product.stock_display ?? 0)}
+              inputType="number"
+              {...cellFocusProps(product.id, "stock_display")}
+            />
+          </td>
+        );
+      case "stock_quantity":
+        return (
+          <td
+            className="px-3 py-1.5 font-semibold text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="stock_quantity"
+              value={String(product.stock_quantity)}
+              displayValue={String(product.stock_quantity)}
+              inputType="number"
+              {...cellFocusProps(product.id, "stock_quantity")}
+            />
+          </td>
+        );
+      case "sale_price":
+        return (
+          <td
+            className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="sale_price"
+              value={String(product.sale_price)}
+              displayValue={`${formatKRW(product.sale_price)}원`}
+              inputType="number"
+              formatAsPrice
+              {...cellFocusProps(product.id, "sale_price")}
+            />
+          </td>
+        );
+      case "actions":
+        return (
+          <td
+            className="px-3 py-1.5"
+            onClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center gap-1.5">
+              <Link
+                ref={(element) => {
+                  if (element) {
+                    editRefs.current.set(product.id, element);
+                  } else {
+                    editRefs.current.delete(product.id);
+                  }
+                }}
+                href={`/products/${product.id}/edit`}
+                tabIndex={-1}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Tab") {
+                    event.preventDefault();
+                    navigateFocus(
+                      { kind: "edit", productId: product.id },
+                      event.shiftKey ? "backward" : "forward",
+                    );
+                  }
+                }}
+                className={`${actionButtonClass} ${
+                  focusTarget?.kind === "edit" &&
+                  focusTarget.productId === product.id
+                    ? tableFocusRingClass
+                    : ""
+                }`}
+              >
+                수정
+              </Link>
+              <button
+                type="button"
+                ref={(element) => {
+                  if (element) {
+                    deleteRefs.current.set(product.id, element);
+                  } else {
+                    deleteRefs.current.delete(product.id);
+                  }
+                }}
+                tabIndex={-1}
+                onClick={() => onRequestDelete([product])}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Tab") {
+                    event.preventDefault();
+                    navigateFocus(
+                      { kind: "delete", productId: product.id },
+                      event.shiftKey ? "backward" : "forward",
+                    );
+                  }
+                }}
+                className={`${deleteButtonClass} ${
+                  focusTarget?.kind === "delete" &&
+                  focusTarget.productId === product.id
+                    ? tableFocusRingClass
+                    : ""
+                }`}
+                aria-label="삭제"
+              >
+                -
+              </button>
+            </div>
+          </td>
+        );
+      default:
+        return null;
+    }
+  }
+
   const tableStyle = { minWidth: tableMinWidth };
 
   const colGroup = (
@@ -621,6 +995,7 @@ export default function ProductsList({
                 isPriceColumn ? priceHeaderCellClass : headerCellClass
               }`}
               onResizeStart={startResize}
+              {...getHeaderReorderProps(columnId)}
             />
           );
         }
@@ -635,11 +1010,15 @@ export default function ProductsList({
             resizable={column.resizable}
             sortable
             sortDirection={sortDirection}
-            onSortClick={() => onSortColumn(columnId)}
+            onSortClick={() => {
+              if (shouldIgnoreSortClick()) return;
+              onSortColumn(columnId);
+            }}
             className={`${stickyTableHeaderCellClass} shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)] ${
               isPriceColumn ? priceHeaderCellClass : headerCellClass
             }`}
             onResizeStart={startResize}
+            {...getHeaderReorderProps(columnId)}
           />
         );
       })}
@@ -672,10 +1051,7 @@ export default function ProductsList({
           <table className={tableClassName} style={tableStyle}>
             {colGroup}
             <tbody className="font-normal">
-            {products.map((product) => {
-              const isLowStock = isLowStockProduct(product);
-
-              return (
+            {products.map((product) => (
                 <tr
                   key={product.id}
                   id={`product-row-${product.id}`}
@@ -683,291 +1059,13 @@ export default function ProductsList({
                   onContextMenu={(event) => openContextMenu(event, product)}
                   className={rowClass(product)}
                 >
-                  <td
-                    className={stickyCheckboxCellClass(product)}
-                    onClick={(event) => event.stopPropagation()}
-                    onContextMenu={(event) => event.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      ref={(element) => {
-                        if (element) {
-                          checkboxRefs.current.set(product.id, element);
-                        } else {
-                          checkboxRefs.current.delete(product.id);
-                        }
-                      }}
-                      checked={selectedIds.has(product.id)}
-                      onChange={(event) =>
-                        toggleSelection(
-                          selectedIds,
-                          product.id,
-                          event.target.checked,
-                          onSelectionChange,
-                        )
-                      }
-                      tabIndex={-1}
-                      onKeyDown={(event) => {
-                        event.stopPropagation();
-                        if (event.key === "Tab") {
-                          event.preventDefault();
-                          navigateFocus(
-                            { kind: "checkbox", productId: product.id },
-                            event.shiftKey ? "backward" : "forward",
-                          );
-                        }
-                      }}
-                      className={`h-4 w-4 rounded border-zinc-300 ${
-                        focusTarget?.kind === "checkbox" &&
-                        focusTarget.productId === product.id
-                          ? tableFocusRingClass
-                          : ""
-                      }`}
-                      aria-label={`${product.product_name} 선택`}
-                    />
-                  </td>
-                  <td
-                    className={stickyKeyStockCellClass(product)}
-                    onClick={(event) => event.stopPropagation()}
-                    onContextMenu={(event) => event.stopPropagation()}
-                  >
-                    <KeyStockStarToggle
-                      productId={product.id}
-                      productName={product.product_name}
-                      isKeyStock={product.is_key_stock ?? false}
-                      readOnly={readOnly}
-                    />
-                  </td>
-                  <td
-                    className={narrowScrollCellClass}
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="supplier"
-                      value={product.supplier}
-                      {...cellFocusProps(product.id, "supplier")}
-                    />
-                  </td>
-                  <td
-                    className={narrowScrollCellClass}
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="category"
-                      value={product.category ?? ""}
-                      displayValue={displayText(product.category)}
-                      {...cellFocusProps(product.id, "category")}
-                    />
-                  </td>
-                  <td
-                    className={narrowScrollCellClass}
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="brand"
-                      value={product.brand ?? ""}
-                      displayValue={displayText(product.brand)}
-                      {...cellFocusProps(product.id, "brand")}
-                    />
-                  </td>
-                  <td
-                    className={narrowScrollProductCellClass}
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <EditableProductCell
-                        productId={product.id}
-                        field="product_name"
-                        value={product.product_name}
-                        className="truncate"
-                        {...cellFocusProps(product.id, "product_name")}
-                      />
-                      {isLowStock ? (
-                        <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-normal text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                          부족
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td
-                    className="truncate px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="model_name"
-                      value={product.model_name}
-                      {...cellFocusProps(product.id, "model_name")}
-                    />
-                  </td>
-                  <td
-                    className="truncate px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="sku"
-                      value={product.sku}
-                      {...cellFocusProps(product.id, "sku")}
-                    />
-                  </td>
-                  <td
-                    className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="purchase_price"
-                      value={String(product.purchase_price)}
-                      displayValue={`${formatKRW(product.purchase_price)}원`}
-                      inputType="number"
-                      formatAsPrice
-                      {...cellFocusProps(product.id, "purchase_price")}
-                    />
-                  </td>
-                  <td
-                    className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                    onContextMenu={(event) => event.stopPropagation()}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="stock_floor3"
-                      value={String(product.stock_floor3 ?? 0)}
-                      inputType="number"
-                      {...cellFocusProps(product.id, "stock_floor3")}
-                    />
-                  </td>
-                  <td
-                    className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                    onContextMenu={(event) => event.stopPropagation()}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="stock_b1"
-                      value={String(product.stock_b1 ?? 0)}
-                      inputType="number"
-                      {...cellFocusProps(product.id, "stock_b1")}
-                    />
-                  </td>
-                  <td
-                    className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                    onContextMenu={(event) => event.stopPropagation()}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="stock_display"
-                      value={String(product.stock_display ?? 0)}
-                      inputType="number"
-                      {...cellFocusProps(product.id, "stock_display")}
-                    />
-                  </td>
-                  <td
-                    className="px-3 py-1.5 font-semibold text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                    onContextMenu={(event) => event.stopPropagation()}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="stock_quantity"
-                      value={String(product.stock_quantity)}
-                      displayValue={String(product.stock_quantity)}
-                      inputType="number"
-                      {...cellFocusProps(product.id, "stock_quantity")}
-                    />
-                  </td>
-                  <td
-                    className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="sale_price"
-                      value={String(product.sale_price)}
-                      displayValue={`${formatKRW(product.sale_price)}원`}
-                      inputType="number"
-                      formatAsPrice
-                      {...cellFocusProps(product.id, "sale_price")}
-                    />
-                  </td>
-                  {!readOnly ? (
-                  <td
-                    className="px-3 py-1.5"
-                    onClick={(event) => event.stopPropagation()}
-                    onContextMenu={(event) => event.stopPropagation()}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Link
-                        ref={(element) => {
-                          if (element) {
-                            editRefs.current.set(product.id, element);
-                          } else {
-                            editRefs.current.delete(product.id);
-                          }
-                        }}
-                        href={`/products/${product.id}/edit`}
-                        tabIndex={-1}
-                        onKeyDown={(event) => {
-                          event.stopPropagation();
-                          if (event.key === "Tab") {
-                            event.preventDefault();
-                            navigateFocus(
-                              { kind: "edit", productId: product.id },
-                              event.shiftKey ? "backward" : "forward",
-                            );
-                          }
-                        }}
-                        className={`${actionButtonClass} ${
-                          focusTarget?.kind === "edit" &&
-                          focusTarget.productId === product.id
-                            ? tableFocusRingClass
-                            : ""
-                        }`}
-                      >
-                        수정
-                      </Link>
-                      <button
-                        type="button"
-                        ref={(element) => {
-                          if (element) {
-                            deleteRefs.current.set(product.id, element);
-                          } else {
-                            deleteRefs.current.delete(product.id);
-                          }
-                        }}
-                        tabIndex={-1}
-                        onClick={() => onRequestDelete([product])}
-                        onKeyDown={(event) => {
-                          event.stopPropagation();
-                          if (event.key === "Tab") {
-                            event.preventDefault();
-                            navigateFocus(
-                              { kind: "delete", productId: product.id },
-                              event.shiftKey ? "backward" : "forward",
-                            );
-                          }
-                        }}
-                        className={`${deleteButtonClass} ${
-                          focusTarget?.kind === "delete" &&
-                          focusTarget.productId === product.id
-                            ? tableFocusRingClass
-                            : ""
-                        }`}
-                        aria-label="삭제"
-                      >
-                        -
-                      </button>
-                    </div>
-                  </td>
-                  ) : null}
+                  {tableColumns.map((column) => (
+                    <Fragment key={column.id}>
+                      {renderProductCell(column.id, product)}
+                    </Fragment>
+                  ))}
                 </tr>
-              );
-            })}
+              ))}
           </tbody>
         </table>
         </div>

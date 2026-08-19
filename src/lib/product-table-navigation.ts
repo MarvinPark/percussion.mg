@@ -40,18 +40,19 @@ export function getNextTableFocus(
   current: TableFocusState,
   products: { id: string }[],
   direction: "forward" | "backward",
+  fieldOrder: ProductInlineField[] = TABLE_FIELD_ORDER,
 ): TableFocusState | null {
   const idx = rowIndex(products, current.productId);
   if (idx === -1) return null;
 
   if (direction === "forward") {
     if (current.kind === "field") {
-      const fieldIdx = TABLE_FIELD_ORDER.indexOf(current.field);
-      if (fieldIdx < TABLE_FIELD_ORDER.length - 1) {
+      const fieldIdx = fieldOrder.indexOf(current.field);
+      if (fieldIdx < fieldOrder.length - 1) {
         return {
           kind: "field",
           productId: current.productId,
-          field: TABLE_FIELD_ORDER[fieldIdx + 1],
+          field: fieldOrder[fieldIdx + 1],
           editing: true,
         };
       }
@@ -70,21 +71,22 @@ export function getNextTableFocus(
     }
 
     if (current.kind === "checkbox") {
+      if (fieldOrder.length === 0) return null;
       return {
         kind: "field",
         productId: current.productId,
-        field: "supplier",
+        field: fieldOrder[0],
         editing: true,
       };
     }
   } else {
     if (current.kind === "field") {
-      const fieldIdx = TABLE_FIELD_ORDER.indexOf(current.field);
+      const fieldIdx = fieldOrder.indexOf(current.field);
       if (fieldIdx > 0) {
         return {
           kind: "field",
           productId: current.productId,
-          field: TABLE_FIELD_ORDER[fieldIdx - 1],
+          field: fieldOrder[fieldIdx - 1],
           editing: true,
         };
       }
@@ -106,7 +108,7 @@ export function getNextTableFocus(
       return {
         kind: "field",
         productId: current.productId,
-        field: TABLE_FIELD_ORDER[TABLE_FIELD_ORDER.length - 1],
+        field: fieldOrder[fieldOrder.length - 1],
         editing: true,
       };
     }
