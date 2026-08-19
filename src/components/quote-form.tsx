@@ -351,6 +351,43 @@ export default function QuoteForm({
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const [draggingItemIndex, setDraggingItemIndex] = useState<number | null>(null);
+  const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
+
+  function reorderItems(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+
+    setItems((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }
+
+  function handleItemDragStart(index: number) {
+    setDraggingItemIndex(index);
+  }
+
+  function handleItemDragEnd() {
+    setDraggingItemIndex(null);
+    setDragOverItemIndex(null);
+  }
+
+  function handleItemDragOver(event: React.DragEvent, index: number) {
+    event.preventDefault();
+    if (draggingItemIndex !== null && draggingItemIndex !== index) {
+      setDragOverItemIndex(index);
+    }
+  }
+
+  function handleItemDrop(index: number) {
+    if (draggingItemIndex !== null && draggingItemIndex !== index) {
+      reorderItems(draggingItemIndex, index);
+    }
+    handleItemDragEnd();
+  }
+
   return (
     <div className="space-y-6">
       <section className={sectionMuted}>
@@ -597,6 +634,7 @@ export default function QuoteForm({
         <table className="min-w-[1180px] w-full text-xs whitespace-nowrap">
           <thead className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
+              <th className="w-8 px-1 py-2" aria-label="순서" />
               <th className="px-2 py-2">출고지</th>
               <th className="px-2 py-2">공급처</th>
               <th className="px-2 py-2">매입처</th>
@@ -615,7 +653,7 @@ export default function QuoteForm({
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={13}
                   className="px-4 py-8 text-center text-sm text-zinc-500"
                 >
                   제품을 추가해 주세요.
@@ -624,9 +662,32 @@ export default function QuoteForm({
             ) : (
               items.map((item, index) => (
                 <tr
-                  key={`${item.product_id}-${index}`}
-                  className="border-t border-zinc-200 dark:border-zinc-700"
+                  key={item.product_id}
+                  onDragOver={(event) => handleItemDragOver(event, index)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleItemDrop(index);
+                  }}
+                  className={`border-t border-zinc-200 dark:border-zinc-700 ${
+                    draggingItemIndex === index ? "opacity-50" : ""
+                  } ${
+                    dragOverItemIndex === index
+                      ? "bg-blue-50 dark:bg-blue-950/30"
+                      : ""
+                  }`}
                 >
+                  <td className="px-1 py-2 text-center">
+                    <span
+                      draggable
+                      onDragStart={() => handleItemDragStart(index)}
+                      onDragEnd={handleItemDragEnd}
+                      className="inline-flex cursor-grab select-none px-1 text-zinc-400 active:cursor-grabbing dark:text-zinc-500"
+                      title="드래그하여 순서 변경"
+                      aria-label="순서 변경"
+                    >
+                      ⋮⋮
+                    </span>
+                  </td>
                   <td className="px-2 py-2">
                     <select
                       value={item.fulfillment_location}
