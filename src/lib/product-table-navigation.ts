@@ -7,11 +7,11 @@ export const TABLE_FIELD_ORDER: ProductInlineField[] = [
   "product_name",
   "model_name",
   "sku",
+  "purchase_price",
   "stock_floor3",
   "stock_b1",
   "stock_display",
   "stock_quantity",
-  "purchase_price",
   "sale_price",
 ];
 

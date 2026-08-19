@@ -815,6 +815,20 @@ export default function ProductsList({
                     />
                   </td>
                   <td
+                    className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
+                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+                  >
+                    <EditableProductCell
+                      productId={product.id}
+                      field="purchase_price"
+                      value={String(product.purchase_price)}
+                      displayValue={`${formatKRW(product.purchase_price)}원`}
+                      inputType="number"
+                      formatAsPrice
+                      {...cellFocusProps(product.id, "purchase_price")}
+                    />
+                  </td>
+                  <td
                     className="px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
                     onDoubleClick={(event) => handleCellDoubleClick(event, product)}
                     onContextMenu={(event) => event.stopPropagation()}
@@ -865,20 +879,6 @@ export default function ProductsList({
                       displayValue={String(product.stock_quantity)}
                       inputType="number"
                       {...cellFocusProps(product.id, "stock_quantity")}
-                    />
-                  </td>
-                  <td
-                    className="whitespace-nowrap px-3 py-1.5 font-normal text-zinc-900 dark:text-zinc-100"
-                    onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-                  >
-                    <EditableProductCell
-                      productId={product.id}
-                      field="purchase_price"
-                      value={String(product.purchase_price)}
-                      displayValue={`${formatKRW(product.purchase_price)}원`}
-                      inputType="number"
-                      formatAsPrice
-                      {...cellFocusProps(product.id, "purchase_price")}
                     />
                   </td>
                   <td

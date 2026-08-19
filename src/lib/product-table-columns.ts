@@ -38,10 +38,6 @@ export const PRODUCT_TABLE_COLUMNS: ProductTableColumn[] = [
   },
   { id: "model_name", label: "모델명", minWidth: 80, defaultWidth: 110, resizable: true },
   { id: "sku", label: "SKU", minWidth: 72, defaultWidth: 100, resizable: true },
-  { id: "stock_floor3", label: "3층", minWidth: 44, defaultWidth: 52, resizable: true },
-  { id: "stock_b1", label: "B1", minWidth: 44, defaultWidth: 52, resizable: true },
-  { id: "stock_display", label: "의왕", minWidth: 44, defaultWidth: 52, resizable: true },
-  { id: "stock_quantity", label: "합계", minWidth: 48, defaultWidth: 56, resizable: true },
   {
     id: "purchase_price",
     label: "매입가",
@@ -49,6 +45,10 @@ export const PRODUCT_TABLE_COLUMNS: ProductTableColumn[] = [
     defaultWidth: 96,
     resizable: true,
   },
+  { id: "stock_floor3", label: "3층", minWidth: 44, defaultWidth: 52, resizable: true },
+  { id: "stock_b1", label: "B1", minWidth: 44, defaultWidth: 52, resizable: true },
+  { id: "stock_display", label: "의왕", minWidth: 44, defaultWidth: 52, resizable: true },
+  { id: "stock_quantity", label: "합계", minWidth: 48, defaultWidth: 56, resizable: true },
   { id: "sale_price", label: "소비자가", minWidth: 72, defaultWidth: 96, resizable: true },
   { id: "actions", label: "변경", minWidth: 72, defaultWidth: 88, resizable: false },
 ];
