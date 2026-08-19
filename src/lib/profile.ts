@@ -11,6 +11,7 @@ import {
   normalizeRole,
   type Permission,
 } from "@/lib/permissions";
+import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAuthProfile } from "@/lib/profile-auth";
 import { listAuthUsersWithoutProfiles } from "@/lib/auth-registration";
@@ -304,7 +305,8 @@ export async function requirePermission(permission: Permission) {
     return modifier;
   }
 
-  if (!hasPermission(modifier.role, permission)) {
+  const permissionMap = await getRolePermissionMap();
+  if (!hasPermission(modifier.role, permission, permissionMap)) {
     return { error: "이 작업을 할 권한이 없습니다." as const };
   }
 

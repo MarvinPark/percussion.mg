@@ -15,6 +15,7 @@ import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { fetchSalesAnalyticsRows } from "@/lib/sales-analytics";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
+import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { SaleWithProduct } from "@/types/sale";
@@ -27,8 +28,9 @@ export default async function SalesPage() {
   if (!user) redirect("/login");
 
   const role = normalizeRole(profile?.role);
-  const canManageSales = hasPermission(role, "manageSales");
-  const canCreateSales = hasPermission(role, "createSales");
+  const permissionMap = await getRolePermissionMap();
+  const canManageSales = hasPermission(role, "manageSales", permissionMap);
+  const canCreateSales = hasPermission(role, "createSales", permissionMap);
 
   const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, analytics, { names: saleCategories }] =
     await Promise.all([

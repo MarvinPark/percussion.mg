@@ -10,6 +10,7 @@ import { formatKRW } from "@/lib/sales-calculator";
 import { fetchSalesPeriodSummaries } from "@/lib/sales-summary";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
+import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -22,8 +23,9 @@ export default async function DashboardPage() {
   }
 
   const role = normalizeRole(profile?.role);
-  const canViewQuotes = hasPermission(role, "viewQuotes");
-  const canManageProducts = hasPermission(role, "manageProducts");
+  const permissionMap = await getRolePermissionMap();
+  const canViewQuotes = hasPermission(role, "viewQuotes", permissionMap);
+  const canManageProducts = hasPermission(role, "manageProducts", permissionMap);
 
   const displayName =
     profile?.full_name?.trim() ||

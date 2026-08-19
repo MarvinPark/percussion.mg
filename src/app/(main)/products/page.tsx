@@ -24,6 +24,7 @@ import {
 import { parseProductListSort } from "@/lib/product-list-sort";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
+import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 
 type ProductsPageProps = {
@@ -57,7 +58,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const sort = parseProductListSort(params.sort, params.order);
 
   const role = normalizeRole(profile?.role);
-  const canManageProducts = hasPermission(role, "manageProducts");
+  const permissionMap = await getRolePermissionMap();
+  const canManageProducts = hasPermission(role, "manageProducts", permissionMap);
 
   const [listStats, pageData] = await Promise.all([
     fetchProductListStats(supabase, searchQuery || undefined),

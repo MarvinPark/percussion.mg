@@ -2,6 +2,7 @@ import Link from "next/link";
 import StockInList from "@/components/stock-in-list";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
+import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { StockMovementWithProduct } from "@/types/stock-movement";
@@ -16,7 +17,8 @@ export default async function StockInListPage() {
 
   const { profile } = await getCurrentUserProfile();
   const role = normalizeRole(profile?.role);
-  const canManage = hasPermission(role, "manageProducts");
+  const permissionMap = await getRolePermissionMap();
+  const canManage = hasPermission(role, "manageProducts", permissionMap);
 
   const { data: movements, error } = await supabase
     .from("stock_movements")

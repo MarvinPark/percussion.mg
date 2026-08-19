@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { getAppUrl } from "@/lib/app-url";
 import { profileFromAuthUser } from "@/lib/auth-registration";
+import type { RolePermissionMap } from "@/lib/permissions";
 import { requirePermission } from "@/lib/profile";
+import {
+  saveRolePermissionMap,
+  sanitizeRolePermissionMap,
+} from "@/lib/role-permission-settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/types/profile";
@@ -338,4 +343,22 @@ function revalidateSaleCategoryPaths() {
   revalidatePath("/sales/new");
   revalidatePath("/quotes");
   revalidatePath("/quotes/new");
+}
+
+export async function updateRolePermissions(map: RolePermissionMap) {
+  const supabase = await createClient();
+  const auth = await requirePermission("manageUsers");
+  if ("error" in auth) return { error: auth.error };
+
+  const sanitized = sanitizeRolePermissionMap(map);
+  const result = await saveRolePermissionMap(supabase, sanitized);
+  if ("error" in result && result.error) {
+    return { error: result.error };
+  }
+
+  revalidateAdminPaths();
+  revalidateSaleCategoryPaths();
+  revalidatePath("/dashboard");
+  revalidatePath("/products");
+  return { ok: true as const };
 }

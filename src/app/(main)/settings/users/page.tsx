@@ -1,9 +1,15 @@
 import PaymentMethodsManager from "@/components/payment-methods-manager";
+import RolePermissionsManager from "@/components/role-permissions-manager";
 import SaleCategoriesManager from "@/components/sale-categories-manager";
 import UsersManager from "@/components/users-manager";
 import { fetchAdminUserDirectory, getCurrentUserProfile } from "@/lib/profile";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchAllSaleCategoryOptions } from "@/lib/sale-category-options";
+import {
+  DEFAULT_ROLE_PERMISSIONS,
+  cloneRolePermissionMap,
+} from "@/lib/permissions";
+import { fetchRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/profile";
 import { redirect } from "next/navigation";
@@ -23,10 +29,19 @@ export default async function AdminSettingsPage() {
     { profiles, error: profilesError, needsMigration, orphanAuthCount, serviceRoleMissing },
     { paymentMethods, error: paymentMethodsError },
     { options: saleCategoryOptions, error: saleCategoryError, needsMigration: saleCategoryNeedsMigration },
+    rolePermissionMap,
+    rolePermissionsNeedsMigration,
   ] = await Promise.all([
     fetchAdminUserDirectory(supabase),
     fetchPaymentMethods(supabase),
     fetchAllSaleCategoryOptions(supabase),
+    fetchRolePermissionMap(supabase).catch(() =>
+      cloneRolePermissionMap(DEFAULT_ROLE_PERMISSIONS),
+    ),
+    supabase
+      .from("role_permission_grants")
+      .select("role", { count: "exact", head: true })
+      .then(({ error }) => Boolean(error)),
   ]);
 
   return (
@@ -35,13 +50,26 @@ export default async function AdminSettingsPage() {
         관리자
       </h2>
       <p className="mb-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        사용자, 결제 수단, 견적 구분을 관리합니다.
+        사용자, 역할별 접근 권한, 결제 수단, 견적 구분을 관리합니다.
       </p>
 
       <div className="space-y-8">
+        <section id="role-permissions" className={sectionClass}>
+          <h3 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+            1. 역할별 접근 권한
+          </h3>
+          <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+            관리자·매니저·직원 등급별로 메뉴 접근과 등록·수정 권한을 설정합니다.
+          </p>
+          <RolePermissionsManager
+            initialMap={rolePermissionMap}
+            needsMigration={rolePermissionsNeedsMigration}
+          />
+        </section>
+
         <section id="users" className={sectionClass}>
           <h3 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-            1. 사용자 관리
+            2. 사용자 관리
           </h3>
           <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
             직원 초대, 역할·직함 설정, 승인 처리를 합니다.
@@ -103,7 +131,7 @@ export default async function AdminSettingsPage() {
         <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <section id="payment-methods" className={sectionClass}>
           <h3 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-            2. 결제수단관리
+            3. 결제수단관리
           </h3>
           <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
             판매·견적 등록 시 선택하는 결제 방식과 수수료율을 관리합니다.
@@ -123,7 +151,7 @@ export default async function AdminSettingsPage() {
 
         <section id="quote-categories" className={sectionClass}>
           <h3 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-            3. 견적
+            4. 견적
           </h3>
           <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
             견적·매출의 &quot;구분&quot; 선택 항목을 추가·수정합니다.

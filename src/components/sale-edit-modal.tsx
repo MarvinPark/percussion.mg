@@ -13,6 +13,7 @@ import {
   calculateSaleAmounts,
   formatKRW,
 } from "@/lib/sales-calculator";
+import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
 import type { StaffOption } from "@/components/sales-page-client";
@@ -78,6 +79,9 @@ export default function SaleEditModal({
     );
     return matched?.id ?? livePaymentMethods[0]?.id ?? "";
   });
+  const [saleCategory, setSaleCategory] = useState(() =>
+    displaySaleCategoryFromList(sale.sale_category, saleCategories),
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -93,6 +97,46 @@ export default function SaleEditModal({
     return "";
   }, [staffOptions, sellerName, sale.created_by_name, sale.created_by_user_id]);
 
+  const saleCategoryOptions = useMemo(() => {
+    const current = sale.sale_category?.trim();
+    if (current && !saleCategories.includes(current)) {
+      return [current, ...saleCategories];
+    }
+    return saleCategories;
+  }, [sale.sale_category, saleCategories]);
+
+  useEffect(() => {
+    if (paymentMethodId) return;
+
+    const matched = livePaymentMethods.find(
+      (method) => method.name === sale.payment_method,
+    );
+    if (matched) {
+      setPaymentMethodId(matched.id);
+      return;
+    }
+
+    if (livePaymentMethods[0]) {
+      setPaymentMethodId(livePaymentMethods[0].id);
+    }
+  }, [livePaymentMethods, paymentMethodId, sale.payment_method]);
+
+  function buildFormData(form: HTMLFormElement) {
+    const formData = new FormData(form);
+
+    formData.set("sale_id", sale.id);
+    formData.set("product_id", selectedProductId);
+    formData.set("sale_category", saleCategory);
+    formData.set("quantity", String(quantity));
+    formData.set("unit_sale_price", String(unitSalePrice));
+    formData.set("shipping_cost", String(shippingCost));
+    formData.set("payment_method_id", paymentMethodId);
+    formData.set("created_by_name", sellerName.trim());
+    formData.set("created_by_user_id", selectedSellerUserId);
+
+    return formData;
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaveError(null);
@@ -107,19 +151,41 @@ export default function SaleEditModal({
       return;
     }
 
-    const formData = new FormData(event.currentTarget);
-    formData.set("product_id", selectedProductId);
-    formData.set("created_by_name", sellerName.trim());
-    formData.set("created_by_user_id", selectedSellerUserId);
+    if (!paymentMethodId) {
+      setSaveError("결제 방식을 선택해 주세요.");
+      return;
+    }
+
+    if (!saleCategory.trim()) {
+      setSaveError("구분을 선택해 주세요.");
+      return;
+    }
+
+    if (!quantity || quantity <= 0) {
+      setSaveError("수량은 1 이상 입력해 주세요.");
+      return;
+    }
+
+    if (unitSalePrice < 0) {
+      setSaveError("판매 단가는 0 이상이어야 합니다.");
+      return;
+    }
+
+    const formData = buildFormData(event.currentTarget);
 
     startSaveTransition(async () => {
-      const result = await updateSale(formData);
-      if (result?.error) {
-        setSaveError(result.error);
-        return;
+      try {
+        const result = await updateSale(formData);
+        if (result?.error) {
+          setSaveError(result.error);
+          return;
+        }
+        router.refresh();
+        onClose();
+      } catch (error) {
+        console.error("sale update failed:", error);
+        setSaveError("판매 수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       }
-      router.refresh();
-      onClose();
     });
   }
 
@@ -194,9 +260,11 @@ export default function SaleEditModal({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <input type="hidden" name="sale_id" value={sale.id} />
           <input type="hidden" name="product_id" value={selectedProductId} />
+          <input type="hidden" name="sale_category" value={saleCategory} />
+          <input type="hidden" name="payment_method_id" value={paymentMethodId} />
 
           <div>
             <label htmlFor="edit_created_by_name" className={labelClass}>
@@ -235,8 +303,9 @@ export default function SaleEditModal({
             </label>
             <SaleCategorySelect
               id="edit_sale_category"
-              categories={saleCategories}
-              defaultValue={sale.sale_category}
+              categories={saleCategoryOptions}
+              value={saleCategory}
+              onChange={setSaleCategory}
             />
           </div>
 
@@ -261,13 +330,11 @@ export default function SaleEditModal({
               </label>
               <PaymentMethodCombobox
                 id="edit_payment_method_id"
-                name="payment_method_id"
                 paymentMethods={livePaymentMethods}
                 value={paymentMethodId}
                 onChange={setPaymentMethodId}
                 className={inputClass}
                 placeholder="결제 방식 입력 또는 선택"
-                required
               />
             </div>
           </div>
@@ -306,9 +373,7 @@ export default function SaleEditModal({
               </label>
               <PriceInput
                 id="edit_unit_sale_price"
-                name="unit_sale_price"
                 min={0}
-                required
                 value={unitSalePrice}
                 onChange={setUnitSalePrice}
                 className={inputClass}
@@ -321,7 +386,6 @@ export default function SaleEditModal({
               </label>
               <PriceInput
                 id="edit_shipping_cost"
-                name="shipping_cost"
                 min={0}
                 value={shippingCost}
                 onChange={setShippingCost}
