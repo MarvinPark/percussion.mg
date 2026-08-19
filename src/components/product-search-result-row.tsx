@@ -1,5 +1,7 @@
 "use client";
 
+import { formatKRW } from "@/lib/sales-calculator";
+
 export type ProductSearchResultItem = {
   supplier?: string | null;
   category?: string | null;
@@ -7,6 +9,7 @@ export type ProductSearchResultItem = {
   product_name: string;
   model_name: string;
   sku?: string | null;
+  sale_price?: number;
 };
 
 function displayText(value: string | null | undefined) {
@@ -33,9 +36,16 @@ export default function ProductSearchResultRow({
           onClick={onSelect}
           className="w-full border-b border-zinc-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
         >
-          <p className="text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
-            {product.model_name}
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="min-w-0 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
+              {product.model_name}
+            </p>
+            {product.sale_price != null ? (
+              <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-blue-700 dark:text-blue-300">
+                {formatKRW(product.sale_price)}원
+              </span>
+            ) : null}
+          </div>
           <div className="mt-1.5 grid gap-1 text-[11px] leading-snug sm:grid-cols-3">
             <span>
               <span className="text-zinc-500 dark:text-zinc-400">제품명 </span>
