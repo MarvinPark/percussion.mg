@@ -24,6 +24,7 @@ import {
 } from "@/types/quote";
 
 type PreviewMode = "quote" | "invoice";
+type PreviewLayout = "single" | "paginated";
 
 type QuoteDocumentPreviewProps = {
   mode: PreviewMode;
@@ -452,6 +453,49 @@ function DocumentDateControl({
   );
 }
 
+function DocumentPreviewLayoutControl({
+  pageCount,
+  layout,
+  onChange,
+}: {
+  pageCount: number;
+  layout: PreviewLayout;
+  onChange: (layout: PreviewLayout) => void;
+}) {
+  if (pageCount <= 1) return null;
+
+  const optionClass = (active: boolean) =>
+    `rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+      active
+        ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+        : "border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+    }`;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+      <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+        보기
+      </span>
+      <button
+        type="button"
+        aria-pressed={layout === "single"}
+        onClick={() => onChange("single")}
+        className={optionClass(layout === "single")}
+      >
+        1페이지로 보기
+      </button>
+      <button
+        type="button"
+        aria-pressed={layout === "paginated"}
+        onClick={() => onChange("paginated")}
+        className={optionClass(layout === "paginated")}
+      >
+        {pageCount}페이지로 보기
+      </button>
+    </div>
+  );
+}
+
 const headerButtonClass =
   "rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
@@ -483,6 +527,7 @@ export default function QuoteDocumentPreview({
   const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(0);
   const [roundingUnit, setRoundingUnit] = useState<AmountRoundingUnit>(1000);
   const [roundingMode, setRoundingMode] = useState<AmountRoundingMode>("ceil");
+  const [previewLayout, setPreviewLayout] = useState<PreviewLayout>("paginated");
 
   useEffect(() => {
     if (!open) return;
@@ -490,6 +535,7 @@ export default function QuoteDocumentPreview({
     setCardFeePercent(0);
     setRoundingUnit(1000);
     setRoundingMode("ceil");
+    setPreviewLayout("paginated");
   }, [data.quote_date, mode, open]);
 
   const previewData = useMemo(
@@ -498,6 +544,10 @@ export default function QuoteDocumentPreview({
   );
 
   const itemPages = useMemo(() => paginateItems(data.items), [data.items]);
+  const displayPages = useMemo(
+    () => (previewLayout === "single" ? [data.items] : itemPages),
+    [data.items, itemPages, previewLayout],
+  );
 
   const cardPaymentTotal = useMemo(
     () =>
@@ -734,6 +784,12 @@ export default function QuoteDocumentPreview({
           onChange={setDocumentDate}
         />
 
+        <DocumentPreviewLayoutControl
+          pageCount={itemPages.length}
+          layout={previewLayout}
+          onChange={setPreviewLayout}
+        />
+
         <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
           <QuoteCardPricingControls
             compact
@@ -759,26 +815,31 @@ export default function QuoteDocumentPreview({
             className="mx-auto shrink-0 bg-white text-zinc-900"
             style={{ width: DOCUMENT_PREVIEW_WIDTH_PX }}
           >
-            {itemPages.map((pageItems, pageIndex) => {
+            {displayPages.map((pageItems, pageIndex) => {
+              const isPaginatedView = previewLayout === "paginated";
               const isFirstPage = pageIndex === 0;
-              const isLastPage = pageIndex === itemPages.length - 1;
+              const isLastPage = pageIndex === displayPages.length - 1;
               const itemStartIndex =
-                pageIndex === 0
+                !isPaginatedView || pageIndex === 0
                   ? 0
                   : FIRST_PAGE_ROWS + (pageIndex - 1) * CONTINUATION_PAGE_ROWS;
 
               return (
                 <div
-                  key={`page-${pageIndex}`}
-                  className={`print-page bg-white p-4 ${pageIndex > 0 ? "mt-8 border-t-4 border-dashed border-zinc-300 pt-8" : ""}`}
+                  key={`page-${pageIndex}-${previewLayout}`}
+                  className={`print-page bg-white p-4 ${
+                    isPaginatedView && pageIndex > 0
+                      ? "mt-8 border-t-4 border-dashed border-zinc-300 pt-8"
+                      : ""
+                  }`}
                 >
                   {isFirstPage ? (
                     <DocumentHeader mode={mode} data={previewData} />
-                  ) : (
+                  ) : isPaginatedView ? (
                     <div className="mb-3 text-right text-xs text-zinc-500">
-                      {title} (계속) · {pageIndex + 1}/{itemPages.length}페이지
+                      {title} (계속) · {pageIndex + 1}/{displayPages.length}페이지
                     </div>
-                  )}
+                  ) : null}
 
                   {isFirstPage && mode === "quote" ? (
                     <QuoteAmountBar totalAmount={totals.totalAmount} />
