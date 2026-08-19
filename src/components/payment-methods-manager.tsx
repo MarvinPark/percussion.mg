@@ -386,12 +386,13 @@ export default function PaymentMethodsManager({
             {sortedMethods.map((method) => (
               <li key={method.id} className={rowClass}>
                 {editingId === method.id ? (
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-2">
                     <span className="inline-block h-3.5 w-3.5 shrink-0" aria-hidden />
                     <input
                       value={editName}
                       onChange={(event) => setEditName(event.target.value)}
-                      className={`min-w-0 flex-1 ${embedded ? compactInputClass : inputClass}`}
+                      className={`w-full ${embedded ? compactInputClass : inputClass}`}
+                      aria-label="결제 수단 이름"
                     />
                     <input
                       type="number"
@@ -401,7 +402,8 @@ export default function PaymentMethodsManager({
                       onChange={(event) =>
                         setEditFeeRate(Number(event.target.value) || 0)
                       }
-                      className={`w-20 shrink-0 ${embedded ? compactInputClass : inputClass}`}
+                      className={`w-full ${embedded ? compactInputClass : inputClass}`}
+                      aria-label="수수료"
                     />
                     <button
                       type="button"

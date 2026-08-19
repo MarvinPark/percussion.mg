@@ -69,6 +69,7 @@ export default function ProductSearchSelect({
     useState<DropdownPosition | null>(null);
   const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
 
   useEffect(() => {
     setQuery(
@@ -156,6 +157,12 @@ export default function ProductSearchSelect({
     setIsOpen(false);
   }
 
+  function handleSelectHighlighted() {
+    const product = results[highlightIndex];
+    if (!product) return;
+    handleSelect(product);
+  }
+
   function handleInputChange(value: string) {
     setQuery(value);
 
@@ -187,6 +194,19 @@ export default function ProductSearchSelect({
     onRegisterProduct(trimmedQuery);
     setIsOpen(false);
   }
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [results, trimmedQuery]);
+
+  useEffect(() => {
+    if (!showDropdown || !dropdownRef.current || results.length === 0) return;
+
+    const option = dropdownRef.current.querySelector<HTMLElement>(
+      `[data-result-index="${highlightIndex}"]`,
+    );
+    option?.scrollIntoView({ block: "nearest" });
+  }, [highlightIndex, showDropdown, results.length]);
 
   const dropdown =
     showDropdown && dropdownPosition ? (
@@ -225,11 +245,14 @@ export default function ProductSearchSelect({
             검색 결과가 없습니다.
           </li>
         ) : (
-          results.map((product) => (
+          results.map((product, index) => (
             <ProductSearchResultRow
               key={product.id}
               product={product}
               emphasizeModelName={emphasizeModelName}
+              highlighted={index === highlightIndex}
+              onHighlight={() => setHighlightIndex(index)}
+              resultIndex={index}
               onSelect={() => handleSelect(product)}
             />
           ))
@@ -263,9 +286,42 @@ export default function ProductSearchSelect({
         value={query}
         onChange={(event) => handleInputChange(event.target.value)}
         onKeyDown={(event) => {
-          if (showRegisterOption && event.key === "Enter") {
+          if (event.key === "ArrowDown") {
+            if (!showDropdown) {
+              if (trimmedQuery) {
+                setIsOpen(true);
+                updateDropdownPosition();
+              }
+              return;
+            }
             event.preventDefault();
-            handleRegister();
+            if (results.length > 0) {
+              setHighlightIndex((prev) => (prev + 1) % results.length);
+            }
+            return;
+          }
+
+          if (event.key === "ArrowUp") {
+            if (!showDropdown) return;
+            event.preventDefault();
+            if (results.length > 0) {
+              setHighlightIndex(
+                (prev) => (prev - 1 + results.length) % results.length,
+              );
+            }
+            return;
+          }
+
+          if (event.key === "Enter") {
+            if (showDropdown && !isSearching && results.length > 0) {
+              event.preventDefault();
+              handleSelectHighlighted();
+              return;
+            }
+            if (showRegisterOption) {
+              event.preventDefault();
+              handleRegister();
+            }
             return;
           }
 
