@@ -1,3 +1,4 @@
+import { checkRoleChangeRpcAvailable } from "@/app/(main)/settings/users/actions";
 import PaymentMethodsManager from "@/components/payment-methods-manager";
 import RolePermissionsManager from "@/components/role-permissions-manager";
 import SaleCategoriesManager from "@/components/sale-categories-manager";
@@ -31,6 +32,7 @@ export default async function AdminSettingsPage() {
     { options: saleCategoryOptions, error: saleCategoryError, needsMigration: saleCategoryNeedsMigration },
     rolePermissionMap,
     rolePermissionsNeedsMigration,
+    roleChangeRpcAvailable,
   ] = await Promise.all([
     fetchAdminUserDirectory(supabase),
     fetchPaymentMethods(supabase),
@@ -42,6 +44,7 @@ export default async function AdminSettingsPage() {
       .from("role_permission_grants")
       .select("role", { count: "exact", head: true })
       .then(({ error }) => Boolean(error)),
+    checkRoleChangeRpcAvailable(),
   ]);
 
   return (
@@ -102,6 +105,20 @@ export default async function AdminSettingsPage() {
                     supabase/schema-admin-settings.sql
                   </code>
                   을 Supabase에서 실행해 주세요.
+                </p>
+              ) : null}
+              {!roleChangeRpcAvailable ? (
+                <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                  역할 변경 DB 함수가 없습니다. Supabase SQL Editor에서{" "}
+                  <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">
+                    supabase/schema-phase7-admin-policy.sql
+                  </code>
+                  {" "}전체를 붙여넣고 Run 해 주세요.{" "}
+                  <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">
+                    SUPABASE_SERVICE_ROLE_KEY
+                  </code>
+                  가 설정되어 있으면 배포 후 임시로 역할 변경이 동작할 수
+                  있습니다.
                 </p>
               ) : null}
               {serviceRoleMissing ? (

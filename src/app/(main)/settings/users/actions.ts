@@ -31,11 +31,92 @@ function mapRoleUpdateError(message: string) {
     if (message.includes(text)) return text;
   }
 
-  if (message.includes("update_user_role")) {
-    return "역할 변경 기능이 DB에 없습니다. supabase/schema-phase7-admin-policy.sql을 Supabase SQL Editor에서 실행해 주세요.";
+  if (isMissingRoleChangeRpc(message)) {
+    return "역할 변경 기능이 DB에 없습니다. Supabase SQL Editor에서 supabase/schema-phase7-admin-policy.sql 파일 내용을 실행해 주세요.";
   }
 
   return "역할 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+function isMissingRoleChangeRpc(message: string) {
+  return (
+    message.includes("update_user_role") ||
+    message.includes("Could not find the function") ||
+    message.includes("42883")
+  );
+}
+
+function isUserRole(value: string): value is UserRole {
+  return value === "admin" || value === "manager" || value === "employee";
+}
+
+async function updateUserRoleViaAdmin(
+  adminClient: ReturnType<typeof createAdminClient>,
+  callerUserId: string,
+  targetUserId: string,
+  newRole: UserRole,
+) {
+  if (!isUserRole(newRole)) {
+    return { error: "올바르지 않은 역할입니다." };
+  }
+
+  const { data: caller } = await adminClient
+    .from("profiles")
+    .select("role")
+    .eq("id", callerUserId)
+    .maybeSingle();
+
+  if (caller?.role !== "admin") {
+    return { error: "역할 변경 권한이 없습니다." };
+  }
+
+  if (targetUserId === callerUserId && newRole !== "admin") {
+    return { error: "본인의 관리자 권한은 스스로 해제할 수 없습니다." };
+  }
+
+  const { data: target } = await adminClient
+    .from("profiles")
+    .select("role")
+    .eq("id", targetUserId)
+    .maybeSingle();
+
+  if (!target) {
+    return { error: "사용자를 찾을 수 없습니다." };
+  }
+
+  const { count: adminCount } = await adminClient
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "admin");
+
+  if (adminCount === 1 && target.role === "admin" && newRole !== "admin") {
+    return { error: "마지막 관리자의 권한은 변경할 수 없습니다." };
+  }
+
+  const { error } = await adminClient
+    .from("profiles")
+    .update({
+      role: newRole,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", targetUserId);
+
+  if (error) {
+    return { error: mapRoleUpdateError(error.message) };
+  }
+
+  return { success: true as const };
+}
+
+export async function checkRoleChangeRpcAvailable() {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_user_role", {
+    target_user_id: "00000000-0000-0000-0000-000000000001",
+    new_role: "employee",
+  });
+
+  if (!error) return true;
+  return !isMissingRoleChangeRpc(error.message);
 }
 
 export async function updateUserRole(userId: string, role: UserRole) {
@@ -52,6 +133,27 @@ export async function updateUserRole(userId: string, role: UserRole) {
   });
 
   if (error) {
+    if (isMissingRoleChangeRpc(error.message)) {
+      try {
+        const adminClient = createAdminClient();
+        const fallback = await updateUserRoleViaAdmin(
+          adminClient,
+          auth.userId,
+          userId,
+          role,
+        );
+
+        if ("error" in fallback && fallback.error) {
+          return { error: fallback.error };
+        }
+
+        revalidateAdminPaths();
+        return { success: true as const };
+      } catch {
+        return { error: mapRoleUpdateError(error.message) };
+      }
+    }
+
     return { error: mapRoleUpdateError(error.message) };
   }
 
