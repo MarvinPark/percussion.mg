@@ -34,7 +34,7 @@ export default function ProductSearchResultRow({
   product,
   onSelect,
   emphasizeModelName = false,
-  priceField = "sale_price",
+  priceField = "purchase_price",
   highlighted = false,
   onHighlight,
   resultIndex,

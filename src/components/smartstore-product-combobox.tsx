@@ -263,7 +263,6 @@ export default function SmartstoreProductCombobox({
               key={product.id}
               product={product}
               emphasizeModelName
-              priceField="purchase_price"
               highlighted={index === highlightIndex}
               onHighlight={() => setHighlightIndex(index)}
               resultIndex={index}
