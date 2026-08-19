@@ -6,6 +6,10 @@ import {
   matchProductForGmarketOrder,
 } from "@/lib/esm-commerce/create-product-from-order";
 import { fetchGmarketOrders } from "@/lib/esm-commerce/orders";
+import {
+  loadAllProductMatchCandidates,
+  resolveManualProductMatch,
+} from "@/lib/marketplace-product-loader";
 import type { ProductMatchCandidate } from "@/lib/naver-commerce/match-product";
 import { requirePermission } from "@/lib/profile";
 import {
@@ -87,15 +91,7 @@ function parseDateRange(
 }
 
 async function loadProducts(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, sku, product_name, model_name, purchase_price, sale_price");
-
-  if (error) {
-    throw new Error("제품 목록을 불러오지 못했습니다.");
-  }
-
-  return data ?? [];
+  return loadAllProductMatchCandidates(supabase);
 }
 
 async function loadExistingOrderIds(
@@ -210,7 +206,11 @@ async function resolveProductForOrder(
   | null
 > {
   if (options.manualProductId) {
-    const manual = products.find((p) => p.id === options.manualProductId);
+    const manual = await resolveManualProductMatch(
+      supabase,
+      products,
+      options.manualProductId,
+    );
     if (!manual) {
       return { error: "선택한 제품을 찾을 수 없습니다." };
     }

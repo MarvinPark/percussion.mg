@@ -15,6 +15,10 @@ import {
 } from "@/lib/sale-recording";
 import { createClient } from "@/lib/supabase/server";
 import { DUPLICATE_SKU_MESSAGE } from "@/lib/product-duplicate";
+import {
+  loadAllProductMatchCandidates,
+  resolveManualProductMatch,
+} from "@/lib/marketplace-product-loader";
 import { revalidatePath } from "next/cache";
 import type { SaleProductOption } from "@/types/sale";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
@@ -93,15 +97,7 @@ function parseDateRange(
 }
 
 async function loadProducts(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, sku, product_name, model_name, brand, purchase_price, sale_price");
-
-  if (error) {
-    throw new Error("제품 목록을 불러오지 못했습니다.");
-  }
-
-  return data ?? [];
+  return loadAllProductMatchCandidates(supabase);
 }
 
 async function loadExistingOrderIds(
@@ -193,7 +189,11 @@ async function resolveProductForOrder(
   | null
 > {
   if (options.manualProductId) {
-    const manual = products.find((p) => p.id === options.manualProductId);
+    const manual = await resolveManualProductMatch(
+      supabase,
+      products,
+      options.manualProductId,
+    );
     if (!manual) {
       return { error: "선택한 제품을 찾을 수 없습니다." };
     }

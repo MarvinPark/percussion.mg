@@ -177,10 +177,20 @@ export default function SmartstoreImportPanel({
     setError(null);
     setMessage(null);
 
+    const effectiveManualMatches = { ...manualMatches };
+    for (const item of items) {
+      if (item.alreadyImported) continue;
+      if (effectiveManualMatches[item.productOrderId]) continue;
+      if (dismissedAutoMatches.has(item.productOrderId)) continue;
+      if (item.matchedProductId) {
+        effectiveManualMatches[item.productOrderId] = item.matchedProductId;
+      }
+    }
+
     startImportTransition(async () => {
       const result = await importSmartstoreOrders(fromDate, toDate, {
         autoCreateProducts,
-        manualMatches,
+        manualMatches: effectiveManualMatches,
         dismissedAutoMatches: [...dismissedAutoMatches],
       });
       if ("error" in result) {
