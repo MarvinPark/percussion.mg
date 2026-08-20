@@ -56,7 +56,7 @@ export default function SalesSellerFilter({
         onClick={() => setOpen((current) => !current)}
         className={triggerClass}
       >
-        {value || "판매자선택"}
+        {value || (showAllOption ? allOptionLabel : "판매자선택")}
       </button>
 
       {open ? (

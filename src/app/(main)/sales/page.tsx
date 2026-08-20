@@ -109,6 +109,7 @@ export default async function SalesPage() {
             ) : (
               <SalesPageClient
                 userId={user.id}
+                currentUserName={profile?.full_name?.trim() ?? ""}
                 sales={sales as SaleWithProduct[]}
                 products={products ?? []}
                 paymentMethods={paymentMethods ?? []}

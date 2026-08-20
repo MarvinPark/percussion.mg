@@ -38,6 +38,7 @@ export type StaffOption = {
 
 type SalesPageClientProps = {
   userId: string;
+  currentUserName: string;
   sales: SaleWithProduct[];
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
@@ -48,6 +49,7 @@ type SalesPageClientProps = {
 
 export default function SalesPageClient({
   userId,
+  currentUserName,
   sales,
   products,
   paymentMethods,
@@ -55,7 +57,7 @@ export default function SalesPageClient({
   staffOptions,
   canManageSales = true,
 }: SalesPageClientProps) {
-  const [sellerFilter, setSellerFilter] = useState("");
+  const [sellerFilter, setSellerFilter] = useState(currentUserName);
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
@@ -208,6 +210,8 @@ export default function SalesPageClient({
             value={sellerFilter}
             options={sellerOptions}
             onChange={setSellerFilter}
+            showAllOption
+            allOptionLabel="전체보기"
           />
 
           <SalesListSearch
