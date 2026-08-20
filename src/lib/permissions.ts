@@ -161,9 +161,9 @@ export type NavItem = {
 };
 
 export const ALL_NAV_ITEMS: NavItem[] = [
-  { href: "/products", label: "재고", permission: "viewProducts" },
   { href: "/sales", label: "매출", permission: "viewSales" },
   { href: "/quotes", label: "견적", permission: "viewQuotes" },
+  { href: "/products", label: "재고", permission: "viewProducts" },
   {
     href: "/products/key-stock",
     label: "주요재고",

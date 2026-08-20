@@ -1,12 +1,20 @@
 import Link from "next/link";
+import DashboardGreetingCard from "@/components/dashboard-greeting-card";
+import DashboardInsightsPanel from "@/components/dashboard-insights-panel";
 import DashboardLowStockAlert from "@/components/dashboard-low-stock-alert";
+import SalesAnalyticsDashboard from "@/components/sales-analytics-dashboard";
 import {
-  card,
   cardInteractive,
   pageMain,
 } from "@/lib/ui-classes";
+import {
+  buildCategoryShareInsights,
+  fetchQuoteConversionInsights,
+  fetchSalesComparisonInsights,
+} from "@/lib/dashboard-insights";
 import { isLowStockProduct } from "@/lib/product-stock";
 import { formatKRW } from "@/lib/sales-calculator";
+import { fetchSalesAnalyticsRows } from "@/lib/sales-analytics";
 import { fetchSalesPeriodSummaries } from "@/lib/sales-summary";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
@@ -25,6 +33,7 @@ export default async function DashboardPage() {
   const role = normalizeRole(profile?.role);
   const permissionMap = await getRolePermissionMap();
   const canViewQuotes = hasPermission(role, "viewQuotes", permissionMap);
+  const canViewSales = hasPermission(role, "viewSales", permissionMap);
   const canManageProducts = hasPermission(role, "manageProducts", permissionMap);
 
   const displayName =
@@ -37,6 +46,9 @@ export default async function DashboardPage() {
     { data: lowStockCandidates },
     summary,
     { count: quoteCount },
+    salesAnalytics,
+    salesComparison,
+    quoteConversion,
   ] = await Promise.all([
     supabase.from("products").select("*", { count: "exact", head: true }),
     supabase
@@ -46,21 +58,47 @@ export default async function DashboardPage() {
       .limit(200),
     fetchSalesPeriodSummaries(supabase),
     supabase.from("quotes").select("*", { count: "exact", head: true }),
+    canViewSales ? fetchSalesAnalyticsRows(supabase) : Promise.resolve({ rows: [] }),
+    canViewSales
+      ? fetchSalesComparisonInsights(supabase)
+      : Promise.resolve(null),
+    canViewSales && canViewQuotes
+      ? fetchQuoteConversionInsights(supabase)
+      : Promise.resolve(null),
   ]);
+
+  const categoryShare =
+    canViewSales
+      ? buildCategoryShareInsights(salesAnalytics.rows)
+      : null;
 
   const lowStockProducts =
     lowStockCandidates?.filter((item) => isLowStockProduct(item)) ?? [];
 
   return (
       <main className={pageMain}>
-        <div className={`${card} border-t-2 border-t-accent/40`}>
-          <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            오늘도 화이팅! {displayName}님
-          </h2>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            {user.email}
-          </p>
-        </div>
+        <DashboardGreetingCard
+          displayName={displayName}
+          fullName={profile?.full_name}
+          jobTitle={profile?.job_title}
+          email={user.email ?? ""}
+        />
+
+        {canViewSales ? (
+          <div className="mt-6">
+            <SalesAnalyticsDashboard rows={salesAnalytics.rows} />
+          </div>
+        ) : null}
+
+        {canViewSales && salesComparison && categoryShare ? (
+          <div className="mt-6">
+            <DashboardInsightsPanel
+              comparison={salesComparison}
+              quoteConversion={quoteConversion}
+              categoryShare={categoryShare}
+            />
+          </div>
+        ) : null}
 
         <div className={`mt-6 grid gap-4 ${canViewQuotes ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <Link href="/products" className={cardInteractive}>

@@ -36,7 +36,7 @@ export default async function QuotesPage() {
       .from("quotes")
       .select("*, quote_items(*, products(color, product_option, size))")
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(5000),
     fetchAllProductSkus(supabase),
     fetchPaymentMethods(supabase),
     supabase
@@ -82,7 +82,7 @@ export default async function QuotesPage() {
       <main className={pageMain}>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className={pageTitle}>견적관리</h2>
+            <h2 className={pageTitle}>견적</h2>
             <p className={pageSubtitle}>견적 클릭으로 수정 · 매출전환</p>
           </div>
           <Link href="/quotes/new" className={btnPrimary}>
@@ -119,6 +119,7 @@ export default async function QuotesPage() {
           </div>
         ) : (
           <QuotesPageClient
+            userId={user.id}
             quotes={quotes}
             productSkus={productSkus}
             paymentMethods={paymentMethods}

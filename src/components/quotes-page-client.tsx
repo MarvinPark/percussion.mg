@@ -1,10 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QuotesList, { type QuoteListItem } from "@/components/quotes-list";
 import QuotesListSearch from "@/components/quotes-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
+import TablePageSizeSelect from "@/components/table-page-size-select";
+import TablePagination from "@/components/table-pagination";
+import {
+  loadQuoteFavoriteIds,
+  loadQuotesPageSize,
+  saveQuoteFavoriteIds,
+  saveQuotesPageSize,
+} from "@/lib/quotes-list-preferences";
 import {
   buildProductSkuMap,
   filterQuotes,
@@ -12,6 +20,11 @@ import {
   getQuoteSearchSelectionValue,
   getUniqueQuoteSellerNames,
 } from "@/lib/quotes-search";
+import {
+  paginateItems,
+  TABLE_PAGE_SIZE,
+  type TablePageSize,
+} from "@/lib/table-page-size";
 import type { PaymentMethod } from "@/types/sale";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 
@@ -42,6 +55,7 @@ export type StaffOption = {
 };
 
 type QuotesPageClientProps = {
+  userId: string;
   quotes: QuoteListItem[];
   productSkus: { id: string; sku?: string | null }[];
   paymentMethods: PaymentMethod[];
@@ -55,6 +69,7 @@ type QuotesPageClientProps = {
 };
 
 export default function QuotesPageClient({
+  userId,
   quotes,
   productSkus,
   paymentMethods,
@@ -67,16 +82,50 @@ export default function QuotesPageClient({
   staffOptions,
 }: QuotesPageClientProps) {
   const router = useRouter();
-  const [sellerFilter, setSellerFilter] = useState("");
+  const [sellerFilter, setSellerFilter] = useState(currentUserName);
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_ROW_FONT_SIZE);
+  const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
+  const [favoritesLoaded, setFavoritesLoaded] = useState(false);
+  const [favoriteQuoteIds, setFavoriteQuoteIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [highlightedQuoteIds, setHighlightedQuoteIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setPageSize(loadQuotesPageSize(userId));
+    setFavoriteQuoteIds(loadQuoteFavoriteIds(userId));
+    setPageSizeLoaded(true);
+    setFavoritesLoaded(true);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!favoritesLoaded) return;
+    const quoteIdSet = new Set(quotes.map((quote) => quote.id));
+    setFavoriteQuoteIds((prev) => {
+      const next = new Set([...prev].filter((id) => quoteIdSet.has(id)));
+      if (next.size === prev.size) return prev;
+      saveQuoteFavoriteIds(userId, next);
+      return next;
+    });
+  }, [favoritesLoaded, quotes, userId]);
+
+  useEffect(() => {
+    if (!pageSizeLoaded) return;
+    saveQuotesPageSize(userId, pageSize);
+  }, [pageSizeLoaded, pageSize, userId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sellerFilter, appliedQuery, pageSize]);
 
   const showToast = useCallback((message: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -105,8 +154,35 @@ export default function QuotesPageClient({
     [quotes, sellerFilter, appliedQuery, productSkuById],
   );
 
+  const { favoriteQuotes, regularQuotes } = useMemo(() => {
+    const favorites: QuoteListItem[] = [];
+    const regular: QuoteListItem[] = [];
+
+    for (const quote of filteredQuotes) {
+      if (favoriteQuoteIds.has(quote.id)) {
+        favorites.push(quote);
+      } else {
+        regular.push(quote);
+      }
+    }
+
+    return { favoriteQuotes: favorites, regularQuotes: regular };
+  }, [filteredQuotes, favoriteQuoteIds]);
+
+  const pagination = useMemo(
+    () => paginateItems(regularQuotes, currentPage, pageSize),
+    [regularQuotes, currentPage, pageSize],
+  );
+
+  useEffect(() => {
+    if (currentPage !== pagination.currentPage) {
+      setCurrentPage(pagination.currentPage);
+    }
+  }, [currentPage, pagination.currentPage]);
+
   const applySearch = useCallback(() => {
     setAppliedQuery(draftQuery);
+    setCurrentPage(1);
   }, [draftQuery]);
 
   const handleSelectQuote = useCallback(
@@ -114,6 +190,7 @@ export default function QuotesPageClient({
       const value = getQuoteSearchSelectionValue(quote, productSkuById);
       setDraftQuery(value);
       setAppliedQuery(value);
+      setCurrentPage(1);
     },
     [productSkuById],
   );
@@ -122,6 +199,28 @@ export default function QuotesPageClient({
     setSellerFilter("");
     setDraftQuery("");
     setAppliedQuery("");
+    setCurrentPage(1);
+  }, []);
+
+  const handleToggleFavorite = useCallback(
+    (quoteId: string) => {
+      setFavoriteQuoteIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(quoteId)) {
+          next.delete(quoteId);
+        } else {
+          next.add(quoteId);
+        }
+        saveQuoteFavoriteIds(userId, next);
+        return next;
+      });
+    },
+    [userId],
+  );
+
+  const handlePageSizeChange = useCallback((nextPageSize: TablePageSize) => {
+    setPageSize(nextPageSize);
+    setCurrentPage(1);
   }, []);
 
   const handleQuoteDuplicated = useCallback(
@@ -179,34 +278,44 @@ export default function QuotesPageClient({
           </button>
         </div>
 
-        <div className={fontControlBoxClass}>
-          <button
-            type="button"
-            aria-label="행 글자 크기 줄이기"
-            disabled={rowFontSize <= MIN_ROW_FONT_SIZE}
-            onClick={() =>
-              setRowFontSize((size) => Math.max(MIN_ROW_FONT_SIZE, size - 1))
-            }
-            className={`${fontControlButtonClass} border-r border-zinc-300 dark:border-zinc-600`}
-          >
-            -
-          </button>
-          <button
-            type="button"
-            aria-label="행 글자 크기 키우기"
-            disabled={rowFontSize >= MAX_ROW_FONT_SIZE}
-            onClick={() =>
-              setRowFontSize((size) => Math.min(MAX_ROW_FONT_SIZE, size + 1))
-            }
-            className={fontControlButtonClass}
-          >
-            +
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <TablePageSizeSelect
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            compact
+          />
+          <div className={fontControlBoxClass}>
+            <button
+              type="button"
+              aria-label="행 글자 크기 줄이기"
+              disabled={rowFontSize <= MIN_ROW_FONT_SIZE}
+              onClick={() =>
+                setRowFontSize((size) => Math.max(MIN_ROW_FONT_SIZE, size - 1))
+              }
+              className={`${fontControlButtonClass} border-r border-zinc-300 dark:border-zinc-600`}
+            >
+              -
+            </button>
+            <button
+              type="button"
+              aria-label="행 글자 크기 키우기"
+              disabled={rowFontSize >= MAX_ROW_FONT_SIZE}
+              onClick={() =>
+                setRowFontSize((size) => Math.min(MAX_ROW_FONT_SIZE, size + 1))
+              }
+              className={fontControlButtonClass}
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 
       <QuotesList
-        quotes={filteredQuotes}
+        favoriteQuotes={favoriteQuotes}
+        quotes={pagination.items}
+        favoriteQuoteIds={favoriteQuoteIds}
+        onToggleFavorite={handleToggleFavorite}
         paymentMethods={paymentMethods}
         saleCategories={saleCategories}
         convertedQuoteIds={convertedQuoteIds}
@@ -223,6 +332,13 @@ export default function QuotesPageClient({
             ? "검색 조건에 맞는 견적 기록이 없습니다."
             : undefined
         }
+      />
+
+      <TablePagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        onPageChange={setCurrentPage}
+        ariaLabel="견적 목록 페이지"
       />
     </>
   );

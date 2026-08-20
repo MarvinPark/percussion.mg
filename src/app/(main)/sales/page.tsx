@@ -6,12 +6,10 @@ import {
   pageSubtitle,
   pageTitle,
 } from "@/lib/ui-classes";
-import SalesAnalyticsDashboard from "@/components/sales-analytics-dashboard";
 import SalesImportPanels from "@/components/sales-import-panels";
 import SalesPageClient from "@/components/sales-page-client";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
-import { fetchSalesAnalyticsRows } from "@/lib/sales-analytics";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { getRolePermissionMap } from "@/lib/role-permission-settings";
@@ -31,7 +29,7 @@ export default async function SalesPage() {
   const canManageSales = hasPermission(role, "manageSales", permissionMap);
   const canCreateSales = hasPermission(role, "createSales", permissionMap);
 
-  const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, analytics, { names: saleCategories }] =
+  const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, { names: saleCategories }] =
     await Promise.all([
       supabase
         .from("sales")
@@ -49,7 +47,6 @@ export default async function SalesPage() {
         .select("id, full_name")
         .not("full_name", "is", null)
         .order("full_name"),
-      fetchSalesAnalyticsRows(supabase),
       fetchSaleCategoryOptions(supabase),
     ]);
 
@@ -65,9 +62,9 @@ export default async function SalesPage() {
   return (
       <main className={pageMain}>
         <div className="mb-6">
-          <h2 className={pageTitle}>매출관리</h2>
+          <h2 className={pageTitle}>매출</h2>
           <p className={pageSubtitle}>
-            판매 기록, 월별·연도별 누적 매출과 마진을 확인합니다.
+            판매 기록을 조회·등록하고 수정할 수 있습니다.
             {canManageSales ? " 행을 더블클릭하면 수정할 수 있습니다." : ""}
           </p>
         </div>
@@ -85,8 +82,6 @@ export default async function SalesPage() {
           </div>
         ) : (
           <>
-            <SalesAnalyticsDashboard rows={analytics.rows} />
-
             <div className="mt-6">
               <SalesImportPanels
                 canImport={canCreateSales}

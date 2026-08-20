@@ -66,7 +66,10 @@ type StaffOption = {
 };
 
 type QuotesListProps = {
+  favoriteQuotes?: QuoteListItem[];
   quotes: QuoteListItem[];
+  favoriteQuoteIds: Set<string>;
+  onToggleFavorite: (quoteId: string) => void;
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   convertedQuoteIds: string[];
@@ -99,8 +102,14 @@ function summarizeItems(items: QuoteListItem["quote_items"]) {
 const actionButtonClass =
   "inline-flex h-[26px] w-[4.25rem] shrink-0 items-center justify-center rounded border text-[11px] font-medium leading-none whitespace-nowrap";
 
+const starButtonClass =
+  "inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded text-[18px] leading-none transition hover:bg-amber-50 dark:hover:bg-amber-950/40";
+
 export default function QuotesList({
+  favoriteQuotes = [],
   quotes,
+  favoriteQuoteIds,
+  onToggleFavorite,
   paymentMethods,
   saleCategories,
   convertedQuoteIds,
@@ -237,6 +246,171 @@ export default function QuotesList({
     });
   }
 
+  function renderQuoteRow(quote: QuoteListItem) {
+    const isConverted = convertedQuoteIdSet.has(quote.id);
+    const isHighlighted = highlightedQuoteIds?.has(quote.id) ?? false;
+    const isFavorite = favoriteQuoteIds.has(quote.id);
+
+    return (
+      <div
+        key={quote.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditingQuote(quote)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setEditingQuote(quote);
+          }
+        }}
+        className={`cursor-pointer rounded-lg border px-2 py-[5.5px] transition ${
+          isHighlighted ? "paste-row-highlight" : ""
+        } ${
+          isConverted
+            ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
+            : isFavorite
+              ? "border-amber-200 bg-amber-50/50 hover:border-amber-300 hover:bg-amber-50/80 dark:border-amber-900/60 dark:bg-amber-950/20 dark:hover:border-amber-800 dark:hover:bg-amber-950/30"
+              : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
+        }`}
+      >
+        <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-2">
+          <div className="flex min-w-0 flex-1 items-start gap-1.5 md:items-center">
+            <button
+              type="button"
+              aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}
+              aria-pressed={isFavorite}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleFavorite(quote.id);
+              }}
+              className={`${starButtonClass} ${
+                isFavorite
+                  ? "text-amber-500 dark:text-amber-400"
+                  : "text-zinc-300 hover:text-amber-400 dark:text-zinc-600 dark:hover:text-amber-400"
+              }`}
+            >
+              {isFavorite ? "★" : "☆"}
+            </button>
+
+            <div className="min-w-0 w-full leading-tight">
+              <p
+                className={`truncate font-semibold ${
+                  isConverted
+                    ? "text-zinc-500 dark:text-zinc-400"
+                    : "text-zinc-900 dark:text-zinc-100"
+                }`}
+                style={{ fontSize: `${rowFontSize}px` }}
+              >
+                {quote.manager_name ? (
+                  <>
+                    <span
+                      className={
+                        isConverted
+                          ? "font-medium text-zinc-500 dark:text-zinc-400"
+                          : "font-medium text-black dark:text-zinc-100"
+                      }
+                    >
+                      {quote.manager_name}
+                    </span>
+                    <span className="mx-1.5 font-normal text-zinc-400 dark:text-zinc-500">
+                      ·
+                    </span>
+                  </>
+                ) : null}
+                {quote.customer_name}
+                <span
+                  className={`ml-2 font-bold ${
+                    isConverted
+                      ? "text-zinc-500 dark:text-zinc-400"
+                      : "text-zinc-800 dark:text-zinc-200"
+                  }`}
+                >
+                  {formatKRW(quote.total_amount)}원
+                </span>
+              </p>
+              <p
+                className="truncate text-zinc-500 dark:text-zinc-400"
+                style={{ fontSize: `${subFontSize}px` }}
+              >
+                {formatDate(quote.quote_date)}
+                {" · "}
+                {quote.quote_items.length}품목 ({summarizeItems(quote.quote_items)})
+                {quote.payment_method ? ` · ${quote.payment_method}` : ""}
+                {quote.customer_phone ? ` · ${quote.customer_phone}` : ""}
+                {quote.created_by_name ? ` · ${quote.created_by_name}` : ""}
+              </p>
+            </div>
+          </div>
+          <div
+            className="flex w-full shrink-0 flex-wrap items-center justify-center gap-1 md:w-auto md:self-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreview({ quote, mode: "quote" })}
+              className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+            >
+              견적서
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreview({ quote, mode: "invoice" })}
+              className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+            >
+              거래명세서
+            </button>
+            {isConverted ? (
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={() => {
+                  setActionError(null);
+                  setCancellingQuote(quote);
+                }}
+                className={`${actionButtonClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900`}
+              >
+                매출취소
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={isConverting}
+                onClick={() => {
+                  setActionError(null);
+                  setConvertingQuote(quote);
+                }}
+                className={`${actionButtonClass} border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900`}
+              >
+                매출전환
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={isDuplicating}
+              onClick={() => handleDuplicateQuote(quote)}
+              className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+            >
+              {duplicatingQuoteId === quote.id ? "복제 중..." : "복제"}
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => {
+                setActionError(null);
+                setDeletingQuote(quote);
+              }}
+              className={`${actionButtonClass} border-zinc-300 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-zinc-600 dark:hover:bg-red-950/30`}
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const hasQuotes = favoriteQuotes.length > 0 || quotes.length > 0;
+
   return (
     <>
       {actionError ? (
@@ -245,152 +419,36 @@ export default function QuotesList({
         </p>
       ) : null}
 
-      <div className="mt-3 space-y-1">
-        {quotes.length === 0 ? (
+      <div className="mt-3 space-y-3">
+        {!hasQuotes ? (
           <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
             {emptyMessage ?? "표시할 견적 기록이 없습니다."}
           </div>
         ) : null}
-        {quotes.map((quote) => {
-          const isConverted = convertedQuoteIdSet.has(quote.id);
-          const isHighlighted = highlightedQuoteIds?.has(quote.id) ?? false;
 
-          return (
-          <div
-            key={quote.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => setEditingQuote(quote)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                setEditingQuote(quote);
-              }
-            }}
-            className={`cursor-pointer rounded-lg border px-2 py-[5.5px] transition ${
-              isHighlighted ? "paste-row-highlight" : ""
-            } ${
-              isConverted
-                ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
-                : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
-            }`}
-          >
-            <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-2">
-              <div className="min-w-0 w-full leading-tight md:flex-1">
-                <p
-                  className={`truncate font-semibold ${
-                    isConverted
-                      ? "text-zinc-500 dark:text-zinc-400"
-                      : "text-zinc-900 dark:text-zinc-100"
-                  }`}
-                  style={{ fontSize: `${rowFontSize}px` }}
-                >
-                  {quote.manager_name ? (
-                    <>
-                      <span
-                        className={
-                          isConverted
-                            ? "font-medium text-zinc-500 dark:text-zinc-400"
-                            : "font-medium text-black dark:text-zinc-100"
-                        }
-                      >
-                        {quote.manager_name}
-                      </span>
-                      <span className="mx-1.5 font-normal text-zinc-400 dark:text-zinc-500">
-                        ·
-                      </span>
-                    </>
-                  ) : null}
-                  {quote.customer_name}
-                  <span
-                    className={`ml-2 font-bold ${
-                      isConverted
-                        ? "text-zinc-500 dark:text-zinc-400"
-                        : "text-zinc-800 dark:text-zinc-200"
-                    }`}
-                  >
-                    {formatKRW(quote.total_amount)}원
-                  </span>
-                </p>
-                <p
-                  className="truncate text-zinc-500 dark:text-zinc-400"
-                  style={{ fontSize: `${subFontSize}px` }}
-                >
-                  {formatDate(quote.quote_date)}
-                  {" · "}
-                  {quote.quote_items.length}품목 ({summarizeItems(quote.quote_items)})
-                  {quote.payment_method ? ` · ${quote.payment_method}` : ""}
-                  {quote.customer_phone ? ` · ${quote.customer_phone}` : ""}
-                  {quote.created_by_name ? ` · ${quote.created_by_name}` : ""}
-                </p>
-              </div>
-              <div
-                className="flex w-full shrink-0 flex-wrap items-center justify-center gap-1 md:w-auto md:self-center"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  onClick={() => setPreview({ quote, mode: "quote" })}
-                  className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-                >
-                  견적서
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreview({ quote, mode: "invoice" })}
-                  className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-                >
-                  거래명세서
-                </button>
-                {isConverted ? (
-                  <button
-                    type="button"
-                    disabled={isCancelling}
-                    onClick={() => {
-                      setActionError(null);
-                      setCancellingQuote(quote);
-                    }}
-                    className={`${actionButtonClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900`}
-                  >
-                    매출취소
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isConverting}
-                    onClick={() => {
-                      setActionError(null);
-                      setConvertingQuote(quote);
-                    }}
-                    className={`${actionButtonClass} border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900`}
-                  >
-                    매출전환
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={isDuplicating}
-                  onClick={() => handleDuplicateQuote(quote)}
-                  className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-                >
-                  {duplicatingQuoteId === quote.id ? "복제 중..." : "복제"}
-                </button>
-                <button
-                  type="button"
-                  disabled={isDeleting}
-                  onClick={() => {
-                    setActionError(null);
-                    setDeletingQuote(quote);
-                  }}
-                  className={`${actionButtonClass} border-zinc-300 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-zinc-600 dark:hover:bg-red-950/30`}
-                >
-                  삭제
-                </button>
-              </div>
+        {favoriteQuotes.length > 0 ? (
+          <section>
+            <h3 className="mb-1.5 px-1 text-[12px] font-semibold text-amber-700 dark:text-amber-300">
+              즐겨찾기
+            </h3>
+            <div className="space-y-1">
+              {favoriteQuotes.map((quote) => renderQuoteRow(quote))}
             </div>
-          </div>
-          );
-        })}
+          </section>
+        ) : null}
+
+        {quotes.length > 0 ? (
+          <section className={favoriteQuotes.length > 0 ? "pt-1" : undefined}>
+            {favoriteQuotes.length > 0 ? (
+              <h3 className="mb-1.5 px-1 text-[12px] font-semibold text-zinc-500 dark:text-zinc-400">
+                전체 견적
+              </h3>
+            ) : null}
+            <div className="space-y-1">
+              {quotes.map((quote) => renderQuoteRow(quote))}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       {editingQuote ? (
