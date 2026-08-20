@@ -1,5 +1,6 @@
 import { checkRoleChangeRpcAvailable } from "@/app/(main)/settings/users/actions";
 import PaymentMethodsManager from "@/components/payment-methods-manager";
+import { createPageMetadata } from "@/lib/document-titles";
 import RolePermissionsManager from "@/components/role-permissions-manager";
 import SaleCategoriesManager from "@/components/sale-categories-manager";
 import UsersManager from "@/components/users-manager";
@@ -14,6 +15,8 @@ import { fetchRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/profile";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("관리자");
 
 const sectionClass =
   "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900";

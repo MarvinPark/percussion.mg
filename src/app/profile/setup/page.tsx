@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import ProfileSetupForm from "./profile-setup-form";
+import { createPageMetadata } from "@/lib/document-titles";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAuthProfile } from "@/lib/profile-auth";
 import {
@@ -7,6 +8,8 @@ import {
   needsAdminApproval,
   normalizeAccountStatus,
 } from "@/types/profile";
+
+export const metadata = createPageMetadata("프로필 설정");
 
 export default async function ProfileSetupPage() {
   const supabase = await createClient();

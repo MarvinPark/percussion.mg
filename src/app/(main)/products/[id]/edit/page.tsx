@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import ProductForm from "@/components/product-form";
+import { createPageMetadata } from "@/lib/document-titles";
 import { createClient } from "@/lib/supabase/server";
 import type { Product } from "@/types/product";
+
+export const metadata = createPageMetadata("제품수정");
 
 type EditProductPageProps = {
   params: Promise<{ id: string }>;

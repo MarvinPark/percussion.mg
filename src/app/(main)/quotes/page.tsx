@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createPageMetadata } from "@/lib/document-titles";
 import {
   alertError,
   btnPrimary,
@@ -16,6 +17,8 @@ import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("견적");
 
 export default async function QuotesPage() {
   const supabase = await createClient();

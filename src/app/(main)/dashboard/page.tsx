@@ -1,5 +1,6 @@
 import Link from "next/link";
 import DashboardGreetingCard from "@/components/dashboard-greeting-card";
+import { createPageMetadata } from "@/lib/document-titles";
 import DashboardInsightsPanel from "@/components/dashboard-insights-panel";
 import DashboardLowStockAlert from "@/components/dashboard-low-stock-alert";
 import SalesAnalyticsDashboard from "@/components/sales-analytics-dashboard";
@@ -21,6 +22,8 @@ import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("대시보드");
 
 export default async function DashboardPage() {
   const supabase = await createClient();

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createPageMetadata } from "@/lib/document-titles";
 import {
   alertError,
   cardDashed,
@@ -17,6 +18,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { SaleWithProduct } from "@/types/sale";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
+
+export const metadata = createPageMetadata("매출");
 
 export default async function SalesPage() {
   const supabase = await createClient();

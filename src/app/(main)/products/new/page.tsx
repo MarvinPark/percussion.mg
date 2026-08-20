@@ -1,5 +1,8 @@
 import Link from "next/link";
 import ProductForm from "./product-form";
+import { createPageMetadata } from "@/lib/document-titles";
+
+export const metadata = createPageMetadata("제품등록");
 
 export default function NewProductPage() {
   return (

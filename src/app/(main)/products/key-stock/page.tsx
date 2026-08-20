@@ -1,10 +1,13 @@
 import Link from "next/link";
 import KeyStockWorkspace from "@/components/key-stock-workspace";
+import { createPageMetadata } from "@/lib/document-titles";
 import {
   fetchAllKeyStockProducts,
 } from "@/lib/key-stock-loader";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("주요재고");
 
 export default async function KeyStockPage() {
   const supabase = await createClient();

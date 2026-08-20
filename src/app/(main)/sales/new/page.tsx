@@ -1,11 +1,14 @@
 import Link from "next/link";
 import SaleForm from "@/components/sale-form";
+import { createPageMetadata } from "@/lib/document-titles";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("매출등록");
 
 export default async function NewSalePage() {
   const supabase = await createClient();

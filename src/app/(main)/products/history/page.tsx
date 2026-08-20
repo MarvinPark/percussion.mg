@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { createPageMetadata } from "@/lib/document-titles";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import {
   movementTypeLabel,
   type StockMovementWithProduct,
 } from "@/types/stock-movement";
+
+export const metadata = createPageMetadata("변동이력");
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {

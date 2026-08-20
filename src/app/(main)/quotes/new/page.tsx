@@ -1,5 +1,6 @@
 import Link from "next/link";
 import QuoteForm from "@/components/quote-form";
+import { createPageMetadata } from "@/lib/document-titles";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
@@ -7,6 +8,8 @@ import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { canUseApp } from "@/types/profile";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("견적서 작성");
 
 export default async function NewQuotePage() {
   const supabase = await createClient();

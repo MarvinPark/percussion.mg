@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import AppBrandFooter from "@/components/app-brand-footer";
 import BottomFloatingActions from "@/components/bottom-floating-actions";
+import DocumentTitle from "@/components/document-title";
+import { rootDocumentMetadata } from "@/lib/document-titles";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -11,10 +13,7 @@ const notoSansKr = Noto_Sans_KR({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "PERCY",
-  description: "Sales · Inventory · Quotation",
-};
+export const metadata: Metadata = rootDocumentMetadata;
 
 export const viewport = {
   width: "device-width",
@@ -42,6 +41,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
+        <DocumentTitle />
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
         <AppBrandFooter />
         <BottomFloatingActions />

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ProductListShowAllButton from "@/components/product-list-show-all-button";
+import { createPageMetadata } from "@/lib/document-titles";
 import {
   alertError,
   btnSecondary,
@@ -35,6 +36,8 @@ type ProductsPageProps = {
     order?: string;
   }>;
 };
+
+export const metadata = createPageMetadata("재고");
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const params = await searchParams;

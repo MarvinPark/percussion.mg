@@ -1,9 +1,12 @@
 import MyPageContent from "@/components/my-page-content";
+import { createPageMetadata } from "@/lib/document-titles";
 import { normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { isProfileComplete } from "@/types/profile";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("마이페이지");
 
 export default async function MyPage() {
   const supabase = await createClient();

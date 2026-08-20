@@ -1,6 +1,9 @@
 import AppBrandTitle from "@/components/app-brand-title";
+import { createPageMetadata } from "@/lib/document-titles";
 import { card } from "@/lib/ui-classes";
 import LoginPageClient from "./login-page-client";
+
+export const metadata = createPageMetadata("로그인");
 
 type LoginPageProps = {
   searchParams: Promise<{ error?: string; register?: string }>;

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import StockForm from "@/components/stock-form";
+import { createPageMetadata } from "@/lib/document-titles";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("입고/출고");
 
 type PageProps = {
   searchParams: Promise<{ product?: string }>;

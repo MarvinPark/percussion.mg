@@ -1,7 +1,10 @@
 import { logout } from "@/app/login/actions";
+import { createPageMetadata } from "@/lib/document-titles";
 import { createClient } from "@/lib/supabase/server";
 import { needsAdminApproval } from "@/types/profile";
 import { redirect } from "next/navigation";
+
+export const metadata = createPageMetadata("승인 대기");
 
 export default async function PendingApprovalPage() {
   const supabase = await createClient();
