@@ -311,7 +311,7 @@ function QuoteAmountBar({ totalAmount }: { totalAmount: number }) {
     <div className="amount-box mb-3 rounded border border-zinc-400 bg-[#fff2cc] p-3">
       <div className="amount-line-full grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-2 text-sm font-semibold">
         <span className="shrink-0">견적금액</span>
-        <span className="min-w-0 truncate text-center">
+        <span className="min-w-0 truncate text-center text-lg font-semibold">
           {formatKoreanWonLabel(totalAmount)}
         </span>
         <span className="amount-value shrink-0 whitespace-nowrap text-xl font-bold tabular-nums">
