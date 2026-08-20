@@ -82,6 +82,12 @@ export default function SaleEditModal({
   const [saleCategory, setSaleCategory] = useState(() =>
     displaySaleCategoryFromList(sale.sale_category, saleCategories),
   );
+  const [soldAt, setSoldAt] = useState(soldAtInputValue(sale.sold_at));
+  const [customerName, setCustomerName] = useState(sale.customer_name ?? "");
+  const [businessPartner, setBusinessPartner] = useState(sale.business_partner ?? "");
+  const [customerPhone, setCustomerPhone] = useState(sale.customer_phone ?? "");
+  const [customerAddress, setCustomerAddress] = useState(sale.customer_address ?? "");
+  const [note, setNote] = useState(sale.note ?? "");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -121,18 +127,27 @@ export default function SaleEditModal({
     }
   }, [livePaymentMethods, paymentMethodId, sale.payment_method]);
 
-  function buildFormData(form: HTMLFormElement) {
-    const formData = new FormData(form);
+  function buildFormData() {
+    const formData = new FormData();
 
     formData.set("sale_id", sale.id);
+    formData.set("sold_at", soldAt);
     formData.set("product_id", selectedProductId);
     formData.set("sale_category", saleCategory);
     formData.set("quantity", String(quantity));
-    formData.set("unit_sale_price", String(unitSalePrice));
-    formData.set("shipping_cost", String(shippingCost));
+    formData.set("unit_sale_price", String(Math.max(0, Math.round(unitSalePrice))));
+    formData.set(
+      "shipping_cost",
+      String(Math.max(0, Math.round(shippingCost))),
+    );
     formData.set("payment_method_id", paymentMethodId);
     formData.set("created_by_name", sellerName.trim());
     formData.set("created_by_user_id", selectedSellerUserId);
+    formData.set("customer_name", customerName.trim());
+    formData.set("business_partner", businessPartner.trim());
+    formData.set("customer_phone", customerPhone.trim());
+    formData.set("customer_address", customerAddress.trim());
+    formData.set("note", note.trim());
 
     return formData;
   }
@@ -140,6 +155,11 @@ export default function SaleEditModal({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaveError(null);
+
+    if (!soldAt.trim()) {
+      setSaveError("판매 날짜를 입력해 주세요.");
+      return;
+    }
 
     if (!selectedProductId) {
       setSaveError("제품을 선택해 주세요.");
@@ -171,7 +191,12 @@ export default function SaleEditModal({
       return;
     }
 
-    const formData = buildFormData(event.currentTarget);
+    if (shippingCost < 0) {
+      setSaveError("업체 배송비는 0 이상이어야 합니다.");
+      return;
+    }
+
+    const formData = buildFormData();
 
     startSaveTransition(async () => {
       try {
@@ -180,7 +205,7 @@ export default function SaleEditModal({
           setSaveError(result.error);
           return;
         }
-        router.refresh();
+        await router.refresh();
         onClose();
       } catch (error) {
         console.error("sale update failed:", error);
@@ -261,11 +286,6 @@ export default function SaleEditModal({
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          <input type="hidden" name="sale_id" value={sale.id} />
-          <input type="hidden" name="product_id" value={selectedProductId} />
-          <input type="hidden" name="sale_category" value={saleCategory} />
-          <input type="hidden" name="payment_method_id" value={paymentMethodId} />
-
           <div>
             <label htmlFor="edit_created_by_name" className={labelClass}>
               담당자 <span className="text-red-500">*</span>
@@ -319,7 +339,8 @@ export default function SaleEditModal({
                 name="sold_at"
                 type="date"
                 required
-                defaultValue={soldAtInputValue(sale.sold_at)}
+                value={soldAt}
+                onChange={(event) => setSoldAt(event.target.value)}
                 className={inputClass}
               />
             </div>
@@ -408,7 +429,8 @@ export default function SaleEditModal({
                 <input
                   id="edit_customer_name"
                   name="customer_name"
-                  defaultValue={sale.customer_name ?? ""}
+                  value={customerName}
+                  onChange={(event) => setCustomerName(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -420,7 +442,8 @@ export default function SaleEditModal({
                 <input
                   id="edit_business_partner"
                   name="business_partner"
-                  defaultValue={sale.business_partner ?? ""}
+                  value={businessPartner}
+                  onChange={(event) => setBusinessPartner(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -432,7 +455,8 @@ export default function SaleEditModal({
                 <PhoneInput
                   id="edit_customer_phone"
                   name="customer_phone"
-                  defaultValue={sale.customer_phone ?? ""}
+                  value={customerPhone}
+                  onChange={setCustomerPhone}
                   className={inputClass}
                 />
               </div>
@@ -444,7 +468,8 @@ export default function SaleEditModal({
                 <input
                   id="edit_customer_address"
                   name="customer_address"
-                  defaultValue={sale.customer_address ?? ""}
+                  value={customerAddress}
+                  onChange={(event) => setCustomerAddress(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -458,7 +483,8 @@ export default function SaleEditModal({
             <input
               id="edit_note"
               name="note"
-              defaultValue={sale.note ?? ""}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
               className={inputClass}
             />
           </div>

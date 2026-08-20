@@ -35,13 +35,15 @@ export default function PriceInput({
   const [text, setText] = useState(() => formatDisplay(numericValue));
   const [focused, setFocused] = useState(false);
   const hiddenRef = useRef<HTMLInputElement>(null);
+  const lastSyncedValueRef = useRef(numericValue);
 
   useEffect(() => {
-    if (!focused) {
-      setText(formatDisplay(numericValue));
-      if (hiddenRef.current) {
-        hiddenRef.current.value = String(numericValue);
-      }
+    if (focused) return;
+    if (lastSyncedValueRef.current === numericValue) return;
+    lastSyncedValueRef.current = numericValue;
+    setText(formatDisplay(numericValue));
+    if (hiddenRef.current) {
+      hiddenRef.current.value = String(numericValue);
     }
   }, [numericValue, focused]);
 
@@ -55,12 +57,15 @@ export default function PriceInput({
       setInternalValue(next);
     }
 
+    lastSyncedValueRef.current = next;
     onChange?.(next);
     setText(formatDisplay(next));
 
     if (hiddenRef.current) {
       hiddenRef.current.value = String(next);
     }
+
+    return next;
   }
 
   return (
@@ -86,8 +91,8 @@ export default function PriceInput({
           rest.onFocus?.(event);
         }}
         onBlur={(event) => {
-          setFocused(false);
           commit(event.target.value);
+          setFocused(false);
           rest.onBlur?.(event);
         }}
         onChange={(event) => {

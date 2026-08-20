@@ -48,6 +48,20 @@ const primaryButtonClass =
 const compactSelectClass =
   "h-[26px] rounded border border-zinc-300 bg-white px-2 py-1 text-xs leading-none text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100";
 
+const rowDeleteButtonClass =
+  "rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium leading-none text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
+
+const listDeleteButtonClass =
+  "inline-flex h-8 items-center rounded-lg bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500 dark:hover:bg-red-400";
+
+function omitLineIds<T>(record: Record<string, T>, lineIds: Set<string>) {
+  const next = { ...record };
+  for (const lineId of lineIds) {
+    delete next[lineId];
+  }
+  return next;
+}
+
 function getEffectiveProductId(
   item: Cafe24ExcelImportPreviewItem,
   manualMatches: Record<string, string>,
@@ -104,6 +118,13 @@ function getPurchasePrice(
   }
 
   return item.matchedProductPurchasePrice ?? 0;
+}
+
+function getShippingCost(
+  item: Cafe24ExcelImportPreviewItem,
+  shippingCosts: Record<string, number>,
+) {
+  return shippingCosts[item.lineId] ?? 0;
 }
 
 function summarizePreview(
@@ -209,6 +230,12 @@ export default function Cafe24ExcelImportPanel({
   const [purchasePrices, setPurchasePrices] = useState<Record<string, number>>(
     {},
   );
+  const [shippingCosts, setShippingCosts] = useState<Record<string, number>>(
+    {},
+  );
+  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [dismissedAutoMatches, setDismissedAutoMatches] = useState<Set<string>>(
     () => new Set(),
   );
@@ -251,7 +278,72 @@ export default function Cafe24ExcelImportPanel({
     autoCreateProducts,
   );
 
+  const allVisibleSelected =
+    visibleItems.length > 0 &&
+    visibleItems.every((item) => selectedLineIds.has(item.lineId));
+  const someVisibleSelected =
+    visibleItems.some((item) => selectedLineIds.has(item.lineId)) &&
+    !allVisibleSelected;
+
   if (!canImport) return null;
+
+  function removePreviewLines(lineIds: string[]) {
+    const idSet = new Set(lineIds);
+    if (idSet.size === 0) return;
+
+    setParsedRows((current) => current.filter((row) => !idSet.has(row.lineId)));
+    setItems((current) => current.filter((item) => !idSet.has(item.lineId)));
+    setManualMatches((current) => omitLineIds(current, idSet));
+    setPaymentMethodIds((current) => omitLineIds(current, idSet));
+    setFulfillmentLocations((current) => omitLineIds(current, idSet));
+    setPurchasePrices((current) => omitLineIds(current, idSet));
+    setShippingCosts((current) => omitLineIds(current, idSet));
+    setDismissedAutoMatches((current) => {
+      const next = new Set(current);
+      for (const lineId of idSet) next.delete(lineId);
+      return next;
+    });
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      for (const lineId of idSet) next.delete(lineId);
+      return next;
+    });
+    for (const lineId of idSet) {
+      delete paymentInputRefs.current[lineId];
+    }
+    setCreateModalItem((current) =>
+      current && idSet.has(current.lineId) ? null : current,
+    );
+  }
+
+  function toggleLineSelection(lineId: string, checked: boolean) {
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(lineId);
+      else next.delete(lineId);
+      return next;
+    });
+  }
+
+  function toggleVisibleSelection(checked: boolean) {
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      for (const item of visibleItems) {
+        if (checked) next.add(item.lineId);
+        else next.delete(item.lineId);
+      }
+      return next;
+    });
+  }
+
+  function handleRemoveSelectedLines() {
+    if (selectedLineIds.size === 0) return;
+    removePreviewLines([...selectedLineIds]);
+  }
+
+  function handleRemoveLine(lineId: string) {
+    removePreviewLines([lineId]);
+  }
 
   async function refreshPreviewRows(rows: ParsedCafe24OrderRow[]) {
     const result = await previewCafe24ExcelImport(rows);
@@ -265,6 +357,8 @@ export default function Cafe24ExcelImportPanel({
     setManualMatches({});
     setDismissedAutoMatches(new Set());
     setPurchasePrices({});
+    setShippingCosts({});
+    setSelectedLineIds(new Set());
     setFulfillmentLocations((current) => {
       const next = { ...current };
       for (const item of result.items) {
@@ -291,6 +385,8 @@ export default function Cafe24ExcelImportPanel({
     setPaymentMethodIds({});
     setFulfillmentLocations({});
     setPurchasePrices({});
+    setShippingCosts({});
+    setSelectedLineIds(new Set());
     setDismissedAutoMatches(new Set());
 
     startPreviewTransition(async () => {
@@ -352,6 +448,7 @@ export default function Cafe24ExcelImportPanel({
 
     startImportTransition(async () => {
       const effectivePurchasePrices: Record<string, number> = {};
+      const effectiveShippingCosts: Record<string, number> = {};
       for (const item of items) {
         if (item.alreadyImported) continue;
         effectivePurchasePrices[item.lineId] = getPurchasePrice(
@@ -360,6 +457,10 @@ export default function Cafe24ExcelImportPanel({
           effectiveManualMatches,
           dismissedAutoMatches,
           localProducts,
+        );
+        effectiveShippingCosts[item.lineId] = getShippingCost(
+          item,
+          shippingCosts,
         );
       }
 
@@ -370,6 +471,7 @@ export default function Cafe24ExcelImportPanel({
         paymentMethodIds,
         fulfillmentLocations,
         purchasePrices: effectivePurchasePrices,
+        shippingCosts: effectiveShippingCosts,
       });
 
       if ("error" in result) {
@@ -637,26 +739,53 @@ export default function Cafe24ExcelImportPanel({
 
           {items.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                총 {previewSummary.total}건 · 등록 가능 {previewSummary.importable}
-                건 · 기등록 {previewSummary.existing}건
-                {previewSummary.missingPayment
-                  ? ` · 결제방식 필요 ${previewSummary.missingPayment}건`
-                  : ""}
-                {hideImported && previewSummary.existing > 0
-                  ? ` (${previewSummary.existing}건 숨김)`
-                  : ""}
-                {previewSummary.needsLink
-                  ? ` · 연결필요 ${previewSummary.needsLink}건`
-                  : ""}
-                {previewSummary.unmatched
-                  ? ` · 미매칭 ${previewSummary.unmatched}건`
-                  : ""}
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                  총 {previewSummary.total}건 · 등록 가능 {previewSummary.importable}
+                  건 · 기등록 {previewSummary.existing}건
+                  {previewSummary.missingPayment
+                    ? ` · 결제방식 필요 ${previewSummary.missingPayment}건`
+                    : ""}
+                  {hideImported && previewSummary.existing > 0
+                    ? ` (${previewSummary.existing}건 숨김)`
+                    : ""}
+                  {previewSummary.needsLink
+                    ? ` · 연결필요 ${previewSummary.needsLink}건`
+                    : ""}
+                  {previewSummary.unmatched
+                    ? ` · 미매칭 ${previewSummary.unmatched}건`
+                    : ""}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRemoveSelectedLines}
+                  disabled={selectedLineIds.size === 0}
+                  className={listDeleteButtonClass}
+                >
+                  {selectedLineIds.size > 0
+                    ? `삭제 (${selectedLineIds.size})`
+                    : "삭제"}
+                </button>
+              </div>
               <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
                 <table className="min-w-full text-xs">
                   <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50">
                     <tr>
+                      <th className="w-10 px-2 py-2 text-center font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={allVisibleSelected}
+                          ref={(element) => {
+                            if (element) {
+                              element.indeterminate = someVisibleSelected;
+                            }
+                          }}
+                          onChange={(event) =>
+                            toggleVisibleSelection(event.target.checked)
+                          }
+                          aria-label="표시된 주문 전체 선택"
+                        />
+                      </th>
                       <th className="px-3 py-2 text-left font-semibold">날짜</th>
                       <th className="px-3 py-2 text-left font-semibold">쇼핑몰</th>
                       <th className="px-3 py-2 text-left font-semibold">상품</th>
@@ -665,15 +794,19 @@ export default function Cafe24ExcelImportPanel({
                       <th className="px-3 py-2 text-left font-semibold">출고지</th>
                       <th className="px-3 py-2 text-right font-semibold">수량</th>
                       <th className="px-3 py-2 text-right font-semibold">매입가</th>
+                      <th className="px-3 py-2 text-right font-semibold">업체배송비</th>
                       <th className="px-3 py-2 text-right font-semibold">소비자가</th>
                       <th className="px-3 py-2 text-left font-semibold">상태</th>
+                      <th className="w-10 px-2 py-2 text-center font-semibold">
+                        삭제
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {visibleItems.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={13}
                           className="px-3 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400"
                         >
                           표시할 주문이 없습니다.
@@ -711,12 +844,30 @@ export default function Cafe24ExcelImportPanel({
                           dismissedAutoMatches,
                           localProducts,
                         );
+                        const shippingCost = getShippingCost(item, shippingCosts);
 
                         return (
                           <tr
                             key={item.lineId}
-                            className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
+                            className={`border-b border-zinc-100 last:border-0 dark:border-zinc-800 ${
+                              selectedLineIds.has(item.lineId)
+                                ? "bg-blue-50/40 dark:bg-blue-950/20"
+                                : ""
+                            }`}
                           >
+                            <td className="px-2 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedLineIds.has(item.lineId)}
+                                onChange={(event) =>
+                                  toggleLineSelection(
+                                    item.lineId,
+                                    event.target.checked,
+                                  )
+                                }
+                                aria-label={`${item.productName} 선택`}
+                              />
+                            </td>
                             <td className="px-3 py-2 whitespace-nowrap">
                               {item.soldAt}
                             </td>
@@ -834,6 +985,23 @@ export default function Cafe24ExcelImportPanel({
                                 />
                               )}
                             </td>
+                            <td className="px-3 py-2 text-right">
+                              {item.alreadyImported ? (
+                                "—"
+                              ) : (
+                                <PriceInput
+                                  value={shippingCost}
+                                  onChange={(nextValue) =>
+                                    setShippingCosts((current) => ({
+                                      ...current,
+                                      [item.lineId]: Math.max(0, nextValue),
+                                    }))
+                                  }
+                                  className={`${compactSelectClass} w-24 text-right`}
+                                  aria-label={`${item.orderNo} 업체 배송비`}
+                                />
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-right whitespace-nowrap">
                               {formatKRW(lineTotal)}원
                               {item.quantity > 1 ? (
@@ -843,6 +1011,16 @@ export default function Cafe24ExcelImportPanel({
                               ) : null}
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap">{status}</td>
+                            <td className="px-2 py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveLine(item.lineId)}
+                                className={rowDeleteButtonClass}
+                                aria-label={`${item.productName} 목록에서 제거`}
+                              >
+                                -
+                              </button>
+                            </td>
                           </tr>
                         );
                       })

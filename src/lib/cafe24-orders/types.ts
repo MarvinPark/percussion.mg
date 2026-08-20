@@ -43,4 +43,5 @@ export type Cafe24ExcelImportOptions = {
   paymentMethodIds?: Record<string, string>;
   fulfillmentLocations?: Record<string, "직발송" | "매장">;
   purchasePrices?: Record<string, number>;
+  shippingCosts?: Record<string, number>;
 };

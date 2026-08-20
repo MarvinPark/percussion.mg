@@ -17,5 +17,9 @@ create policy "로그인 사용자 결제방식 수정"
 create policy "로그인 사용자 결제방식 삭제"
   on payment_methods for delete to authenticated using (true);
 
+drop policy if exists "로그인 사용자 판매 수정" on sales;
+
 create policy "로그인 사용자 판매 수정"
-  on sales for update to authenticated using (true);
+  on sales for update to authenticated
+  using (true)
+  with check (true);

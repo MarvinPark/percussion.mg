@@ -13,8 +13,62 @@ import {
   sumLocationStock,
 } from "@/lib/stock-locations";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+type SaleMutationSupabase = Awaited<ReturnType<typeof createClient>>;
+
+function normalizeOptionalUserId(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      trimmed,
+    )
+  ) {
+    return null;
+  }
+  return trimmed;
+}
+
+function formatSaleUpdateError(error: { message?: string } | null) {
+  const message = error?.message ?? "";
+  if (message.includes("shipping_cost")) {
+    return "sales 테이블에 shipping_cost 컬럼이 없습니다. supabase/schema-sales-shipping-cost.sql을 실행해 주세요.";
+  }
+  if (message.includes("customer_phone") || message.includes("customer_address")) {
+    return "sales 테이블에 고객 연락처 컬럼이 없습니다. supabase/schema-sales-update.sql을 실행해 주세요.";
+  }
+  if (message.includes("created_by_name") || message.includes("created_by_user_id")) {
+    return "sales 테이블에 담당자 컬럼이 없습니다. supabase/schema-sales.sql을 확인해 주세요.";
+  }
+  if (message.includes("sale_category") || message.includes("check constraint")) {
+    return "판매 구분 값이 올바르지 않습니다. 설정에서 사용 중인 구분을 확인해 주세요.";
+  }
+  if (message.includes("row-level security") || message.includes("policy")) {
+    return "판매 수정 권한(RLS)이 없습니다. supabase/schema-sales-edit.sql을 실행해 주세요.";
+  }
+  if (message) {
+    return `판매 수정에 실패했습니다. (${message})`;
+  }
+  return "판매 수정에 실패했습니다. Supabase에서 sales 테이블 수정 권한(RLS)을 확인해 주세요.";
+}
+
+async function getSaleMutationSupabase(): Promise<
+  { error: string } | { supabase: SaleMutationSupabase }
+> {
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) {
+    return { error: auth.error ?? "이 작업을 할 권한이 없습니다." };
+  }
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    return { supabase: createAdminClient() as SaleMutationSupabase };
+  }
+
+  return { supabase: await createClient() };
+}
 
 async function recordStockOutForSale(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -337,12 +391,15 @@ export async function createSale(formData: FormData) {
 }
 
 export async function updateSale(formData: FormData) {
-  const sale_id = String(formData.get("sale_id") ?? "");
+  const sale_id = String(formData.get("sale_id") ?? "").trim();
   const sale_category_raw = String(formData.get("sale_category") ?? "");
   const product_id = String(formData.get("product_id") ?? "");
   const sold_at = String(formData.get("sold_at") ?? "").trim();
   const quantity = Number(formData.get("quantity") ?? 0);
-  const unit_sale_price = Number(formData.get("unit_sale_price") ?? 0);
+  const unit_sale_price = Math.max(
+    0,
+    Math.round(Number(formData.get("unit_sale_price") ?? 0)),
+  );
   const customer_name = String(formData.get("customer_name") ?? "").trim();
   const business_partner = String(formData.get("business_partner") ?? "").trim();
   const customer_phone = String(formData.get("customer_phone") ?? "").trim();
@@ -351,26 +408,31 @@ export async function updateSale(formData: FormData) {
   const shipping_cost = Math.max(0, Number(formData.get("shipping_cost") ?? 0));
   const note = String(formData.get("note") ?? "").trim();
   const created_by_name = String(formData.get("created_by_name") ?? "").trim();
-  const created_by_user_id = String(formData.get("created_by_user_id") ?? "").trim();
+  const created_by_user_id = normalizeOptionalUserId(
+    String(formData.get("created_by_user_id") ?? ""),
+  );
 
   if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
   if (!created_by_name) return { error: "담당자를 선택해 주세요." };
   if (!product_id) return { error: "제품을 선택해 주세요." };
 
-  const supabase = await createClient();
+  const mutation = await getSaleMutationSupabase();
+  if ("error" in mutation) return { error: mutation.error };
+
+  const supabase = mutation.supabase;
   const sale_category = await resolveSaleCategory(supabase, sale_category_raw);
   if (!sale_category) return { error: "구분을 선택해 주세요." };
   if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
   if (!quantity || quantity <= 0) return { error: "수량은 1 이상 입력해 주세요." };
+  if (Number.isNaN(unit_sale_price)) {
+    return { error: "판매 단가를 올바르게 입력해 주세요." };
+  }
   if (unit_sale_price < 0) return { error: "소비자가는 0 이상이어야 합니다." };
   if (!payment_method_id) return { error: "결제 방식을 선택해 주세요." };
 
-  const auth = await requirePermission("manageSales");
-  if ("error" in auth) return { error: auth.error };
-
   const { data: existingSale } = await supabase
     .from("sales")
-    .select("id, product_id, quantity, customer_name")
+    .select("id, product_id, quantity, customer_name, unit_purchase_price")
     .eq("id", sale_id)
     .single();
 
@@ -392,7 +454,13 @@ export async function updateSale(formData: FormData) {
 
   if (!paymentMethod) return { error: "결제 방식을 찾을 수 없습니다." };
 
-  const unit_purchase_price = Number(product.purchase_price) || 0;
+  const unit_purchase_price =
+    product_id === existingSale.product_id
+      ? Math.max(
+          0,
+          Math.round(Number(existingSale.unit_purchase_price) || 0),
+        ) || Math.max(0, Math.round(Number(product.purchase_price) || 0))
+      : Math.max(0, Math.round(Number(product.purchase_price) || 0));
   const { totalAmount, paymentFeeAmount, marginAmount } = calculateSaleAmounts({
     quantity,
     unitSalePrice: unit_sale_price,
@@ -437,14 +505,38 @@ export async function updateSale(formData: FormData) {
       shipping_cost,
       note: note || null,
       created_by_name,
-      created_by_user_id: created_by_user_id || null,
+      created_by_user_id,
     })
     .eq("id", sale_id);
 
   if (updateError) {
+    return { error: formatSaleUpdateError(updateError) };
+  }
+
+  const { data: verified, error: verifyError } = await supabase
+    .from("sales")
+    .select("sold_at, quantity, product_id, sale_category, unit_sale_price")
+    .eq("id", sale_id)
+    .single();
+
+  if (verifyError || !verified) {
     return {
       error:
-        "판매 수정에 실패했습니다. Supabase에서 sales 테이블 수정 권한(RLS)을 확인해 주세요.",
+        "판매 수정 결과를 확인하지 못했습니다. Supabase SQL Editor에서 supabase/schema-sales-edit.sql을 실행해 주세요.",
+    };
+  }
+
+  const verifiedSoldAt = String(verified.sold_at).slice(0, 10);
+  if (
+    verifiedSoldAt !== sold_at ||
+    verified.quantity !== quantity ||
+    verified.product_id !== product_id ||
+    verified.sale_category !== sale_category ||
+    Math.round(Number(verified.unit_sale_price) || 0) !== unit_sale_price
+  ) {
+    return {
+      error:
+        "판매 수정이 반영되지 않았습니다. Supabase SQL Editor에서 supabase/schema-sales-edit.sql을 실행해 주세요.",
     };
   }
 
@@ -465,9 +557,10 @@ export async function updateSalePurchasePrice(
 
   const unit_purchase_price = Math.max(0, Math.round(unitPurchasePrice));
 
-  const supabase = await createClient();
-  const auth = await requirePermission("manageSales");
-  if ("error" in auth) return { error: auth.error };
+  const mutation = await getSaleMutationSupabase();
+  if ("error" in mutation) return { error: mutation.error };
+
+  const supabase = mutation.supabase;
 
   const { data: sale } = await supabase
     .from("sales")
@@ -496,16 +589,131 @@ export async function updateSalePurchasePrice(
     .eq("id", sale_id);
 
   if (updateError) {
-    return {
-      error:
-        "매입가 수정에 실패했습니다. Supabase에서 sales 테이블 수정 권한(RLS)을 확인해 주세요.",
-    };
+    return { error: formatSaleUpdateError(updateError) };
   }
 
   revalidatePath("/sales");
   revalidatePath("/dashboard");
 
   return { ok: true as const };
+}
+
+export async function updateSaleShippingCost(
+  saleId: string,
+  shippingCost: number,
+): Promise<{ error?: string; ok?: boolean }> {
+  const sale_id = saleId.trim();
+  if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const shipping_cost = Math.max(0, Math.round(shippingCost));
+
+  const mutation = await getSaleMutationSupabase();
+  if ("error" in mutation) return { error: mutation.error };
+
+  const supabase = mutation.supabase;
+
+  const { data: sale } = await supabase
+    .from("sales")
+    .select(
+      "id, quantity, unit_sale_price, unit_purchase_price, payment_fee_rate",
+    )
+    .eq("id", sale_id)
+    .single();
+
+  if (!sale) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const { marginAmount } = calculateSaleAmounts({
+    quantity: sale.quantity,
+    unitSalePrice: Number(sale.unit_sale_price) || 0,
+    unitPurchasePrice: Number(sale.unit_purchase_price) || 0,
+    feeRate: Number(sale.payment_fee_rate) || 0,
+    shippingCost: shipping_cost,
+  });
+
+  const { error: updateError } = await supabase
+    .from("sales")
+    .update({
+      shipping_cost,
+      margin_amount: marginAmount,
+    })
+    .eq("id", sale_id);
+
+  if (updateError) {
+    return { error: formatSaleUpdateError(updateError) };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/dashboard");
+
+  return { ok: true as const };
+}
+
+export async function deleteSales(
+  saleIds: string[],
+): Promise<{ error?: string; ok?: boolean; deleted?: number; errors?: string[] }> {
+  const uniqueIds = [...new Set(saleIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return { error: "삭제할 매출을 선택해 주세요." };
+  }
+
+  const supabase = await createClient();
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error };
+
+  let deleted = 0;
+  const errors: string[] = [];
+
+  for (const sale_id of uniqueIds) {
+    const { data: existingSale } = await supabase
+      .from("sales")
+      .select("id, product_id, quantity, customer_name")
+      .eq("id", sale_id)
+      .single();
+
+    if (!existingSale) {
+      errors.push("이미 삭제된 매출이 포함되어 있습니다.");
+      continue;
+    }
+
+    const stockNote = `판매 삭제${existingSale.customer_name ? ` — ${existingSale.customer_name}` : ""}`;
+    const stockResult = await recordStockIn(
+      supabase,
+      existingSale.product_id,
+      existingSale.quantity,
+      stockNote,
+    );
+
+    if ("error" in stockResult) {
+      errors.push(stockResult.error ?? "재고 복구에 실패했습니다.");
+      continue;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("sales")
+      .delete()
+      .eq("id", sale_id);
+
+    if (deleteError) {
+      errors.push("매출 삭제에 실패했습니다.");
+      continue;
+    }
+
+    deleted += 1;
+  }
+
+  if (deleted === 0) {
+    return {
+      error: errors[0] ?? "매출 삭제에 실패했습니다.",
+      errors,
+    };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/products");
+  revalidatePath("/products/history");
+  revalidatePath("/dashboard");
+
+  return { ok: true, deleted, errors };
 }
 
 export async function deleteSale(

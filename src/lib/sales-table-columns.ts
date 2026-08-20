@@ -7,6 +7,7 @@ export type SalesTableColumnId =
   | "purchase_price"
   | "total_amount"
   | "fee"
+  | "shipping_cost"
   | "margin"
   | "customer"
   | "payment"
@@ -37,6 +38,14 @@ export const SALES_TABLE_COLUMNS: SalesTableColumn[] = [
   },
   { id: "total_amount", label: "매출", minWidth: 72, defaultWidth: 88, resizable: true },
   { id: "fee", label: "수수료", minWidth: 72, defaultWidth: 88, resizable: true },
+  {
+    id: "shipping_cost",
+    label: "업체배송비",
+    align: "right",
+    minWidth: 72,
+    defaultWidth: 88,
+    resizable: true,
+  },
   { id: "margin", label: "마진", minWidth: 72, defaultWidth: 88, resizable: true },
   { id: "customer", label: "고객", minWidth: 80, defaultWidth: 112, resizable: true },
   { id: "payment", label: "결제", minWidth: 64, defaultWidth: 80, resizable: true },

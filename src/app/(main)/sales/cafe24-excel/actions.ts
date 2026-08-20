@@ -258,6 +258,7 @@ export async function importCafe24ExcelOrders(
   const paymentMethodIds = options.paymentMethodIds ?? {};
   const fulfillmentLocations = options.fulfillmentLocations ?? {};
   const purchasePrices = options.purchasePrices ?? {};
+  const shippingCosts = options.shippingCosts ?? {};
 
   const supabase = await createClient();
   const auth = await requirePermission("createSales");
@@ -362,12 +363,18 @@ export async function importCafe24ExcelOrders(
         result.errors.push(`${order.orderNo}: 매입가는 0 이상이어야 합니다.`);
         continue;
       }
-      const { totalAmount, paymentFeeAmount, marginAmount } =
+
+      const shippingCost = Math.max(
+        0,
+        Math.round(shippingCosts[order.lineId] ?? 0),
+      );
+      const { totalAmount, paymentFeeAmount, marginAmount, shippingCost: normalizedShippingCost } =
         buildSaleAmountsForLine(
           order.quantity,
           order.unitSalePrice,
           unitPurchasePrice,
           paymentMethod,
+          shippingCost,
         );
 
       const lineNote = buildImportNote(order, fulfillmentLocation);
@@ -404,6 +411,7 @@ export async function importCafe24ExcelOrders(
         payment_fee_amount: paymentFeeAmount,
         total_amount: totalAmount,
         margin_amount: marginAmount,
+        shipping_cost: normalizedShippingCost,
         note: lineNote,
         created_by_user_id: auth.userId,
         created_by_name: auth.name,

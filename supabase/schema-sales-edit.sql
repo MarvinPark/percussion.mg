@@ -4,5 +4,9 @@
 -- (schema-sales.sql 실행 후, 수정 기능 사용 시 필요)
 -- ============================================================
 
+drop policy if exists "로그인 사용자 판매 수정" on sales;
+
 create policy "로그인 사용자 판매 수정"
-  on sales for update to authenticated using (true);
+  on sales for update to authenticated
+  using (true)
+  with check (true);
