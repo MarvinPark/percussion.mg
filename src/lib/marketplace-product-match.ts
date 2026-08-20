@@ -8,7 +8,7 @@ export type ProductMatchCandidate = {
   sale_price: number;
 };
 
-export function matchProductForSmartstoreOrder(
+export function matchProductForMarketplaceOrder(
   products: ProductMatchCandidate[],
   order: {
     sellerProductCode: string;

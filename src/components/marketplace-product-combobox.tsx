@@ -4,9 +4,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { searchProductsForSaleDropdown } from "@/app/(main)/products/actions";
 import ProductSearchResultRow from "@/components/product-search-result-row";
-import {
-  formatLinkedProductDisplayLabel,
-} from "@/lib/product-search";
+import { formatLinkedProductDisplayLabel } from "@/lib/product-search";
 import type { SaleProductOption } from "@/types/sale";
 
 const compactInputClass =
@@ -20,7 +18,7 @@ type DropdownPosition = {
   width: number;
 };
 
-type SmartstoreProductComboboxProps = {
+type MarketplaceProductComboboxProps = {
   products: SaleProductOption[];
   selectedProductId: string;
   autoMatchedProductId?: string | null;
@@ -58,7 +56,7 @@ function resolveDisplayLabel(
   return "";
 }
 
-export default function SmartstoreProductCombobox({
+export default function MarketplaceProductCombobox({
   products,
   selectedProductId,
   linkedProductLabel,
@@ -66,7 +64,7 @@ export default function SmartstoreProductCombobox({
   onSelect,
   onClear,
   nextFocusRef,
-}: SmartstoreProductComboboxProps) {
+}: MarketplaceProductComboboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);

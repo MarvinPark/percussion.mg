@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import AppBrandFooter from "@/components/app-brand-footer";
-import ThemeToggle from "@/components/theme-toggle";
+import BottomFloatingActions from "@/components/bottom-floating-actions";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -44,7 +44,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
         <AppBrandFooter />
-        <ThemeToggle />
+        <BottomFloatingActions />
       </body>
     </html>
   );

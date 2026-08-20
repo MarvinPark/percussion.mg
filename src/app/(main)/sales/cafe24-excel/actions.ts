@@ -11,8 +11,10 @@ import {
   loadAllProductMatchCandidates,
   resolveManualProductMatch,
 } from "@/lib/marketplace-product-loader";
-import { matchProductForSmartstoreOrder } from "@/lib/naver-commerce/match-product";
-import type { ProductMatchCandidate } from "@/lib/naver-commerce/match-product";
+import {
+  matchProductForMarketplaceOrder,
+  type ProductMatchCandidate,
+} from "@/lib/marketplace-product-match";
 import {
   isStoreFulfillment,
   parseFulfillmentLocation,
@@ -20,6 +22,7 @@ import {
   type FulfillmentLocation,
 } from "@/lib/quote-fulfillment";
 import { requirePermission } from "@/lib/profile";
+import { ONLINE_SALE_CATEGORY } from "@/lib/sale-categories";
 import {
   buildSaleAmountsForLine,
   formatSaleInsertError,
@@ -62,7 +65,7 @@ async function loadExistingLineIds(
 
     if (missingSchema) {
       throw new Error(
-        "sales 테이블에 외부 주문 연동 컬럼이 없습니다. supabase/schema-smartstore.sql을 실행해 주세요.",
+        "sales 테이블에 외부 주문 연동 컬럼이 없습니다. supabase/schema-external-order.sql을 실행해 주세요.",
       );
     }
     throw new Error("기존 매출 조회에 실패했습니다.");
@@ -150,7 +153,7 @@ async function resolveProductForOrder(
 
   const matched = options.skipAutoMatch
     ? null
-    : matchProductForSmartstoreOrder(products, {
+    : matchProductForMarketplaceOrder(products, {
         sellerProductCode: order.sellerProductCode,
         productName: order.productName,
         productOption: order.productOption,
@@ -188,7 +191,7 @@ function buildPreviewItems(
   existingIds: Set<string>,
 ): Cafe24ExcelImportPreviewItem[] {
   return rows.map((row) => {
-    const matched = matchProductForSmartstoreOrder(products, {
+    const matched = matchProductForMarketplaceOrder(products, {
       sellerProductCode: row.sellerProductCode,
       productName: row.productName,
       productOption: row.productOption,
@@ -259,6 +262,7 @@ export async function importCafe24ExcelOrders(
   const fulfillmentLocations = options.fulfillmentLocations ?? {};
   const purchasePrices = options.purchasePrices ?? {};
   const shippingCosts = options.shippingCosts ?? {};
+  const saleCategories = options.saleCategories ?? {};
 
   const supabase = await createClient();
   const auth = await requirePermission("createSales");
@@ -398,6 +402,8 @@ export async function importCafe24ExcelOrders(
 
       const insertResult = await insertSaleRecord(supabase, {
         sold_at: order.soldAt,
+        sale_category:
+          saleCategories[order.lineId]?.trim() || ONLINE_SALE_CATEGORY,
         product_id: matched.id,
         quantity: order.quantity,
         unit_sale_price: order.unitSalePrice,

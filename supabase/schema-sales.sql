@@ -29,7 +29,7 @@ create table if not exists sales (
   customer_name text,
   business_partner text,
   payment_method text not null,
-  sale_category text not null default '소매' check (sale_category in ('도매', '소매', 'VIP', '중고', '렌탈')),
+  sale_category text not null default '소매',
   payment_fee_rate numeric(5, 2) not null default 0,
   payment_fee_amount numeric(12, 0) not null default 0,
   total_amount numeric(12, 0) not null,

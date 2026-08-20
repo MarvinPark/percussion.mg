@@ -1,6 +1,9 @@
 -- ============================================================
--- 매출관리: 판매 구분 (도매/소매/VIP/중고)
+-- 매출관리: 판매 구분 컬럼 추가
 -- Supabase SQL Editor → New query → 붙여넣기 → Run
+--
+-- 구분 선택 항목은 sale_category_options 테이블에서 관리합니다.
+-- schema-admin-settings.sql 실행 후 schema-sale-category-dynamic.sql 도 실행하세요.
 -- ============================================================
 
 alter table sales
@@ -8,7 +11,3 @@ alter table sales
 
 alter table sales
   drop constraint if exists sales_sale_category_check;
-
-alter table sales
-  add constraint sales_sale_category_check
-  check (sale_category in ('도매', '소매', 'VIP', '중고', '렌탈'));

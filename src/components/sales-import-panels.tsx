@@ -15,28 +15,18 @@ const Cafe24ExcelImportPanel = dynamic(
   },
 );
 
-const SmartstoreImportPanel = dynamic(
-  () => import("@/components/smartstore-import-panel"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-        스마트스토어 주문 가져오기 불러오는 중...
-      </div>
-    ),
-  },
-);
-
 type SalesImportPanelsProps = {
   canImport: boolean;
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
 };
 
 export default function SalesImportPanels({
   canImport,
   products,
   paymentMethods,
+  saleCategories,
 }: SalesImportPanelsProps) {
   if (!canImport) return null;
 
@@ -46,8 +36,8 @@ export default function SalesImportPanels({
         canImport={canImport}
         products={products}
         paymentMethods={paymentMethods}
+        saleCategories={saleCategories}
       />
-      <SmartstoreImportPanel canImport={canImport} products={products} />
     </div>
   );
 }

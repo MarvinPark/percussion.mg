@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ProductMatchCandidate } from "@/lib/naver-commerce/match-product";
+import type { ProductMatchCandidate } from "@/lib/marketplace-product-match";
 
 const PRODUCT_MATCH_SELECT =
   "id, sku, product_name, model_name, brand, purchase_price, sale_price";

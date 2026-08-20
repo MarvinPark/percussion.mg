@@ -115,6 +115,10 @@ export default function SaleCategoriesManager({
           <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">
             supabase/schema-admin-settings.sql
           </code>
+          와{" "}
+          <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">
+            supabase/schema-sale-category-dynamic.sql
+          </code>
           을 실행해 주세요.
         </p>
       ) : null}

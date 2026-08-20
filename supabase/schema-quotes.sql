@@ -12,7 +12,7 @@ create table quotes (
   quote_date date not null default current_date,
   customer_name text not null,
   business_partner text,
-  sale_category text not null default '소매' check (sale_category in ('도매', '소매', 'VIP', '중고', '렌탈')),
+  sale_category text not null default '소매',
   customer_phone text,
   customer_address text,
   customer_email text,

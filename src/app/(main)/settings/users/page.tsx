@@ -171,7 +171,8 @@ export default async function AdminSettingsPage() {
             4. 견적
           </h3>
           <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-            견적·매출의 &quot;구분&quot; 선택 항목을 추가·수정합니다.
+            견적·매출·주문 불러오기 등 전체 영역에서 사용하는 &quot;구분&quot; 항목을
+            추가·수정합니다.
           </p>
 
           <SaleCategoriesManager

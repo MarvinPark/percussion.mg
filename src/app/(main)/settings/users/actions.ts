@@ -445,6 +445,7 @@ function revalidateSaleCategoryPaths() {
   revalidatePath("/sales/new");
   revalidatePath("/quotes");
   revalidatePath("/quotes/new");
+  revalidatePath("/dashboard");
 }
 
 export async function updateRolePermissions(map: RolePermissionMap) {

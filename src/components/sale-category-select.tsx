@@ -1,6 +1,6 @@
 import {
   DEFAULT_SALE_CATEGORY,
-  SALE_CATEGORIES,
+  FALLBACK_SALE_CATEGORIES,
 } from "@/lib/sale-categories";
 
 const selectClass =
@@ -16,16 +16,27 @@ type SaleCategorySelectProps = {
   className?: string;
 };
 
-function resolveCategories(categories?: readonly string[]) {
-  if (categories?.length) return categories;
-  return SALE_CATEGORIES;
+function resolveCategories(
+  categories?: readonly string[],
+  currentValue?: string | null,
+) {
+  const base = categories?.length
+    ? [...categories]
+    : [...FALLBACK_SALE_CATEGORIES];
+  const current = currentValue?.trim();
+  if (current && !base.includes(current)) {
+    return [current, ...base];
+  }
+  return base;
 }
 
 function displayValue(
   value: string | null | undefined,
   categories: readonly string[],
 ) {
-  if (value && categories.includes(value)) return value;
+  const trimmed = value?.trim();
+  if (trimmed && categories.includes(trimmed)) return trimmed;
+  if (trimmed) return trimmed;
   if (categories.includes(DEFAULT_SALE_CATEGORY)) return DEFAULT_SALE_CATEGORY;
   return categories[0] ?? DEFAULT_SALE_CATEGORY;
 }
@@ -39,7 +50,8 @@ export default function SaleCategorySelect({
   onChange,
   className = selectClass,
 }: SaleCategorySelectProps) {
-  const categories = resolveCategories(categoriesProp);
+  const currentValue = value ?? defaultValue;
+  const categories = resolveCategories(categoriesProp, currentValue);
   const isControlled = value !== undefined;
   const resolvedValue = isControlled
     ? displayValue(value, categories)

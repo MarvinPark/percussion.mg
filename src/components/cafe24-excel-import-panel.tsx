@@ -16,7 +16,7 @@ import {
 import Cafe24ExcelProductCreateModal from "@/components/cafe24-excel-product-create-modal";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
-import SmartstoreProductCombobox from "@/components/smartstore-product-combobox";
+import MarketplaceProductCombobox from "@/components/marketplace-product-combobox";
 import { parseCafe24OrdersFile } from "@/lib/cafe24-orders/parse-orders-file";
 import type {
   Cafe24ExcelImportPreviewItem,
@@ -30,13 +30,15 @@ import {
   FULFILLMENT_LOCATIONS,
   type FulfillmentLocation,
 } from "@/lib/quote-fulfillment";
-import { SMARTSTORE_SCHEMA_SQL } from "@/lib/smartstore-schema-sql";
+import { EXTERNAL_ORDER_SCHEMA_SQL } from "@/lib/external-order-schema-sql";
+import { ONLINE_SALE_CATEGORY } from "@/lib/sale-categories";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 type Cafe24ExcelImportPanelProps = {
   canImport: boolean;
   products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
+  saleCategories: string[];
 };
 
 const buttonClass =
@@ -199,10 +201,31 @@ function createPaymentFocusRef(
   };
 }
 
+function formatImportDateShort(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1].slice(-2)}.${match[2]}.${match[3]}`;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yy}.${mm}.${dd}`;
+}
+
+function resolveDefaultSaleCategory(categories: readonly string[]) {
+  if (categories.includes(ONLINE_SALE_CATEGORY)) return ONLINE_SALE_CATEGORY;
+  return categories[0] ?? ONLINE_SALE_CATEGORY;
+}
+
 export default function Cafe24ExcelImportPanel({
   canImport,
   products,
   paymentMethods,
+  saleCategories,
 }: Cafe24ExcelImportPanelProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -233,6 +256,17 @@ export default function Cafe24ExcelImportPanel({
   const [shippingCosts, setShippingCosts] = useState<Record<string, number>>(
     {},
   );
+  const [saleCategoryByLineId, setSaleCategoryByLineId] = useState<
+    Record<string, string>
+  >({});
+  const defaultSaleCategory = useMemo(
+    () => resolveDefaultSaleCategory(saleCategories),
+    [saleCategories],
+  );
+  const categoryOptions = useMemo(() => {
+    if (saleCategories.length > 0) return saleCategories;
+    return [ONLINE_SALE_CATEGORY];
+  }, [saleCategories]);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -298,6 +332,7 @@ export default function Cafe24ExcelImportPanel({
     setFulfillmentLocations((current) => omitLineIds(current, idSet));
     setPurchasePrices((current) => omitLineIds(current, idSet));
     setShippingCosts((current) => omitLineIds(current, idSet));
+    setSaleCategoryByLineId((current) => omitLineIds(current, idSet));
     setDismissedAutoMatches((current) => {
       const next = new Set(current);
       for (const lineId of idSet) next.delete(lineId);
@@ -369,6 +404,16 @@ export default function Cafe24ExcelImportPanel({
       }
       return next;
     });
+    setSaleCategoryByLineId((current) => {
+      const next = { ...current };
+      for (const item of result.items) {
+        if (item.alreadyImported) continue;
+        if (!next[item.lineId]) {
+          next[item.lineId] = defaultSaleCategory;
+        }
+      }
+      return next;
+    });
     return true;
   }
 
@@ -386,6 +431,7 @@ export default function Cafe24ExcelImportPanel({
     setFulfillmentLocations({});
     setPurchasePrices({});
     setShippingCosts({});
+    setSaleCategoryByLineId({});
     setSelectedLineIds(new Set());
     setDismissedAutoMatches(new Set());
 
@@ -472,6 +518,7 @@ export default function Cafe24ExcelImportPanel({
         fulfillmentLocations,
         purchasePrices: effectivePurchasePrices,
         shippingCosts: effectiveShippingCosts,
+        saleCategories: saleCategoryByLineId,
       });
 
       if ("error" in result) {
@@ -545,7 +592,7 @@ export default function Cafe24ExcelImportPanel({
   }
 
   function handleCopySql() {
-    void navigator.clipboard.writeText(SMARTSTORE_SCHEMA_SQL).then(() => {
+    void navigator.clipboard.writeText(EXTERNAL_ORDER_SCHEMA_SQL).then(() => {
       setCopiedSql(true);
       window.setTimeout(() => setCopiedSql(false), 2000);
     });
@@ -717,7 +764,7 @@ export default function Cafe24ExcelImportPanel({
                 </button>
               </div>
               <pre className="max-h-40 overflow-auto rounded border border-amber-200 bg-white p-2 text-[11px] leading-relaxed text-zinc-800 dark:border-amber-900 dark:bg-zinc-950 dark:text-zinc-200">
-                {SMARTSTORE_SCHEMA_SQL}
+                {EXTERNAL_ORDER_SCHEMA_SQL}
               </pre>
             </div>
           ) : null}
@@ -786,8 +833,10 @@ export default function Cafe24ExcelImportPanel({
                           aria-label="표시된 주문 전체 선택"
                         />
                       </th>
-                      <th className="px-3 py-2 text-left font-semibold">날짜</th>
-                      <th className="px-3 py-2 text-left font-semibold">쇼핑몰</th>
+                      <th className="w-[4.5rem] px-2 py-2 text-left font-semibold">
+                        날짜
+                      </th>
+                      <th className="px-2 py-2 text-left font-semibold">구분</th>
                       <th className="px-3 py-2 text-left font-semibold">상품</th>
                       <th className="px-3 py-2 text-left font-semibold">연결 제품</th>
                       <th className="px-3 py-2 text-left font-semibold">결제방식</th>
@@ -845,6 +894,8 @@ export default function Cafe24ExcelImportPanel({
                           localProducts,
                         );
                         const shippingCost = getShippingCost(item, shippingCosts);
+                        const rowSaleCategory =
+                          saleCategoryByLineId[item.lineId] ?? defaultSaleCategory;
 
                         return (
                           <tr
@@ -868,11 +919,30 @@ export default function Cafe24ExcelImportPanel({
                                 aria-label={`${item.productName} 선택`}
                               />
                             </td>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              {item.soldAt}
+                            <td className="px-2 py-2 whitespace-nowrap tabular-nums">
+                              {formatImportDateShort(item.soldAt)}
                             </td>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              {item.mallName || "—"}
+                            <td className="px-2 py-2 whitespace-nowrap">
+                              {item.alreadyImported ? (
+                                rowSaleCategory
+                              ) : (
+                                <select
+                                  value={rowSaleCategory}
+                                  onChange={(event) =>
+                                    setSaleCategoryByLineId((current) => ({
+                                      ...current,
+                                      [item.lineId]: event.target.value,
+                                    }))
+                                  }
+                                  className={`${compactSelectClass} w-20`}
+                                >
+                                  {categoryOptions.map((category) => (
+                                    <option key={category} value={category}>
+                                      {category}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </td>
                             <td
                               className="cursor-context-menu px-3 py-2"
@@ -900,7 +970,7 @@ export default function Cafe24ExcelImportPanel({
                               {item.alreadyImported ? (
                                 item.matchedProductName ?? "—"
                               ) : (
-                                <SmartstoreProductCombobox
+                                <MarketplaceProductCombobox
                                   products={sortedProducts}
                                   selectedProductId={linkedProductId}
                                   autoMatchedProductId={item.matchedProductId}

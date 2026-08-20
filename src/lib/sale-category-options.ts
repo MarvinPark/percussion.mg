@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   DEFAULT_SALE_CATEGORY,
-  SALE_CATEGORIES,
+  FALLBACK_SALE_CATEGORIES,
 } from "@/lib/sale-categories";
 
 export type SaleCategoryOption = {
@@ -21,7 +21,7 @@ function isMissingCategoryTableError(message: string | undefined) {
 }
 
 function staticSaleCategoryOptions(): SaleCategoryOption[] {
-  return SALE_CATEGORIES.map((name, index) => ({
+  return FALLBACK_SALE_CATEGORIES.map((name, index) => ({
     id: `static-${index}`,
     name,
     sort_order: index + 1,
@@ -41,8 +41,8 @@ export async function fetchSaleCategoryOptions(supabase: SupabaseClient) {
     return {
       options: [] as SaleCategoryOption[],
       names: isMissingCategoryTableError(error.message)
-        ? ([...SALE_CATEGORIES] as string[])
-        : ([...SALE_CATEGORIES] as string[]),
+        ? ([...FALLBACK_SALE_CATEGORIES] as string[])
+        : ([...FALLBACK_SALE_CATEGORIES] as string[]),
       error: isMissingCategoryTableError(error.message) ? null : error.message,
     };
   }
@@ -50,7 +50,7 @@ export async function fetchSaleCategoryOptions(supabase: SupabaseClient) {
   if (!data?.length) {
     return {
       options: [] as SaleCategoryOption[],
-      names: [...SALE_CATEGORIES] as string[],
+      names: [...FALLBACK_SALE_CATEGORIES] as string[],
       error: null,
     };
   }
@@ -106,7 +106,9 @@ export function displaySaleCategoryFromList(
   value: string | null | undefined,
   allowedNames: readonly string[],
 ): string {
-  if (value && allowedNames.includes(value)) return value;
+  const trimmed = value?.trim();
+  if (trimmed && allowedNames.includes(trimmed)) return trimmed;
+  if (trimmed) return trimmed;
   if (allowedNames.includes(DEFAULT_SALE_CATEGORY)) {
     return DEFAULT_SALE_CATEGORY;
   }

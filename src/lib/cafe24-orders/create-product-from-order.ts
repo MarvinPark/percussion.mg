@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ProductMatchCandidate } from "@/lib/naver-commerce/match-product";
+import type { ProductMatchCandidate } from "@/lib/marketplace-product-match";
 import type { ParsedCafe24OrderRow } from "@/lib/cafe24-orders/types";
 
 function buildSku(order: ParsedCafe24OrderRow) {

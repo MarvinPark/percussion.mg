@@ -194,7 +194,7 @@ create table if not exists sales (
   customer_name text,
   business_partner text,
   payment_method text not null,
-  sale_category text not null default '소매' check (sale_category in ('도매', '소매', 'VIP', '중고', '렌탈')),
+  sale_category text not null default '소매',
   payment_fee_rate numeric(5, 2) not null default 0,
   payment_fee_amount numeric(12, 0) not null default 0,
   total_amount numeric(12, 0) not null,
@@ -255,10 +255,6 @@ alter table sales
 alter table sales
   drop constraint if exists sales_sale_category_check;
 
-alter table sales
-  add constraint sales_sale_category_check
-  check (sale_category in ('도매', '소매', 'VIP', '중고', '렌탈'));
-
 -- ===== schema-sales-edit.sql =====
 -- ============================================================
 -- 매출관리: 판매 기록 수정 권한
@@ -291,7 +287,7 @@ create table quotes (
   quote_date date not null default current_date,
   customer_name text not null,
   business_partner text,
-  sale_category text not null default '소매' check (sale_category in ('도매', '소매', 'VIP', '중고', '렌탈')),
+  sale_category text not null default '소매',
   customer_phone text,
   customer_address text,
   customer_email text,
@@ -526,8 +522,8 @@ create policy "관리자 프로필 수정"
   with check (public.is_admin());
 
 -- ============================================================
--- 스마트스토어 주문 → 매출 연동
--- (schema-smartstore.sql)
+-- 엑셀 등 외부 주문 → 매출 연동
+-- (schema-external-order.sql)
 -- ============================================================
 
 alter table sales
@@ -539,12 +535,6 @@ alter table sales
 create unique index if not exists sales_external_order_unique
   on sales (external_source, external_order_id)
   where external_order_id is not null;
-
-insert into payment_methods (name, fee_rate, sort_order)
-select '스마트스토어', 5.5, 10
-where not exists (
-  select 1 from payment_methods where name = '스마트스토어'
-);
 
 -- ===== schema-sales-shipping-cost.sql =====
 alter table sales

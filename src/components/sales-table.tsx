@@ -3,15 +3,16 @@
 import { Fragment, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteSale, deleteSales, updateSalePurchasePrice, updateSaleShippingCost } from "@/app/(main)/sales/actions";
+import { deleteSale, deleteSales, updateSalePurchasePrice, updateSaleShippingCost, updateSaleTotalAmount } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import PriceInput from "@/components/price-input";
 import SaleEditModal from "@/components/sale-edit-modal";
+import TablePageSizeSelect from "@/components/table-page-size-select";
 import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
 import { calculateSaleAmounts, formatKRW } from "@/lib/sales-calculator";
-import { displaySaleCategory } from "@/lib/sale-categories";
+import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import {
   getDefaultSalesColumnOrder,
   getSalesBaseColumns,
@@ -25,6 +26,7 @@ import {
   getTableRowPaddingClass,
 } from "@/lib/table-row-preferences";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
+import type { TablePageSize } from "@/lib/table-page-size";
 import type { StaffOption } from "@/components/sales-page-client";
 
 function formatDateCompact(value: string) {
@@ -47,26 +49,36 @@ const bulkDeleteButtonClass =
 const checkboxCellClass = "w-10 px-2 text-center";
 
 const inlineInputClass =
-  "w-full min-w-[4.5rem] rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right text-inherit outline-none ring-1 ring-blue-500 dark:border-blue-400 dark:bg-zinc-900";
+  "w-full min-w-[4.5rem] rounded border border-blue-200 bg-white px-1.5 py-0.5 text-right text-inherit outline-none ring-1 ring-blue-100 dark:border-blue-500/35 dark:bg-zinc-900 dark:ring-blue-500/20";
 
 const editableCellClass =
-  "max-w-0 cursor-text whitespace-nowrap px-3 leading-tight hover:bg-blue-50/60 dark:hover:bg-blue-950/20";
+  "max-w-0 cursor-text whitespace-nowrap px-3 leading-tight hover:bg-blue-50/40 dark:hover:bg-blue-950/10";
 
 const tableClassName = "w-full table-fixed text-sm";
 
 type SaleFieldOverrides = {
   unit_purchase_price?: number;
+  unit_sale_price?: number;
+  total_amount?: number;
   shipping_cost?: number;
 };
 
-function getDisplayMargin(sale: SaleWithProduct) {
-  return calculateSaleAmounts({
+function getSaleAmountInputs(sale: SaleWithProduct) {
+  return {
     quantity: sale.quantity,
     unitSalePrice: Number(sale.unit_sale_price) || 0,
     unitPurchasePrice: Number(sale.unit_purchase_price) || 0,
     feeRate: Number(sale.payment_fee_rate) || 0,
     shippingCost: Number(sale.shipping_cost) || 0,
-  }).marginAmount;
+  };
+}
+
+function getDisplayMargin(sale: SaleWithProduct) {
+  return calculateSaleAmounts(getSaleAmountInputs(sale)).marginAmount;
+}
+
+function getDisplayFee(sale: SaleWithProduct) {
+  return calculateSaleAmounts(getSaleAmountInputs(sale)).paymentFeeAmount;
 }
 
 function SaleInlinePriceCell({
@@ -79,7 +91,7 @@ function SaleInlinePriceCell({
   onSave,
 }: {
   sale: SaleWithProduct;
-  field: "purchase_price" | "shipping_cost";
+  field: "purchase_price" | "shipping_cost" | "total_amount";
   disabled?: boolean;
   inputClassName: string;
   ariaLabel: string;
@@ -89,7 +101,9 @@ function SaleInlinePriceCell({
   const initialValue =
     field === "purchase_price"
       ? Number(sale.unit_purchase_price) || 0
-      : Number(sale.shipping_cost) || 0;
+      : field === "shipping_cost"
+        ? Number(sale.shipping_cost) || 0
+        : Number(sale.total_amount) || 0;
   const [value, setValue] = useState(initialValue);
   const latestRef = useRef(initialValue);
   const isEditingRef = useRef(false);
@@ -100,7 +114,9 @@ function SaleInlinePriceCell({
     const nextValue =
       field === "purchase_price"
         ? Number(sale.unit_purchase_price) || 0
-        : Number(sale.shipping_cost) || 0;
+        : field === "shipping_cost"
+          ? Number(sale.shipping_cost) || 0
+          : Number(sale.total_amount) || 0;
     setValue(nextValue);
     latestRef.current = nextValue;
   }, [
@@ -108,13 +124,18 @@ function SaleInlinePriceCell({
     resetToken,
     sale.id,
     sale.shipping_cost,
+    sale.total_amount,
     sale.unit_purchase_price,
   ]);
 
   function persistOriginalValue() {
-    return field === "purchase_price"
-      ? Number(sale.unit_purchase_price) || 0
-      : Number(sale.shipping_cost) || 0;
+    if (field === "purchase_price") {
+      return Number(sale.unit_purchase_price) || 0;
+    }
+    if (field === "shipping_cost") {
+      return Number(sale.shipping_cost) || 0;
+    }
+    return Number(sale.total_amount) || 0;
   }
 
   return (
@@ -171,6 +192,13 @@ type SalesTableProps = {
   rowFontSize?: number;
   emptyMessage?: string;
   canManageSales?: boolean;
+  sectionTitle?: string;
+  sectionTotalCount?: number;
+  sectionCollapsed?: boolean;
+  onSectionToggle?: () => void;
+  pageSize?: TablePageSize;
+  onPageSizeChange?: (value: TablePageSize) => void;
+  className?: string;
 };
 
 export default function SalesTable({
@@ -183,6 +211,13 @@ export default function SalesTable({
   rowFontSize = 12,
   emptyMessage,
   canManageSales = true,
+  sectionTitle,
+  sectionTotalCount,
+  sectionCollapsed = false,
+  onSectionToggle,
+  pageSize,
+  onPageSizeChange,
+  className = "",
 }: SalesTableProps) {
   const router = useRouter();
   const [editingSale, setEditingSale] = useState<SaleWithProduct | null>(null);
@@ -198,11 +233,15 @@ export default function SalesTable({
   const [savingShippingCostId, setSavingShippingCostId] = useState<string | null>(
     null,
   );
+  const [savingTotalAmountId, setSavingTotalAmountId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
   const [isBulkDeleting, startBulkDeleteTransition] = useTransition();
   const [, startPurchasePriceTransition] = useTransition();
   const [, startShippingCostTransition] = useTransition();
+  const [, startTotalAmountTransition] = useTransition();
 
   useEffect(() => {
     setOverrides({});
@@ -222,7 +261,7 @@ export default function SalesTable({
 
   function patchMarginForField(
     sale: SaleWithProduct,
-    field: "purchase_price" | "shipping_cost",
+    field: "purchase_price" | "shipping_cost" | "total_amount",
     value: number,
   ) {
     if (field === "purchase_price") {
@@ -230,7 +269,17 @@ export default function SalesTable({
       return;
     }
 
-    patchSale(sale, { shipping_cost: value });
+    if (field === "shipping_cost") {
+      patchSale(sale, { shipping_cost: value });
+      return;
+    }
+
+    const unit_sale_price =
+      sale.quantity > 0 ? Math.max(0, Math.round(value / sale.quantity)) : 0;
+    patchSale(sale, {
+      total_amount: value,
+      unit_sale_price,
+    });
   }
 
   function openEditModal(sale: SaleWithProduct) {
@@ -337,7 +386,7 @@ export default function SalesTable({
       case "category":
         return (
           <td className={`${cellClass} text-zinc-900 dark:text-zinc-100`}>
-            {displaySaleCategory(sale.sale_category)}
+            {displaySaleCategoryFromList(sale.sale_category, saleCategories)}
           </td>
         );
       case "date":
@@ -396,18 +445,6 @@ export default function SalesTable({
             )}
           </td>
         );
-      case "total_amount":
-        return (
-          <td className={`${cellClass} font-medium text-zinc-900 dark:text-zinc-100`}>
-            {formatKRW(sale.total_amount)}원
-          </td>
-        );
-      case "fee":
-        return (
-          <td className={`${cellClass} text-orange-700 dark:text-orange-300`}>
-            -{formatKRW(sale.payment_fee_amount)}원
-          </td>
-        );
       case "shipping_cost":
         return (
           <td
@@ -438,6 +475,42 @@ export default function SalesTable({
                   : `${formatKRW(0)}원`}
               </span>
             )}
+          </td>
+        );
+      case "total_amount":
+        return (
+          <td
+            className={`${
+              canManageSales ? editableCellClass : cellClass
+            } font-medium text-zinc-900 dark:text-zinc-100`}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+          >
+            {canManageSales ? (
+              <SaleInlinePriceCell
+                sale={sale}
+                field="total_amount"
+                disabled={savingTotalAmountId === sale.id}
+                inputClassName={inlineInputClass}
+                ariaLabel={`${sale.products?.model_name ?? "매출"} 매출`}
+                onDraftChange={(saleId, value) => {
+                  const target = sales.find((entry) => entry.id === saleId);
+                  if (target) patchMarginForField(target, "total_amount", value);
+                }}
+                onSave={saveTotalAmount}
+              />
+            ) : (
+              <span className="block truncate text-right tabular-nums">
+                {formatKRW(displaySale.total_amount)}원
+              </span>
+            )}
+          </td>
+        );
+      case "fee":
+        return (
+          <td className={`${cellClass} text-orange-700 dark:text-orange-300`}>
+            -{formatKRW(getDisplayFee(displaySale))}원
           </td>
         );
       case "margin":
@@ -562,6 +635,35 @@ export default function SalesTable({
     });
   }
 
+  function saveTotalAmount(
+    saleId: string,
+    nextValue: number,
+  ): Promise<{ error?: string } | void> {
+    const sale = sales.find((entry) => entry.id === saleId);
+    if (!sale) return Promise.resolve();
+
+    const totalAmount = Math.max(0, Math.round(nextValue));
+    setSavingTotalAmountId(saleId);
+    setError(null);
+    patchMarginForField(sale, "total_amount", totalAmount);
+
+    return new Promise((resolve) => {
+      startTotalAmountTransition(async () => {
+        const result = await updateSaleTotalAmount(saleId, totalAmount);
+        setSavingTotalAmountId(null);
+        if (result.error) {
+          setError(result.error);
+          clearSaleOverride(saleId);
+          resolve({ error: result.error });
+          return;
+        }
+
+        router.refresh();
+        resolve();
+      });
+    });
+  }
+
   function handleBulkDeleteConfirm() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -608,25 +710,68 @@ export default function SalesTable({
 
   return (
     <>
-      {canManageSales ? (
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={selectedIds.size === 0 || isBulkDeleting}
-            onClick={() => setBulkDeleteOpen(true)}
-            className={bulkDeleteButtonClass}
-          >
-            {isBulkDeleting
-              ? "삭제 중..."
-              : selectedIds.size > 0
-                ? `삭제 (${selectedIds.size})`
-                : "삭제"}
-          </button>
-        </div>
-      ) : null}
+      <div
+        className={`overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 ${className}`}
+      >
+        {sectionTitle && onSectionToggle ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/80">
+            <button
+              type="button"
+              onClick={onSectionToggle}
+              aria-expanded={!sectionCollapsed}
+              className="flex min-w-0 items-center gap-2 text-left"
+            >
+              <span
+                aria-hidden="true"
+                className="inline-flex w-4 shrink-0 justify-center text-sm text-zinc-500 dark:text-zinc-400"
+              >
+                {sectionCollapsed ? "▸" : "▾"}
+              </span>
+              <span className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                {sectionTitle}
+              </span>
+              {sectionTotalCount !== undefined ? (
+                <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
+                  {sectionTotalCount}건
+                </span>
+              ) : null}
+            </button>
 
-      <div className="mt-2 overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-        <table className={tableClassName} style={tableStyle}>
+            {canManageSales ? (
+              <button
+                type="button"
+                disabled={selectedIds.size === 0 || isBulkDeleting}
+                onClick={() => setBulkDeleteOpen(true)}
+                className={bulkDeleteButtonClass}
+              >
+                {isBulkDeleting
+                  ? "삭제 중..."
+                  : selectedIds.size > 0
+                    ? `삭제 (${selectedIds.size})`
+                    : "삭제"}
+              </button>
+            ) : null}
+
+            {pageSize !== undefined && onPageSizeChange ? (
+              <div className="ml-auto">
+                <TablePageSizeSelect
+                  value={pageSize}
+                  onChange={onPageSizeChange}
+                  compact
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : sectionTitle ? (
+          <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/80">
+            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+              {sectionTitle}
+            </h3>
+          </div>
+        ) : null}
+
+        {!sectionCollapsed ? (
+          <table className={tableClassName} style={tableStyle}>
           {colGroup}
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
@@ -702,6 +847,7 @@ export default function SalesTable({
             ))}
           </tbody>
         </table>
+        ) : null}
       </div>
 
       {error ? (

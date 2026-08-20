@@ -137,9 +137,22 @@ export async function insertSaleRecord(
   supabase: SupabaseClient,
   payload: SaleLinePayload,
 ) {
-  const sale_category =
-    (await resolveSaleCategory(supabase, payload.sale_category ?? "")) ??
-    DEFAULT_SALE_CATEGORY;
+  const requestedCategory = payload.sale_category?.trim() ?? "";
+  let sale_category: string;
+
+  if (requestedCategory) {
+    const resolved = await resolveSaleCategory(supabase, requestedCategory);
+    if (!resolved) {
+      return {
+        error: `"${requestedCategory}" 구분을 사용할 수 없습니다. 관리자 페이지에서 구분을 추가했는지 확인해 주세요.`,
+      };
+    }
+    sale_category = resolved;
+  } else {
+    sale_category =
+      (await resolveSaleCategory(supabase, DEFAULT_SALE_CATEGORY)) ??
+      DEFAULT_SALE_CATEGORY;
+  }
 
   const row = {
     sold_at: payload.sold_at,

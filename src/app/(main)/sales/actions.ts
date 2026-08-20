@@ -598,6 +598,66 @@ export async function updateSalePurchasePrice(
   return { ok: true as const };
 }
 
+export async function updateSaleTotalAmount(
+  saleId: string,
+  totalAmount: number,
+): Promise<{ error?: string; ok?: boolean }> {
+  const sale_id = saleId.trim();
+  if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const requestedTotal = Math.max(0, Math.round(totalAmount));
+
+  const mutation = await getSaleMutationSupabase();
+  if ("error" in mutation) return { error: mutation.error };
+
+  const supabase = mutation.supabase;
+
+  const { data: sale } = await supabase
+    .from("sales")
+    .select(
+      "id, quantity, unit_purchase_price, payment_fee_rate, shipping_cost",
+    )
+    .eq("id", sale_id)
+    .single();
+
+  if (!sale) return { error: "판매 기록을 찾을 수 없습니다." };
+  if (!sale.quantity || sale.quantity <= 0) {
+    return { error: "수량 정보가 올바르지 않습니다." };
+  }
+
+  const unit_sale_price = Math.round(requestedTotal / sale.quantity);
+  const {
+    totalAmount: normalizedTotal,
+    paymentFeeAmount,
+    marginAmount,
+  } = calculateSaleAmounts({
+    quantity: sale.quantity,
+    unitSalePrice: unit_sale_price,
+    unitPurchasePrice: Number(sale.unit_purchase_price) || 0,
+    feeRate: Number(sale.payment_fee_rate) || 0,
+    shippingCost: Number(sale.shipping_cost) || 0,
+  });
+
+  const { error: updateError } = await supabase
+    .from("sales")
+    .update({
+      unit_sale_price,
+      total_amount: normalizedTotal,
+      payment_fee_amount: paymentFeeAmount,
+      margin_amount: marginAmount,
+    })
+    .eq("id", sale_id);
+
+  if (updateError) {
+    return { error: formatSaleUpdateError(updateError) };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/dashboard");
+
+  return { ok: true as const };
+}
+
 export async function updateSaleShippingCost(
   saleId: string,
   shippingCost: number,

@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import SalesListSearch from "@/components/sales-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
 import SalesTable from "@/components/sales-table";
-import TablePageSizeSelect from "@/components/table-page-size-select";
 import TablePagination from "@/components/table-pagination";
 import TableRowSizeControl from "@/components/table-row-size-control";
 import {
   loadSalesPageSize,
   saveSalesPageSize,
 } from "@/lib/sales-list-preferences";
+import { groupSalesByCategorySection } from "@/lib/sales-category-sections";
 import {
   filterSales,
   filterSalesBySeller,
@@ -63,6 +63,12 @@ export default function SalesPageClient({
   const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<string, boolean>
+  >({});
+  const [pageSizeBySection, setPageSizeBySection] = useState<
+    Partial<Record<string, TablePageSize>>
+  >({});
 
   useEffect(() => {
     setPageSize(loadSalesPageSize(userId));
@@ -83,7 +89,7 @@ export default function SalesPageClient({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [sellerFilter, appliedQuery, pageSize]);
+  }, [sellerFilter, appliedQuery]);
 
   const sellerOptions = useMemo(() => getUniqueSellerNames(sales), [sales]);
 
@@ -101,18 +107,47 @@ export default function SalesPageClient({
     [sales, sellerFilter, appliedQuery],
   );
 
-  const pagination = useMemo(
-    () => paginateItems(filteredSales, currentPage, pageSize),
-    [filteredSales, currentPage, pageSize],
+  const salesSections = useMemo(
+    () => groupSalesByCategorySection(filteredSales),
+    [filteredSales],
   );
+
+  const paginatedSections = useMemo(
+    () =>
+      salesSections.map((section) => {
+        const sectionPageSize = pageSizeBySection[section.id] ?? pageSize;
+        return {
+          ...section,
+          pageSize: sectionPageSize,
+          pagination: paginateItems(
+            section.sales,
+            currentPage,
+            sectionPageSize,
+          ),
+        };
+      }),
+    [salesSections, currentPage, pageSize, pageSizeBySection],
+  );
+
+  const visibleSections = useMemo(
+    () => paginatedSections.filter((section) => section.sales.length > 0),
+    [paginatedSections],
+  );
+
+  const pagination = useMemo(() => {
+    const totalPages = Math.max(
+      1,
+      ...paginatedSections.map((section) => section.pagination.totalPages),
+    );
+    const current = Math.min(currentPage, totalPages);
+    return { currentPage: current, totalPages };
+  }, [paginatedSections, currentPage]);
 
   useEffect(() => {
     if (currentPage !== pagination.currentPage) {
       setCurrentPage(pagination.currentPage);
     }
   }, [currentPage, pagination.currentPage]);
-
-  const paginatedSales = pagination.items;
 
   const applySearch = useCallback(() => {
     setAppliedQuery(draftQuery);
@@ -141,14 +176,29 @@ export default function SalesPageClient({
     setCurrentPage(1);
   }, []);
 
-  const handlePageSizeChange = useCallback((nextPageSize: TablePageSize) => {
-    setPageSize(nextPageSize);
+  const handlePageSizeChange = useCallback((sectionId: string, nextPageSize: TablePageSize) => {
+    setPageSizeBySection((current) => ({
+      ...current,
+      [sectionId]: nextPageSize,
+    }));
     setCurrentPage(1);
+  }, []);
+
+  const toggleSection = useCallback((sectionId: string) => {
+    setCollapsedSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }));
   }, []);
 
   const hasActiveFilter = Boolean(
     sellerFilter.trim() || appliedQuery.trim(),
   );
+
+  const emptyMessage =
+    hasActiveFilter || draftQuery.trim()
+      ? "검색 조건에 맞는 판매 기록이 없습니다."
+      : undefined;
 
   return (
     <>
@@ -185,30 +235,49 @@ export default function SalesPageClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <TablePageSizeSelect
-            value={pageSize}
-            onChange={handlePageSizeChange}
-            compact
-          />
           <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
         </div>
       </div>
 
-      <SalesTable
-        userId={userId}
-        sales={paginatedSales}
-        products={products}
-        paymentMethods={paymentMethods}
-        saleCategories={saleCategories}
-        staffOptions={staffOptions}
-        rowFontSize={rowFontSize}
-        canManageSales={canManageSales}
-        emptyMessage={
-          hasActiveFilter || draftQuery.trim()
-            ? "검색 조건에 맞는 판매 기록이 없습니다."
-            : undefined
-        }
-      />
+      {visibleSections.length === 0 ? (
+        <SalesTable
+          userId={userId}
+          sales={[]}
+          products={products}
+          paymentMethods={paymentMethods}
+          saleCategories={saleCategories}
+          staffOptions={staffOptions}
+          rowFontSize={rowFontSize}
+          canManageSales={canManageSales}
+          emptyMessage={emptyMessage}
+          className="mt-4"
+        />
+      ) : (
+        <div className="mt-4 space-y-4">
+          {visibleSections.map((section) => (
+            <SalesTable
+              key={section.id}
+              userId={userId}
+              sales={section.pagination.items}
+              products={products}
+              paymentMethods={paymentMethods}
+              saleCategories={saleCategories}
+              staffOptions={staffOptions}
+              rowFontSize={rowFontSize}
+              canManageSales={canManageSales}
+              sectionTitle={section.label}
+              sectionTotalCount={section.sales.length}
+              sectionCollapsed={collapsedSections[section.id] ?? false}
+              onSectionToggle={() => toggleSection(section.id)}
+              pageSize={section.pageSize}
+              onPageSizeChange={(nextPageSize) =>
+                handlePageSizeChange(section.id, nextPageSize)
+              }
+              emptyMessage={emptyMessage}
+            />
+          ))}
+        </div>
+      )}
 
       <TablePagination
         currentPage={pagination.currentPage}

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   alertError,
-  btnPrimary,
   cardDashed,
   pageMain,
   pageSubtitle,
@@ -65,22 +64,12 @@ export default async function SalesPage() {
 
   return (
       <main className={pageMain}>
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className={pageTitle}>매출관리</h2>
-            <p className={pageSubtitle}>
-              판매 기록, 월별·연도별 누적 매출과 마진을 확인합니다.
-              {canManageSales ? " 행을 더블클릭하면 수정할 수 있습니다." : ""}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/sales/new"
-              className={btnPrimary}
-            >
-              + 판매 등록
-            </Link>
-          </div>
+        <div className="mb-6">
+          <h2 className={pageTitle}>매출관리</h2>
+          <p className={pageSubtitle}>
+            판매 기록, 월별·연도별 누적 매출과 마진을 확인합니다.
+            {canManageSales ? " 행을 더블클릭하면 수정할 수 있습니다." : ""}
+          </p>
         </div>
 
         {error ? (
@@ -103,6 +92,7 @@ export default async function SalesPage() {
                 canImport={canCreateSales}
                 products={products ?? []}
                 paymentMethods={paymentMethods ?? []}
+                saleCategories={saleCategories}
               />
             </div>
 
