@@ -201,6 +201,9 @@ function buildPreviewItems(
       matchedProductModelName: matched?.model_name ?? null,
       matchedProductBrand: matched?.brand ?? null,
       matchedProductSku: matched?.sku ?? null,
+      matchedProductPurchasePrice: matched
+        ? Number(matched.purchase_price) || 0
+        : null,
       alreadyImported: existingIds.has(row.lineId),
     };
   });
@@ -254,6 +257,7 @@ export async function importCafe24ExcelOrders(
   const dismissedAutoMatches = new Set(options.dismissedAutoMatches ?? []);
   const paymentMethodIds = options.paymentMethodIds ?? {};
   const fulfillmentLocations = options.fulfillmentLocations ?? {};
+  const purchasePrices = options.purchasePrices ?? {};
 
   const supabase = await createClient();
   const auth = await requirePermission("createSales");
@@ -351,7 +355,13 @@ export async function importCafe24ExcelOrders(
       );
       const fromStore = isStoreFulfillment(fulfillmentLocation);
 
-      const unitPurchasePrice = Number(matched.purchase_price) || 0;
+      const unitPurchasePrice =
+        purchasePrices[order.lineId] ??
+        (Number(matched.purchase_price) || 0);
+      if (unitPurchasePrice < 0) {
+        result.errors.push(`${order.orderNo}: 매입가는 0 이상이어야 합니다.`);
+        continue;
+      }
       const { totalAmount, paymentFeeAmount, marginAmount } =
         buildSaleAmountsForLine(
           order.quantity,

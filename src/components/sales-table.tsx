@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteSale } from "@/app/(main)/sales/actions";
+import { deleteSale, updateSalePurchasePrice } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
+import PriceInput from "@/components/price-input";
 import SaleEditModal from "@/components/sale-edit-modal";
 import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
@@ -40,6 +41,12 @@ const actionButtonClass =
 const deleteButtonClass =
   "rounded bg-red-600 px-1.5 py-0.5 leading-none font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
 
+const inlineInputClass =
+  "w-full min-w-[4.5rem] rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right text-inherit outline-none ring-1 ring-blue-500 dark:border-blue-400 dark:bg-zinc-900";
+
+const editableCellClass =
+  "max-w-0 cursor-text whitespace-nowrap px-3 leading-tight hover:bg-blue-50/60 dark:hover:bg-blue-950/20";
+
 const tableClassName = "w-full table-fixed text-sm";
 
 type SalesTableProps = {
@@ -68,8 +75,14 @@ export default function SalesTable({
   const router = useRouter();
   const [editingSale, setEditingSale] = useState<SaleWithProduct | null>(null);
   const [deletingSale, setDeletingSale] = useState<SaleWithProduct | null>(null);
+  const [editingPurchasePriceSaleId, setEditingPurchasePriceSaleId] = useState<
+    string | null
+  >(null);
+  const [draftPurchasePrice, setDraftPurchasePrice] = useState(0);
+  const skipPurchasePriceBlurRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [isSavingPurchasePrice, startPurchasePriceTransition] = useTransition();
 
   const baseColumns = useMemo(
     () => getSalesBaseColumns(canManageSales),
@@ -171,6 +184,52 @@ export default function SalesTable({
             {sale.quantity}개
           </td>
         );
+      case "purchase_price":
+        return (
+          <td
+            className={`${
+              canManageSales ? editableCellClass : cellClass
+            } text-zinc-900 dark:text-zinc-100`}
+            title={canManageSales ? "더블클릭하여 매입가 수정" : undefined}
+            onDoubleClick={(event) => {
+              if (!canManageSales) return;
+              event.stopPropagation();
+              beginPurchasePriceEdit(sale);
+            }}
+          >
+            {canManageSales && editingPurchasePriceSaleId === sale.id ? (
+              <PriceInput
+                autoFocus
+                value={draftPurchasePrice}
+                disabled={isSavingPurchasePrice}
+                onChange={setDraftPurchasePrice}
+                onBlur={() => {
+                  if (skipPurchasePriceBlurRef.current) {
+                    skipPurchasePriceBlurRef.current = false;
+                    return;
+                  }
+                  savePurchasePrice(sale.id, draftPurchasePrice);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    skipPurchasePriceBlurRef.current = true;
+                    cancelPurchasePriceEdit();
+                  }
+                }}
+                className={inlineInputClass}
+                aria-label={`${sale.products?.model_name ?? "매출"} 매입가`}
+              />
+            ) : (
+              <span className="block truncate text-right tabular-nums">
+                {formatKRW(sale.unit_purchase_price)}원
+              </span>
+            )}
+          </td>
+        );
       case "total_amount":
         return (
           <td className={`${cellClass} font-medium text-zinc-900 dark:text-zinc-100`}>
@@ -245,6 +304,30 @@ export default function SalesTable({
       default:
         return null;
     }
+  }
+
+  function beginPurchasePriceEdit(sale: SaleWithProduct) {
+    setEditingPurchasePriceSaleId(sale.id);
+    setDraftPurchasePrice(Number(sale.unit_purchase_price) || 0);
+  }
+
+  function cancelPurchasePriceEdit() {
+    setEditingPurchasePriceSaleId(null);
+  }
+
+  function savePurchasePrice(saleId: string, nextValue: number) {
+    const unitPurchasePrice = Math.max(0, Math.round(nextValue));
+    setEditingPurchasePriceSaleId(null);
+    setError(null);
+
+    startPurchasePriceTransition(async () => {
+      const result = await updateSalePurchasePrice(saleId, unitPurchasePrice);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
   }
 
   function handleDeleteConfirm() {

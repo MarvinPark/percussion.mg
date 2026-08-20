@@ -4,6 +4,7 @@ export type SalesTableColumnId =
   | "date"
   | "product"
   | "quantity"
+  | "purchase_price"
   | "total_amount"
   | "fee"
   | "margin"
@@ -26,6 +27,14 @@ export const SALES_TABLE_COLUMNS: SalesTableColumn[] = [
   { id: "date", label: "날짜", minWidth: 56, defaultWidth: 68, resizable: true },
   { id: "product", label: "제품", minWidth: 100, defaultWidth: 160, resizable: true },
   { id: "quantity", label: "수량", minWidth: 48, defaultWidth: 56, resizable: true },
+  {
+    id: "purchase_price",
+    label: "매입가",
+    align: "right",
+    minWidth: 72,
+    defaultWidth: 88,
+    resizable: true,
+  },
   { id: "total_amount", label: "매출", minWidth: 72, defaultWidth: 88, resizable: true },
   { id: "fee", label: "수수료", minWidth: 72, defaultWidth: 88, resizable: true },
   { id: "margin", label: "마진", minWidth: 72, defaultWidth: 88, resizable: true },

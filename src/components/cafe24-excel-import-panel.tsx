@@ -15,6 +15,7 @@ import {
 } from "@/app/(main)/sales/cafe24-excel/actions";
 import Cafe24ExcelProductCreateModal from "@/components/cafe24-excel-product-create-modal";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
+import PriceInput from "@/components/price-input";
 import SmartstoreProductCombobox from "@/components/smartstore-product-combobox";
 import { parseCafe24OrdersFile } from "@/lib/cafe24-orders/parse-orders-file";
 import type {
@@ -64,6 +65,45 @@ function formatMatchedProductLabel(item: Cafe24ExcelImportPreviewItem) {
     model_name: item.matchedProductModelName,
     sku: item.matchedProductSku,
   });
+}
+
+function getLinkedProduct(
+  item: Cafe24ExcelImportPreviewItem,
+  manualMatches: Record<string, string>,
+  dismissedAutoMatches: Set<string>,
+  products: SaleProductOption[],
+) {
+  const productId = getEffectiveProductId(
+    item,
+    manualMatches,
+    dismissedAutoMatches,
+  );
+  if (!productId) return null;
+  return products.find((product) => product.id === productId) ?? null;
+}
+
+function getPurchasePrice(
+  item: Cafe24ExcelImportPreviewItem,
+  purchasePrices: Record<string, number>,
+  manualMatches: Record<string, string>,
+  dismissedAutoMatches: Set<string>,
+  products: SaleProductOption[],
+) {
+  if (purchasePrices[item.lineId] !== undefined) {
+    return purchasePrices[item.lineId];
+  }
+
+  const linkedProduct = getLinkedProduct(
+    item,
+    manualMatches,
+    dismissedAutoMatches,
+    products,
+  );
+  if (linkedProduct) {
+    return Number(linkedProduct.purchase_price) || 0;
+  }
+
+  return item.matchedProductPurchasePrice ?? 0;
 }
 
 function summarizePreview(
@@ -166,6 +206,9 @@ export default function Cafe24ExcelImportPanel({
   const [fulfillmentLocations, setFulfillmentLocations] = useState<
     Record<string, FulfillmentLocation>
   >({});
+  const [purchasePrices, setPurchasePrices] = useState<Record<string, number>>(
+    {},
+  );
   const [dismissedAutoMatches, setDismissedAutoMatches] = useState<Set<string>>(
     () => new Set(),
   );
@@ -221,6 +264,7 @@ export default function Cafe24ExcelImportPanel({
     setSchemaReady(result.schemaReady);
     setManualMatches({});
     setDismissedAutoMatches(new Set());
+    setPurchasePrices({});
     setFulfillmentLocations((current) => {
       const next = { ...current };
       for (const item of result.items) {
@@ -246,6 +290,7 @@ export default function Cafe24ExcelImportPanel({
     setManualMatches({});
     setPaymentMethodIds({});
     setFulfillmentLocations({});
+    setPurchasePrices({});
     setDismissedAutoMatches(new Set());
 
     startPreviewTransition(async () => {
@@ -306,12 +351,25 @@ export default function Cafe24ExcelImportPanel({
     }
 
     startImportTransition(async () => {
+      const effectivePurchasePrices: Record<string, number> = {};
+      for (const item of items) {
+        if (item.alreadyImported) continue;
+        effectivePurchasePrices[item.lineId] = getPurchasePrice(
+          item,
+          purchasePrices,
+          effectiveManualMatches,
+          dismissedAutoMatches,
+          localProducts,
+        );
+      }
+
       const result = await importCafe24ExcelOrders(parsedRows, {
         autoCreateProducts,
         manualMatches: effectiveManualMatches,
         dismissedAutoMatches: [...dismissedAutoMatches],
         paymentMethodIds,
         fulfillmentLocations,
+        purchasePrices: effectivePurchasePrices,
       });
 
       if ("error" in result) {
@@ -345,10 +403,19 @@ export default function Cafe24ExcelImportPanel({
       ...current,
       [lineId]: product.id,
     }));
+    setPurchasePrices((current) => ({
+      ...current,
+      [lineId]: Number(product.purchase_price) || 0,
+    }));
   }
 
   function handleManualClear(lineId: string, hadAutoMatch: boolean) {
     setManualMatches((current) => {
+      const next = { ...current };
+      delete next[lineId];
+      return next;
+    });
+    setPurchasePrices((current) => {
       const next = { ...current };
       delete next[lineId];
       return next;
@@ -597,6 +664,7 @@ export default function Cafe24ExcelImportPanel({
                       <th className="px-3 py-2 text-left font-semibold">결제방식</th>
                       <th className="px-3 py-2 text-left font-semibold">출고지</th>
                       <th className="px-3 py-2 text-right font-semibold">수량</th>
+                      <th className="px-3 py-2 text-right font-semibold">매입가</th>
                       <th className="px-3 py-2 text-right font-semibold">소비자가</th>
                       <th className="px-3 py-2 text-left font-semibold">상태</th>
                     </tr>
@@ -605,7 +673,7 @@ export default function Cafe24ExcelImportPanel({
                     {visibleItems.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="px-3 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400"
                         >
                           표시할 주문이 없습니다.
@@ -636,6 +704,13 @@ export default function Cafe24ExcelImportPanel({
                                   : "미매칭";
                         const linkedProductLabel = formatMatchedProductLabel(item);
                         const lineTotal = item.unitSalePrice * item.quantity;
+                        const purchasePrice = getPurchasePrice(
+                          item,
+                          purchasePrices,
+                          manualMatches,
+                          dismissedAutoMatches,
+                          localProducts,
+                        );
 
                         return (
                           <tr
@@ -742,6 +817,23 @@ export default function Cafe24ExcelImportPanel({
                               )}
                             </td>
                             <td className="px-3 py-2 text-right">{item.quantity}</td>
+                            <td className="px-3 py-2 text-right">
+                              {item.alreadyImported ? (
+                                "—"
+                              ) : (
+                                <PriceInput
+                                  value={purchasePrice}
+                                  onChange={(nextValue) =>
+                                    setPurchasePrices((current) => ({
+                                      ...current,
+                                      [item.lineId]: Math.max(0, nextValue),
+                                    }))
+                                  }
+                                  className={`${compactSelectClass} w-24 text-right`}
+                                  aria-label={`${item.orderNo} 매입가`}
+                                />
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-right whitespace-nowrap">
                               {formatKRW(lineTotal)}원
                               {item.quantity > 1 ? (

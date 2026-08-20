@@ -456,6 +456,58 @@ export async function updateSale(formData: FormData) {
   return { ok: true as const };
 }
 
+export async function updateSalePurchasePrice(
+  saleId: string,
+  unitPurchasePrice: number,
+): Promise<{ error?: string; ok?: boolean }> {
+  const sale_id = saleId.trim();
+  if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const unit_purchase_price = Math.max(0, Math.round(unitPurchasePrice));
+
+  const supabase = await createClient();
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error };
+
+  const { data: sale } = await supabase
+    .from("sales")
+    .select(
+      "id, quantity, unit_sale_price, payment_fee_rate, payment_fee_amount, shipping_cost",
+    )
+    .eq("id", sale_id)
+    .single();
+
+  if (!sale) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const { marginAmount } = calculateSaleAmounts({
+    quantity: sale.quantity,
+    unitSalePrice: Number(sale.unit_sale_price) || 0,
+    unitPurchasePrice: unit_purchase_price,
+    feeRate: Number(sale.payment_fee_rate) || 0,
+    shippingCost: Number(sale.shipping_cost) || 0,
+  });
+
+  const { error: updateError } = await supabase
+    .from("sales")
+    .update({
+      unit_purchase_price,
+      margin_amount: marginAmount,
+    })
+    .eq("id", sale_id);
+
+  if (updateError) {
+    return {
+      error:
+        "매입가 수정에 실패했습니다. Supabase에서 sales 테이블 수정 권한(RLS)을 확인해 주세요.",
+    };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/dashboard");
+
+  return { ok: true as const };
+}
+
 export async function deleteSale(
   saleId: string,
 ): Promise<{ error?: string; ok?: boolean }> {

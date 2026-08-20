@@ -23,6 +23,7 @@ export type Cafe24ExcelImportPreviewItem = ParsedCafe24OrderRow & {
   matchedProductModelName: string | null;
   matchedProductBrand: string | null;
   matchedProductSku: string | null;
+  matchedProductPurchasePrice: number | null;
   alreadyImported: boolean;
 };
 
@@ -41,4 +42,5 @@ export type Cafe24ExcelImportOptions = {
   dismissedAutoMatches?: string[];
   paymentMethodIds?: Record<string, string>;
   fulfillmentLocations?: Record<string, "직발송" | "매장">;
+  purchasePrices?: Record<string, number>;
 };
