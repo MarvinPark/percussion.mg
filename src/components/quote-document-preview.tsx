@@ -148,7 +148,7 @@ function DocumentTable({
             <th className={headCellNowrapClass}>소비자가</th>
           ) : null}
           <th className={headCellNowrapClass}>판매단가</th>
-          <th className={headCellNowrapClass}>총 소비자가</th>
+          <th className={headCellNowrapClass}>총 판매가</th>
         </tr>
       </thead>
       <tbody>

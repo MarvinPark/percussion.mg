@@ -77,12 +77,14 @@ function buildItemFromProduct(
   product: QuoteProductOption,
   quantity: number,
   saleUnitPrice: number,
+  purchasePrice?: number,
 ): QuoteItemInput {
+  const resolvedPurchasePrice = purchasePrice ?? product.purchase_price;
   const calculated = calculateQuoteLine({
     quantity,
     consumerPrice: product.sale_price,
     saleUnitPrice,
-    purchasePrice: product.purchase_price,
+    purchasePrice: resolvedPurchasePrice,
     shippingCost: 0,
   });
 
@@ -103,7 +105,7 @@ function buildItemFromProduct(
     sale_unit_price: saleUnitPrice,
     rounded_unit_price: calculated.roundedUnitPrice,
     line_total: calculated.lineTotal,
-    purchase_price: product.purchase_price,
+    purchase_price: resolvedPurchasePrice,
     shipping_cost: 0,
     margin: calculated.margin,
     margin_rate: calculated.marginRate,
@@ -149,6 +151,7 @@ export default function QuoteForm({
     useState<QuoteProductOption | null>(null);
   const [addQuantity, setAddQuantity] = useState(1);
   const [addSalePrice, setAddSalePrice] = useState(0);
+  const [addPurchasePrice, setAddPurchasePrice] = useState(0);
   const [isResolvingProduct, setIsResolvingProduct] = useState(false);
   const [productCreateQuery, setProductCreateQuery] = useState<string | null>(
     null,
@@ -219,6 +222,7 @@ export default function QuoteForm({
   function handleProductPick(product: QuoteProductOption) {
     setSelectedProduct(product);
     setAddSalePrice(product.sale_price);
+    setAddPurchasePrice(product.purchase_price);
   }
 
   function handleRegisterProductFromSearch(query: string) {
@@ -278,16 +282,21 @@ export default function QuoteForm({
           product,
           prev[existingIndex].quantity + addQuantity,
           addSalePrice,
+          addPurchasePrice,
         );
         return next;
       }
-      return [...prev, buildItemFromProduct(product, addQuantity, addSalePrice)];
+      return [
+        ...prev,
+        buildItemFromProduct(product, addQuantity, addSalePrice, addPurchasePrice),
+      ];
     });
 
     setModelSearch("");
     setSelectedProduct(null);
     setAddQuantity(1);
     setAddSalePrice(0);
+    setAddPurchasePrice(0);
     focusModelInput();
     return true;
   }
@@ -596,20 +605,27 @@ export default function QuoteForm({
               className={`${mobileInputClass} text-center tabular-nums`}
             />
           </div>
-          <div className="w-28 shrink-0 sm:w-32">
-            <label className={labelClass}>매입가</label>
-            <div className="flex h-[42px] items-center rounded border border-zinc-300 bg-zinc-50 px-2 text-sm tabular-nums text-zinc-700 sm:h-[34px] sm:text-xs dark:border-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
-              {selectedProduct
-                ? `${formatKRW(selectedProduct.purchase_price)}원`
-                : "-"}
-            </div>
-          </div>
           <div className="w-36 sm:w-32">
-            <label className={labelClass}>소비자가</label>
+            <label className={labelClass}>판매가</label>
             <PriceInput
               min={0}
               value={addSalePrice}
               onChange={setAddSalePrice}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void addItem();
+                }
+              }}
+              className={mobileInputClass}
+            />
+          </div>
+          <div className="w-28 shrink-0 sm:w-32">
+            <label className={labelClass}>매입가</label>
+            <PriceInput
+              min={0}
+              value={addPurchasePrice}
+              onChange={setAddPurchasePrice}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -642,7 +658,7 @@ export default function QuoteForm({
               <th className="px-2 py-2">제품 설명</th>
               <th className="px-2 py-2">수량</th>
               <th className="px-2 py-2">판매단가</th>
-              <th className="px-2 py-2">총 소비자가</th>
+              <th className="px-2 py-2">총 판매가</th>
               <th className="px-2 py-2">매입가</th>
               <th className="px-2 py-2">마진</th>
               <th className="px-2 py-2">마진율</th>
