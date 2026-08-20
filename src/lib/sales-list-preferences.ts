@@ -24,3 +24,31 @@ export function saveSalesPageSize(userId: string, pageSize: TablePageSize) {
   if (typeof window === "undefined") return;
   localStorage.setItem(getSalesPageSizeStorageKey(userId), String(pageSize));
 }
+
+export function getSalesEmphasizedIdsStorageKey(userId: string) {
+  return `pc-sales-emphasized-${userId}`;
+}
+
+export function loadSalesEmphasizedIds(userId: string): Set<string> {
+  if (typeof window === "undefined") return new Set();
+
+  try {
+    const raw = localStorage.getItem(getSalesEmphasizedIdsStorageKey(userId));
+    if (!raw) return new Set();
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+
+    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveSalesEmphasizedIds(userId: string, ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    getSalesEmphasizedIdsStorageKey(userId),
+    JSON.stringify([...ids]),
+  );
+}

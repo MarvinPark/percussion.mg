@@ -26,6 +26,10 @@ import {
   getTableRowPaddingClass,
 } from "@/lib/table-row-preferences";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
+import {
+  loadSalesEmphasizedIds,
+  saveSalesEmphasizedIds,
+} from "@/lib/sales-list-preferences";
 import type { TablePageSize } from "@/lib/table-page-size";
 import type { StaffOption } from "@/components/sales-page-client";
 
@@ -47,6 +51,41 @@ const bulkDeleteButtonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-red-300 bg-red-600 px-2 py-1 text-[12px] leading-none font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-500 dark:hover:bg-red-400";
 
 const checkboxCellClass = "w-10 px-2 text-center";
+const emphasizeCellClass = "w-10 px-2 text-center";
+
+const emphasizedRowClass =
+  "bg-red-50/90 hover:bg-red-100/80 dark:bg-red-950/30 dark:hover:bg-red-950/40";
+
+function SaleEmphasisToggle({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={(event) => {
+        event.stopPropagation();
+        onChange(!checked);
+      }}
+      onDoubleClick={(event) => event.stopPropagation()}
+      className={`inline-flex h-4 w-4 items-center justify-center rounded-full border-2 transition ${
+        checked
+          ? "border-red-500 bg-red-500 text-white"
+          : "border-zinc-300 bg-white hover:border-red-300 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:border-red-400"
+      }`}
+    >
+      {checked ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+    </button>
+  );
+}
 
 const inlineInputClass =
   "w-full min-w-[4.5rem] rounded border border-blue-200 bg-white px-1.5 py-0.5 text-right text-inherit outline-none ring-1 ring-blue-100 dark:border-blue-500/35 dark:bg-zinc-900 dark:ring-blue-500/20";
@@ -223,6 +262,10 @@ export default function SalesTable({
   const [editingSale, setEditingSale] = useState<SaleWithProduct | null>(null);
   const [deletingSale, setDeletingSale] = useState<SaleWithProduct | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [emphasizedIds, setEmphasizedIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [emphasisLoaded, setEmphasisLoaded] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, SaleFieldOverrides>>(
     {},
@@ -246,6 +289,16 @@ export default function SalesTable({
   useEffect(() => {
     setOverrides({});
   }, [sales]);
+
+  useEffect(() => {
+    setEmphasizedIds(loadSalesEmphasizedIds(userId));
+    setEmphasisLoaded(true);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!emphasisLoaded) return;
+    saveSalesEmphasizedIds(userId, emphasizedIds);
+  }, [emphasisLoaded, emphasizedIds, userId]);
 
   function resolveSale(sale: SaleWithProduct) {
     const patch = overrides[sale.id];
@@ -327,7 +380,7 @@ export default function SalesTable({
   const headerClass = `whitespace-nowrap px-3 ${headerPaddingClass} text-xs font-semibold`;
   const tableMinWidth =
     orderedColumns.reduce((sum, column) => sum + widths[column.id], 0) +
-    (canManageSales ? 40 : 0);
+    (canManageSales ? 80 : 0);
   const tableStyle = { minWidth: tableMinWidth };
 
   const allSelected = sales.length > 0 && selectedIds.size === sales.length;
@@ -348,9 +401,23 @@ export default function SalesTable({
     });
   }
 
+  function toggleEmphasis(id: string, checked: boolean) {
+    setEmphasizedIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
   const colGroup = (
     <colgroup>
-      {canManageSales ? <col style={{ width: "40px" }} /> : null}
+      {canManageSales ? (
+        <>
+          <col style={{ width: "40px" }} />
+          <col style={{ width: "40px" }} />
+        </>
+      ) : null}
       {orderedColumns.map((column) => (
         <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
       ))}
@@ -776,17 +843,24 @@ export default function SalesTable({
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
               {canManageSales ? (
-                <th className={`${checkboxCellClass} ${headerPaddingClass}`}>
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    ref={(element) => {
-                      if (element) element.indeterminate = someSelected;
-                    }}
-                    onChange={(event) => toggleAll(event.target.checked)}
-                    aria-label="현재 페이지 매출 전체 선택"
-                  />
-                </th>
+                <>
+                  <th className={`${checkboxCellClass} ${headerPaddingClass}`}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(element) => {
+                        if (element) element.indeterminate = someSelected;
+                      }}
+                      onChange={(event) => toggleAll(event.target.checked)}
+                      aria-label="현재 페이지 매출 전체 선택"
+                    />
+                  </th>
+                  <th
+                    className={`${emphasizeCellClass} ${headerPaddingClass} text-[11px] font-semibold text-zinc-700 dark:text-zinc-300`}
+                  >
+                    강조
+                  </th>
+                </>
               ) : null}
               {orderedColumns.map((column) => (
                 <DraggableTableHeaderCell
@@ -806,37 +880,62 @@ export default function SalesTable({
             {sales.length === 0 ? (
               <tr>
                 <td
-                  colSpan={orderedColumns.length + (canManageSales ? 1 : 0)}
+                  colSpan={orderedColumns.length + (canManageSales ? 2 : 0)}
                   className="px-3 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
                 >
                   {emptyMessage ?? "표시할 판매 기록이 없습니다."}
                 </td>
               </tr>
             ) : null}
-            {sales.map((sale) => (
+            {sales.map((sale) => {
+              const isEmphasized = emphasizedIds.has(sale.id);
+              const isSelected = selectedIds.has(sale.id);
+
+              return (
               <tr
                 key={sale.id}
                 onDoubleClick={canManageSales ? () => openEditModal(sale) : undefined}
                 title={canManageSales ? "더블클릭하여 수정" : undefined}
                 className={`border-b border-zinc-100 transition last:border-0 dark:border-zinc-800 ${
-                  canManageSales
-                    ? "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                  isEmphasized
+                    ? emphasizedRowClass
+                    : canManageSales
+                      ? "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      : ""
+                } ${
+                  !isEmphasized && isSelected
+                    ? "bg-blue-50/40 dark:bg-blue-950/20"
                     : ""
-                } ${selectedIds.has(sale.id) ? "bg-blue-50/40 dark:bg-blue-950/20" : ""}`}
+                }`}
               >
                 {canManageSales ? (
-                  <td
-                    className={checkboxCellClass}
-                    onClick={(event) => event.stopPropagation()}
-                    onDoubleClick={(event) => event.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(sale.id)}
-                      onChange={(event) => toggleOne(sale.id, event.target.checked)}
-                      aria-label={`${sale.products?.model_name ?? "매출"} 선택`}
-                    />
-                  </td>
+                  <>
+                    <td
+                      className={checkboxCellClass}
+                      onClick={(event) => event.stopPropagation()}
+                      onDoubleClick={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(event) =>
+                          toggleOne(sale.id, event.target.checked)
+                        }
+                        aria-label={`${sale.products?.model_name ?? "매출"} 선택`}
+                      />
+                    </td>
+                    <td
+                      className={emphasizeCellClass}
+                      onClick={(event) => event.stopPropagation()}
+                      onDoubleClick={(event) => event.stopPropagation()}
+                    >
+                      <SaleEmphasisToggle
+                        checked={isEmphasized}
+                        onChange={(checked) => toggleEmphasis(sale.id, checked)}
+                        ariaLabel={`${sale.products?.model_name ?? "매출"} 강조`}
+                      />
+                    </td>
+                  </>
                 ) : null}
                 {orderedColumns.map((column) => (
                   <Fragment key={column.id}>
@@ -844,7 +943,8 @@ export default function SalesTable({
                   </Fragment>
                 ))}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         ) : null}
