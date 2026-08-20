@@ -1,6 +1,8 @@
 import * as XLSX from "xlsx";
 import type { ParsedCafe24OrderRow } from "@/lib/cafe24-orders/types";
 
+export type OrderImportFileFormat = "cafe24" | "brightsound";
+
 function pickString(row: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
     const value = row[key];
@@ -65,7 +67,97 @@ function buildLineId(input: {
     .join("|");
 }
 
-function mapRow(row: Record<string, unknown>): ParsedCafe24OrderRow | null {
+function detectFormat(headerKeys: string[]): OrderImportFileFormat | null {
+  if (!headerKeys.includes("주문번호") || !headerKeys.includes("주문상품명")) {
+    return null;
+  }
+  if (headerKeys.includes("품목별 주문번호")) {
+    return "brightsound";
+  }
+  return "cafe24";
+}
+
+function extractBrightsoundProductOption(
+  productName: string,
+  productNameWithOption: string,
+) {
+  if (!productNameWithOption || productNameWithOption === productName) {
+    return "";
+  }
+
+  const modelMatch = productNameWithOption.match(/\(모델=([^)]+)\)/);
+  if (modelMatch) return modelMatch[1]!.trim();
+
+  if (productNameWithOption.startsWith(productName)) {
+    const rest = productNameWithOption.slice(productName.length).trim();
+    return rest.replace(/^[\s\-·]+/, "");
+  }
+
+  return "";
+}
+
+function extractBrightsoundSellerProductCode(
+  productOption: string,
+  productNameWithOption: string,
+) {
+  if (productOption.trim()) return productOption.trim();
+
+  const modelMatch = productNameWithOption.match(/\(모델=([^)]+)\)/);
+  if (modelMatch) return modelMatch[1]!.trim();
+
+  return "";
+}
+
+function mapBrightsoundRow(row: Record<string, unknown>): ParsedCafe24OrderRow | null {
+  const orderNo = pickString(row, "주문번호");
+  const productName = pickString(row, "주문상품명");
+  if (!orderNo || !productName) return null;
+
+  const lineItemNo = pickString(row, "품목별 주문번호");
+  const productNameWithOption = pickString(row, "주문상품명(옵션포함)");
+  const productOption = extractBrightsoundProductOption(
+    productName,
+    productNameWithOption,
+  );
+  const productNo = pickString(row, "상품번호");
+  const sellerProductCode = extractBrightsoundSellerProductCode(
+    productOption,
+    productNameWithOption,
+  );
+  const quantity = Math.max(1, Math.round(pickNumber(row, "수량")));
+  const unitSalePrice = Math.max(0, Math.round(pickNumber(row, "판매가")));
+  const addressBase = pickString(row, "수령인 주소");
+  const addressDetail = pickString(row, "수령인 상세 주소");
+  const customerAddress = [addressBase, addressDetail].filter(Boolean).join(" ");
+
+  return {
+    lineId:
+      lineItemNo ||
+      buildLineId({
+        orderNo,
+        productNo,
+        sellerProductCode,
+        productOption,
+      }),
+    mallName: pickString(row, "쇼핑몰"),
+    orderNo,
+    soldAt: parseSoldAt(row["발주일"]),
+    productName,
+    productNo,
+    productOption,
+    sellerProductCode,
+    cafe24PaymentMethod: pickString(row, "결제수단"),
+    paymentProvider: pickString(row, "결제구분"),
+    unitSalePrice,
+    quantity,
+    customerName: pickString(row, "수령인"),
+    customerPhone: pickString(row, "수령인 휴대전화"),
+    customerAddress,
+    note: pickString(row, "배송메시지"),
+  };
+}
+
+function mapCafe24Row(row: Record<string, unknown>): ParsedCafe24OrderRow | null {
   const orderNo = pickString(row, "주문번호");
   const productName = pickString(row, "주문상품명");
   if (!orderNo || !productName) return null;
@@ -110,7 +202,9 @@ function mapRow(row: Record<string, unknown>): ParsedCafe24OrderRow | null {
 
 export function parseCafe24OrdersFile(
   buffer: ArrayBuffer,
-): { rows: ParsedCafe24OrderRow[] } | { error: string } {
+):
+  | { rows: ParsedCafe24OrderRow[]; format: OrderImportFileFormat }
+  | { error: string } {
   try {
     const workbook = XLSX.read(buffer, { type: "array", raw: false });
     const sheetName = workbook.SheetNames[0];
@@ -128,13 +222,15 @@ export function parseCafe24OrdersFile(
     }
 
     const headerKeys = Object.keys(jsonRows[0] ?? {});
-    if (!headerKeys.includes("주문번호") || !headerKeys.includes("주문상품명")) {
+    const format = detectFormat(headerKeys);
+    if (!format) {
       return {
         error:
-          "카페24 주문 엑셀 형식이 아닙니다. 주문번호·주문상품명 열이 필요합니다.",
+          "지원하지 않는 주문 파일 형식입니다. 카페24 또는 Brightsound 주문 엑셀(CSV/XLSX)이 필요합니다.",
       };
     }
 
+    const mapRow = format === "brightsound" ? mapBrightsoundRow : mapCafe24Row;
     const rows = jsonRows
       .map((row) => mapRow(row))
       .filter((row): row is ParsedCafe24OrderRow => row !== null);
@@ -143,7 +239,7 @@ export function parseCafe24OrdersFile(
       return { error: "등록 가능한 주문 행을 찾지 못했습니다." };
     }
 
-    return { rows };
+    return { rows, format };
   } catch {
     return { error: "엑셀 파일을 읽지 못했습니다." };
   }

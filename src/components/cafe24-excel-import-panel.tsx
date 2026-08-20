@@ -606,7 +606,7 @@ export default function Cafe24ExcelImportPanel({
             엑셀 매출 등록
           </p>
           <p className="mt-1 text-xs text-blue-800/80 dark:text-blue-200/80">
-            카페24에서 다운로드한 주문 엑셀(CSV/XLSX)을 업로드해 매출로
+            카페24 또는 Brightsound 주문 엑셀(CSV/XLSX)을 업로드해 매출로
             등록합니다. 행마다 출고지를 선택할 수 있으며, 「매장」일 때만 재고가
             차감됩니다.
           </p>
@@ -625,7 +625,7 @@ export default function Cafe24ExcelImportPanel({
           <div className="flex flex-wrap items-end gap-3">
             <div className="text-sm">
               <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">
-                카페24 주문 파일
+                주문 엑셀 파일
               </span>
               <input
                 ref={fileInputRef}
