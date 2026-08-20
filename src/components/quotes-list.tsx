@@ -11,11 +11,13 @@ import QuoteConvertDialog, {
   type QuoteConvertConfirmPayload,
 } from "@/components/quote-convert-dialog";
 import QuoteForm from "@/components/quote-form";
+import TablePageSizeSelect from "@/components/table-page-size-select";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
 import { quoteToCopiedPayload } from "@/lib/quote-clipboard";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
+import type { TablePageSize } from "@/lib/table-page-size";
 import type { PaymentMethod } from "@/types/sale";
 
 const QuoteDocumentPreview = dynamic(
@@ -82,6 +84,9 @@ type QuotesListProps = {
   emptyMessage?: string;
   highlightedQuoteIds?: Set<string>;
   onQuoteDuplicated?: (quoteId: string) => void;
+  regularQuoteTotalCount?: number;
+  pageSize?: TablePageSize;
+  onPageSizeChange?: (pageSize: TablePageSize) => void;
 };
 
 function formatDate(value: string) {
@@ -103,7 +108,67 @@ const actionButtonClass =
   "inline-flex h-[26px] w-[4.25rem] shrink-0 items-center justify-center rounded border text-[11px] font-medium leading-none whitespace-nowrap";
 
 const starButtonClass =
-  "inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded text-[18px] leading-none transition hover:bg-amber-50 dark:hover:bg-amber-950/40";
+  "inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded text-[18px] leading-none transition hover:bg-zinc-100 dark:hover:bg-zinc-800";
+
+type QuoteListSectionProps = {
+  title: string;
+  titleClassName?: string;
+  totalCount: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  pageSize?: TablePageSize;
+  onPageSizeChange?: (pageSize: TablePageSize) => void;
+  children: React.ReactNode;
+};
+
+function QuoteListSection({
+  title,
+  titleClassName = "text-base font-bold text-zinc-900 dark:text-zinc-100",
+  totalCount,
+  collapsed,
+  onToggle,
+  pageSize,
+  onPageSizeChange,
+  children,
+}: QuoteListSectionProps) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/80">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          className="flex min-w-0 items-center gap-2 text-left"
+        >
+          <span
+            aria-hidden="true"
+            className="inline-flex w-4 shrink-0 justify-center text-sm text-zinc-500 dark:text-zinc-400"
+          >
+            {collapsed ? "▸" : "▾"}
+          </span>
+          <span className={titleClassName}>
+            {title}
+          </span>
+          <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
+            {totalCount}건
+          </span>
+        </button>
+
+        {pageSize !== undefined && onPageSizeChange ? (
+          <div className="ml-auto">
+            <TablePageSizeSelect
+              value={pageSize}
+              onChange={onPageSizeChange}
+              compact
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {!collapsed ? <div className="space-y-1 px-2 py-2">{children}</div> : null}
+    </section>
+  );
+}
 
 export default function QuotesList({
   favoriteQuotes = [],
@@ -122,10 +187,17 @@ export default function QuotesList({
   emptyMessage,
   highlightedQuoteIds,
   onQuoteDuplicated,
+  regularQuoteTotalCount = 0,
+  pageSize,
+  onPageSizeChange,
 }: QuotesListProps) {
   const router = useRouter();
   const convertedQuoteIdSet = new Set(convertedQuoteIds);
   const subFontSize = Math.max(8, rowFontSize - 2);
+  const [collapsedSections, setCollapsedSections] = useState({
+    favorites: false,
+    all: false,
+  });
   const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
   const [convertingQuote, setConvertingQuote] = useState<QuoteListItem | null>(
     null,
@@ -268,9 +340,7 @@ export default function QuotesList({
         } ${
           isConverted
             ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
-            : isFavorite
-              ? "border-amber-200 bg-amber-50/50 hover:border-amber-300 hover:bg-amber-50/80 dark:border-amber-900/60 dark:bg-amber-950/20 dark:hover:border-amber-800 dark:hover:bg-amber-950/30"
-              : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
+            : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
         }`}
       >
         <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-2">
@@ -410,6 +480,7 @@ export default function QuotesList({
   }
 
   const hasQuotes = favoriteQuotes.length > 0 || quotes.length > 0;
+  const showAllQuotesSection = regularQuoteTotalCount > 0;
 
   return (
     <>
@@ -419,35 +490,52 @@ export default function QuotesList({
         </p>
       ) : null}
 
-      <div className="mt-3 space-y-3">
+      <div className="mt-4 space-y-4">
         {!hasQuotes ? (
-          <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
             {emptyMessage ?? "표시할 견적 기록이 없습니다."}
           </div>
         ) : null}
 
         {favoriteQuotes.length > 0 ? (
-          <section>
-            <h3 className="mb-1.5 px-1 text-[12px] font-semibold text-amber-700 dark:text-amber-300">
-              즐겨찾기
-            </h3>
-            <div className="space-y-1">
-              {favoriteQuotes.map((quote) => renderQuoteRow(quote))}
-            </div>
-          </section>
+          <QuoteListSection
+            title="즐겨찾기"
+            titleClassName="text-base font-bold text-blue-600 dark:text-blue-400"
+            totalCount={favoriteQuotes.length}
+            collapsed={collapsedSections.favorites}
+            onToggle={() =>
+              setCollapsedSections((current) => ({
+                ...current,
+                favorites: !current.favorites,
+              }))
+            }
+          >
+            {favoriteQuotes.map((quote) => renderQuoteRow(quote))}
+          </QuoteListSection>
         ) : null}
 
-        {quotes.length > 0 ? (
-          <section className={favoriteQuotes.length > 0 ? "pt-1" : undefined}>
-            {favoriteQuotes.length > 0 ? (
-              <h3 className="mb-1.5 px-1 text-[12px] font-semibold text-zinc-500 dark:text-zinc-400">
-                전체 견적
-              </h3>
-            ) : null}
-            <div className="space-y-1">
-              {quotes.map((quote) => renderQuoteRow(quote))}
-            </div>
-          </section>
+        {showAllQuotesSection ? (
+          <QuoteListSection
+            title="전체 견적"
+            totalCount={regularQuoteTotalCount}
+            collapsed={collapsedSections.all}
+            onToggle={() =>
+              setCollapsedSections((current) => ({
+                ...current,
+                all: !current.all,
+              }))
+            }
+            pageSize={pageSize}
+            onPageSizeChange={onPageSizeChange}
+          >
+            {quotes.length > 0 ? (
+              quotes.map((quote) => renderQuoteRow(quote))
+            ) : (
+              <div className="rounded-lg border border-dashed border-zinc-300 px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                {emptyMessage ?? "표시할 견적 기록이 없습니다."}
+              </div>
+            )}
+          </QuoteListSection>
         ) : null}
       </div>
 

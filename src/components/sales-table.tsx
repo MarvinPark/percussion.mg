@@ -450,7 +450,7 @@ export default function SalesTable({
           <td
             className={`${
               canManageSales ? editableCellClass : cellClass
-            } text-orange-700 dark:text-orange-300`}
+            } text-zinc-700 dark:text-zinc-300`}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
             onDoubleClick={(event) => event.stopPropagation()}

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import QuotesList, { type QuoteListItem } from "@/components/quotes-list";
 import QuotesListSearch from "@/components/quotes-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
-import TablePageSizeSelect from "@/components/table-page-size-select";
 import TablePagination from "@/components/table-pagination";
 import {
   loadQuoteFavoriteIds,
@@ -117,6 +116,26 @@ export default function QuotesPageClient({
       return next;
     });
   }, [favoritesLoaded, quotes, userId]);
+
+  useEffect(() => {
+    if (!favoritesLoaded || convertedQuoteIds.length === 0) return;
+
+    const convertedSet = new Set(convertedQuoteIds);
+    setFavoriteQuoteIds((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+
+      for (const quoteId of convertedSet) {
+        if (next.delete(quoteId)) {
+          changed = true;
+        }
+      }
+
+      if (!changed) return prev;
+      saveQuoteFavoriteIds(userId, next);
+      return next;
+    });
+  }, [convertedQuoteIds, favoritesLoaded, userId]);
 
   useEffect(() => {
     if (!pageSizeLoaded) return;
@@ -279,11 +298,6 @@ export default function QuotesPageClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <TablePageSizeSelect
-            value={pageSize}
-            onChange={handlePageSizeChange}
-            compact
-          />
           <div className={fontControlBoxClass}>
             <button
               type="button"
@@ -316,6 +330,9 @@ export default function QuotesPageClient({
         quotes={pagination.items}
         favoriteQuoteIds={favoriteQuoteIds}
         onToggleFavorite={handleToggleFavorite}
+        regularQuoteTotalCount={regularQuotes.length}
+        pageSize={pageSize}
+        onPageSizeChange={handlePageSizeChange}
         paymentMethods={paymentMethods}
         saleCategories={saleCategories}
         convertedQuoteIds={convertedQuoteIds}
