@@ -54,7 +54,13 @@ export function mappingConfidence(mapping: ColumnMapping) {
       mapping.stock_quantity ||
       mapping.supplier ||
       mapping.category ||
-      mapping.brand,
+      mapping.brand ||
+      mapping.product_name ||
+      mapping.model_name ||
+      mapping.sku ||
+      mapping.color ||
+      mapping.product_option ||
+      mapping.size,
   );
 
   return {

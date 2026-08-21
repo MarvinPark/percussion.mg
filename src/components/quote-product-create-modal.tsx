@@ -40,6 +40,7 @@ export default function QuoteProductCreateModal({
   const [brand, setBrand] = useState("");
   const [purchasePrice, setPurchasePrice] = useState(0);
   const [salePrice, setSalePrice] = useState(0);
+  const [stockQuantity, setStockQuantity] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -57,6 +58,7 @@ export default function QuoteProductCreateModal({
         brand,
         purchase_price: purchasePrice,
         sale_price: salePrice,
+        stock_quantity: stockQuantity,
       });
 
       if ("error" in result) {
@@ -185,6 +187,25 @@ export default function QuoteProductCreateModal({
                 className={inputClass}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="quote_create_stock_quantity" className={labelClass}>
+              현재 재고수량
+            </label>
+            <input
+              id="quote_create_stock_quantity"
+              type="number"
+              min={0}
+              value={stockQuantity}
+              onChange={(event) =>
+                setStockQuantity(Math.max(0, Number(event.target.value) || 0))
+              }
+              className={inputClass}
+            />
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+              기본 보관 위치(3층) 재고로 등록됩니다.
+            </p>
           </div>
 
           {error ? (

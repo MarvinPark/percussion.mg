@@ -54,6 +54,7 @@ export type ParsedUpdateRow = {
 
 export function normalizeHeader(value: string) {
   return value
+    .replace(/^\uFEFF/, "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "")

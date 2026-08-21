@@ -16,6 +16,7 @@ type DashboardInsightsPanelProps = {
     entries: CategoryShareEntry[];
     totalSales: number;
   };
+  layout?: "grid" | "stack";
 };
 
 const cardClass =
@@ -214,17 +215,20 @@ export default function DashboardInsightsPanel({
   comparison,
   quoteConversion,
   categoryShare,
+  layout = "grid",
 }: DashboardInsightsPanelProps) {
   const showQuote = quoteConversion != null;
   const columnCount = showQuote ? 3 : 2;
 
   return (
     <div
-      className={`grid gap-4 ${
-        columnCount === 3
-          ? "lg:grid-cols-3"
-          : "md:grid-cols-2"
-      }`}
+      className={
+        layout === "stack"
+          ? "flex flex-col gap-4"
+          : `grid gap-4 ${
+              columnCount === 3 ? "lg:grid-cols-3" : "md:grid-cols-2"
+            }`
+      }
     >
       <ComparisonCard data={comparison} />
       <CategoryShareCard

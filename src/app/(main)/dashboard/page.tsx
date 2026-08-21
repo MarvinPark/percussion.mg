@@ -3,7 +3,9 @@ import DashboardGreetingCard from "@/components/dashboard-greeting-card";
 import { createPageMetadata } from "@/lib/document-titles";
 import DashboardInsightsPanel from "@/components/dashboard-insights-panel";
 import DashboardLowStockAlert from "@/components/dashboard-low-stock-alert";
-import SalesAnalyticsDashboard from "@/components/sales-analytics-dashboard";
+import ProductSalesTrendDashboard from "@/components/product-sales-trend-dashboard";
+import SalesAnalyticsRankSection from "@/components/sales-analytics-rank-section";
+import SalesTrendSection from "@/components/sales-trend-section";
 import {
   cardInteractive,
   pageMain,
@@ -87,22 +89,6 @@ export default async function DashboardPage() {
           email={user.email ?? ""}
         />
 
-        {canViewSales ? (
-          <div className="mt-6">
-            <SalesAnalyticsDashboard rows={salesAnalytics.rows} />
-          </div>
-        ) : null}
-
-        {canViewSales && salesComparison && categoryShare ? (
-          <div className="mt-6">
-            <DashboardInsightsPanel
-              comparison={salesComparison}
-              quoteConversion={quoteConversion}
-              categoryShare={categoryShare}
-            />
-          </div>
-        ) : null}
-
         <div className={`mt-6 grid gap-4 ${canViewQuotes ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <Link href="/products" className={cardInteractive}>
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -155,6 +141,36 @@ export default async function DashboardPage() {
           </Link>
           ) : null}
         </div>
+
+        {canViewSales ? (
+          <>
+            <div className="mt-6">
+              <SalesTrendSection
+                rows={salesAnalytics.rows}
+                title="판매현황"
+                subtitle="기간별 매출·매입·마진 추이 (만원)"
+              />
+            </div>
+
+            <div className="mt-6">
+              <ProductSalesTrendDashboard rows={salesAnalytics.rows} />
+            </div>
+
+            <div className="mt-6">
+              <SalesAnalyticsRankSection rows={salesAnalytics.rows} />
+            </div>
+          </>
+        ) : null}
+
+        {canViewSales && salesComparison && categoryShare ? (
+          <div className="mt-6">
+            <DashboardInsightsPanel
+              comparison={salesComparison}
+              quoteConversion={quoteConversion}
+              categoryShare={categoryShare}
+            />
+          </div>
+        ) : null}
 
         <DashboardLowStockAlert
           products={lowStockProducts}

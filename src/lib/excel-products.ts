@@ -21,6 +21,13 @@ export const EXCEL_HEADERS = [
   "최소알림",
 ] as const;
 
+/** 제품목록 다운받기 전용 — ID 열로 엑셀 수정 시 제품을 정확히 찾습니다. */
+export const EXCEL_EXPORT_ID_HEADER = "ID";
+export const EXCEL_EXPORT_HEADERS = [
+  EXCEL_EXPORT_ID_HEADER,
+  ...EXCEL_HEADERS,
+] as const;
+
 const EXAMPLE_ROW = [
   "A사",
   "일렉기타",
@@ -190,6 +197,17 @@ export function productToExcelRow(product: Product) {
   ];
 }
 
+export function productToExportRow(product: Product) {
+  return [product.id, ...productToExcelRow(product)];
+}
+
+function excelExportColumnWidths() {
+  return [
+    { wch: 38 },
+    ...excelColumnWidths(),
+  ];
+}
+
 export function createProductTemplateBuffer() {
   const worksheet = XLSX.utils.aoa_to_sheet([
     [...EXCEL_HEADERS],
@@ -205,10 +223,10 @@ export function createProductTemplateBuffer() {
 
 export function createProductExportBuffer(products: Product[]) {
   const worksheet = XLSX.utils.aoa_to_sheet([
-    [...EXCEL_HEADERS],
-    ...products.map(productToExcelRow),
+    [...EXCEL_EXPORT_HEADERS],
+    ...products.map(productToExportRow),
   ]);
-  worksheet["!cols"] = excelColumnWidths();
+  worksheet["!cols"] = excelExportColumnWidths();
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "제품등록");

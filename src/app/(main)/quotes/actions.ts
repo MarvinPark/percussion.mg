@@ -810,6 +810,7 @@ export async function createProductForQuoteLink(input: {
   supplier: string;
   sale_price: number;
   purchase_price: number;
+  stock_quantity?: number;
   category?: string;
   brand?: string;
   color?: string;
@@ -832,6 +833,11 @@ export async function createProductForQuoteLink(input: {
   if (!supplier) return { error: "공급처를 입력해 주세요." };
   if (input.sale_price < 0 || input.purchase_price < 0) {
     return { error: "가격은 0 이상이어야 합니다." };
+  }
+
+  const stock_quantity = Math.max(0, Math.round(input.stock_quantity ?? 0));
+  if (!Number.isFinite(stock_quantity)) {
+    return { error: "재고 수량은 0 이상이어야 합니다." };
   }
 
   const supabase = await createClient();
@@ -861,9 +867,9 @@ export async function createProductForQuoteLink(input: {
       size,
       purchase_price: Math.round(input.purchase_price),
       sale_price: Math.round(input.sale_price),
-      stock_quantity: 0,
+      stock_quantity,
       min_stock_quantity: 0,
-      stock_floor3: 0,
+      stock_floor3: stock_quantity,
       stock_b1: 0,
       stock_display: 0,
       stock_location: "3층",

@@ -3,6 +3,7 @@
 import { requirePermission } from "@/lib/profile";
 import { DUPLICATE_SKU_MESSAGE } from "@/lib/product-duplicate";
 import { parseAndMatchProductUpdates } from "@/lib/excel-product-update";
+import { fetchAllProducts } from "@/lib/product-list-loader";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Product } from "@/types/product";
@@ -46,12 +47,12 @@ export async function updateProductsFromExcel(
   const auth = await requirePermission("manageProducts");
   if ("error" in auth) return { error: auth.error };
 
-  const { data: products, error: productsError } = await supabase
-    .from("products")
-    .select("*");
+  const { products, error: productsError } = await fetchAllProducts(supabase);
 
-  if (productsError || !products?.length) {
-    return { error: "수정할 등록 제품이 없습니다. 먼저 제품을 등록해 주세요." };
+  if (productsError || !products.length) {
+    return {
+      error: productsError ?? "수정할 등록 제품이 없습니다. 먼저 제품을 등록해 주세요.",
+    };
   }
 
   const buffer = await file.arrayBuffer();

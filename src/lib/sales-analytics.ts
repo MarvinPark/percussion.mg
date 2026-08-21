@@ -2,7 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type SalesAnalyticsRow = {
   sold_at: string;
+  product_id: string;
+  quantity: number;
   total_amount: number;
+  purchase_amount: number;
   margin_amount: number;
   business_partner: string | null;
   sale_category: string;
@@ -31,7 +34,13 @@ export type SalesPeriodBucket = {
   key: string;
   label: string;
   sales: number;
+  purchase: number;
   margin: number;
+};
+
+export type SalesProductPeriodBucket = SalesPeriodBucket & {
+  salesQuantity: number;
+  purchaseQuantity: number;
 };
 
 export type SalesRankEntry = {
@@ -126,7 +135,7 @@ function bucketKey(
 function bucketLabel(key: string, granularity: SalesPeriodGranularity): string {
   if (granularity === "month") {
     const [y, m] = key.split("-");
-    return `${y}.${m}`;
+    return `${y.slice(-2)}.${m}`;
   }
 
   if (granularity === "week") {
@@ -187,24 +196,85 @@ export function aggregateSalesByPeriod(
   start: string,
   end: string,
 ): SalesPeriodBucket[] {
-  const totals = new Map<string, { sales: number; margin: number }>();
+  const totals = new Map<string, { sales: number; purchase: number; margin: number }>();
 
   for (const row of rows) {
     if (row.sold_at < start || row.sold_at > end) continue;
     const key = bucketKey(row.sold_at, granularity);
-    const current = totals.get(key) ?? { sales: 0, margin: 0 };
+    const current = totals.get(key) ?? { sales: 0, purchase: 0, margin: 0 };
     current.sales += Number(row.total_amount) || 0;
+    current.purchase += Number(row.purchase_amount) || 0;
     current.margin += Number(row.margin_amount) || 0;
     totals.set(key, current);
   }
 
   return enumerateBucketKeys(start, end, granularity).map((key) => {
-    const value = totals.get(key) ?? { sales: 0, margin: 0 };
+    const value = totals.get(key) ?? { sales: 0, purchase: 0, margin: 0 };
     return {
       key,
       label: bucketLabel(key, granularity),
       sales: value.sales,
+      purchase: value.purchase,
       margin: value.margin,
+    };
+  });
+}
+
+export function aggregateProductSalesByPeriod(
+  rows: SalesAnalyticsRow[],
+  productId: string,
+  granularity: SalesPeriodGranularity,
+  start: string,
+  end: string,
+): SalesProductPeriodBucket[] {
+  const filtered = rows.filter((row) => row.product_id === productId);
+
+  const totals = new Map<
+    string,
+    {
+      sales: number;
+      purchase: number;
+      margin: number;
+      salesQuantity: number;
+      purchaseQuantity: number;
+    }
+  >();
+
+  for (const row of filtered) {
+    if (row.sold_at < start || row.sold_at > end) continue;
+    const key = bucketKey(row.sold_at, granularity);
+    const quantity = Number(row.quantity) || 0;
+    const current = totals.get(key) ?? {
+      sales: 0,
+      purchase: 0,
+      margin: 0,
+      salesQuantity: 0,
+      purchaseQuantity: 0,
+    };
+    current.sales += Number(row.total_amount) || 0;
+    current.purchase += Number(row.purchase_amount) || 0;
+    current.margin += Number(row.margin_amount) || 0;
+    current.salesQuantity += quantity;
+    current.purchaseQuantity += quantity;
+    totals.set(key, current);
+  }
+
+  return enumerateBucketKeys(start, end, granularity).map((key) => {
+    const value = totals.get(key) ?? {
+      sales: 0,
+      purchase: 0,
+      margin: 0,
+      salesQuantity: 0,
+      purchaseQuantity: 0,
+    };
+    return {
+      key,
+      label: bucketLabel(key, granularity),
+      sales: value.sales,
+      purchase: value.purchase,
+      margin: value.margin,
+      salesQuantity: value.salesQuantity,
+      purchaseQuantity: value.purchaseQuantity,
     };
   });
 }
@@ -268,7 +338,7 @@ export async function fetchSalesAnalyticsRows(
   const { data, error } = await supabase
     .from("sales")
     .select(
-      "sold_at, total_amount, margin_amount, business_partner, sale_category, products(brand, product_name)",
+      "sold_at, product_id, quantity, total_amount, margin_amount, unit_purchase_price, business_partner, sale_category, products(brand, product_name)",
     )
     .gte("sold_at", start)
     .order("sold_at", { ascending: true });
@@ -280,7 +350,11 @@ export async function fetchSalesAnalyticsRows(
 
     return {
       sold_at: row.sold_at,
+      product_id: row.product_id,
+      quantity: Number(row.quantity) || 0,
       total_amount: Number(row.total_amount) || 0,
+      purchase_amount:
+        (Number(row.unit_purchase_price) || 0) * (Number(row.quantity) || 0),
       margin_amount: Number(row.margin_amount) || 0,
       business_partner: row.business_partner,
       sale_category: row.sale_category,

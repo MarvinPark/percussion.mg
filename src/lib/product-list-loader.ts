@@ -203,6 +203,36 @@ export async function fetchProductsPage(
   };
 }
 
+export async function fetchAllProducts(
+  supabase: SupabaseClient,
+): Promise<{ products: Product[]; error: string | null }> {
+  const products: Product[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("id", { ascending: true })
+      .range(offset, offset + 999);
+
+    if (error) {
+      return {
+        products: [],
+        error: "제품 목록을 불러오지 못했습니다.",
+      };
+    }
+
+    if (!data?.length) break;
+
+    products.push(...(data as Product[]));
+    if (data.length < 1000) break;
+    offset += 1000;
+  }
+
+  return { products, error: null };
+}
+
 export async function fetchProductsForExport(
   supabase: SupabaseClient,
   options: {
@@ -212,32 +242,42 @@ export async function fetchProductsForExport(
 ): Promise<{ products: Product[]; error: string | null }> {
   const searchQuery = options.searchQuery?.trim() ?? "";
   const sort = options.sort ?? DEFAULT_PRODUCT_LIST_SORT;
+  const products: Product[] = [];
+  let offset = 0;
 
-  let builder = supabase.from("products").select("*");
+  while (true) {
+    let builder = supabase.from("products").select("*");
 
-  if (sort.column) {
-    builder = builder
-      .order(sort.column, { ascending: sort.direction === "asc" })
-      .order("created_at", { ascending: false });
-  } else {
-    builder = builder.order("created_at", { ascending: false });
-  }
+    if (sort.column) {
+      builder = builder
+        .order(sort.column, { ascending: sort.direction === "asc" })
+        .order("created_at", { ascending: false });
+    } else {
+      builder = builder.order("created_at", { ascending: false });
+    }
 
-  if (searchQuery) {
-    builder = applyProductSearchFilter(builder, searchQuery);
-  }
+    if (searchQuery) {
+      builder = applyProductSearchFilter(builder, searchQuery);
+    }
 
-  const { data, error } = await builder;
+    const { data, error } = await builder.range(offset, offset + 999);
 
-  if (error) {
-    return {
-      products: [],
-      error: "제품 목록을 불러오지 못했습니다.",
-    };
+    if (error) {
+      return {
+        products: [],
+        error: "제품 목록을 불러오지 못했습니다.",
+      };
+    }
+
+    if (!data?.length) break;
+
+    products.push(...(data as Product[]));
+    if (data.length < 1000) break;
+    offset += 1000;
   }
 
   return {
-    products: (data as Product[]) ?? [],
+    products,
     error: null,
   };
 }
