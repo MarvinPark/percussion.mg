@@ -28,6 +28,7 @@ import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import { formatKRW } from "@/lib/sales-calculator";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
+import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
 import type { PaymentMethod } from "@/types/sale";
 import type {
   QuoteItemInput,
@@ -186,7 +187,9 @@ export default function QuoteForm({
   );
   const [memo, setMemo] = useState(initialQuote?.memo ?? "");
   const [paymentMethodId, setPaymentMethodId] = useState(
-    initialQuote?.payment_method_id ?? paymentMethods[0]?.id ?? "",
+    () =>
+      initialQuote?.payment_method_id ??
+      getDefaultPaymentMethodId(paymentMethods),
   );
   const modelInputRef = useRef<ModelNameAutocompleteHandle>(null);
 

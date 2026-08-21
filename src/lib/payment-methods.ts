@@ -1,6 +1,26 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PaymentMethod } from "@/types/sale";
 
+export const DEFAULT_PAYMENT_METHOD_NAME = "현금영수증";
+
+export function getDefaultPaymentMethodId(
+  methods: PaymentMethod[],
+): string {
+  if (!methods.length) return "";
+
+  const exact = methods.find(
+    (method) => method.name.trim() === DEFAULT_PAYMENT_METHOD_NAME,
+  );
+  if (exact) return exact.id;
+
+  const partial = methods.find((method) =>
+    method.name.includes(DEFAULT_PAYMENT_METHOD_NAME),
+  );
+  if (partial) return partial.id;
+
+  return methods[0]?.id ?? "";
+}
+
 export function normalizePaymentMethods(
   rows: Array<{
     id: string;

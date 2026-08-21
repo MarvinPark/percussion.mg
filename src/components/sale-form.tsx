@@ -23,6 +23,7 @@ import {
 } from "@/lib/quote-fulfillment";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
+import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -79,7 +80,8 @@ function createEmptyLine(
     unitSalePrice: 0,
     unitPurchasePrice: 0,
     paymentMethodId:
-      options?.paymentMethodId ?? paymentMethods[0]?.id ?? "",
+      options?.paymentMethodId ??
+      getDefaultPaymentMethodId(paymentMethods),
     fulfillmentLocation: DEFAULT_FULFILLMENT_LOCATION,
     shippingCost: 0,
   };
@@ -118,7 +120,7 @@ export default function SaleForm({
     initialQuery: string;
   } | null>(null);
   const [bulkPaymentMethodId, setBulkPaymentMethodId] = useState(
-    () => livePaymentMethods[0]?.id ?? "",
+    () => getDefaultPaymentMethodId(paymentMethods),
   );
   const [bulkQuantity, setBulkQuantity] = useState(1);
   const [businessPartner, setBusinessPartner] = useState("");
