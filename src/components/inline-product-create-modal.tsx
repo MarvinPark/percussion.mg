@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { createProductForQuoteLink } from "@/app/(main)/quotes/actions";
+import { useState } from "react";
 import PriceInput from "@/components/price-input";
-import type { QuoteProductOption } from "@/types/quote";
+import type { InlineCreatedProduct } from "@/lib/inline-product-create-shared";
 
-type QuoteProductCreateModalProps = {
+export type InlineProductCreateContext = "sale" | "quote";
+
+type InlineProductCreateModalProps = {
+  context: InlineProductCreateContext;
   initialModelName: string;
   onClose: () => void;
-  onCreated: (product: QuoteProductOption) => void;
+  onCreated: (product: InlineCreatedProduct) => void;
 };
 
 const inputClass =
@@ -16,6 +18,21 @@ const inputClass =
 
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
+
+const CONTEXT_COPY: Record<
+  InlineProductCreateContext,
+  { description: string; stockHint?: string }
+> = {
+  sale: {
+    description:
+      "검색되지 않은 제품을 재고에 등록한 뒤 판매에 추가할 수 있습니다.",
+  },
+  quote: {
+    description:
+      "검색되지 않은 제품을 재고에 등록한 뒤 견적에 추가할 수 있습니다.",
+    stockHint: "기본 보관 위치(3층) 재고로 등록됩니다.",
+  },
+};
 
 function defaultSku(modelName: string) {
   const sanitized = modelName
@@ -26,11 +43,12 @@ function defaultSku(modelName: string) {
   return sanitized || "NEW-PRODUCT";
 }
 
-export default function QuoteProductCreateModal({
+export default function InlineProductCreateModal({
+  context,
   initialModelName,
   onClose,
   onCreated,
-}: QuoteProductCreateModalProps) {
+}: InlineProductCreateModalProps) {
   const trimmedModel = initialModelName.trim();
   const [productName, setProductName] = useState(trimmedModel);
   const [modelName, setModelName] = useState(trimmedModel);
@@ -42,33 +60,51 @@ export default function QuoteProductCreateModal({
   const [salePrice, setSalePrice] = useState(0);
   const [stockQuantity, setStockQuantity] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  const copy = CONTEXT_COPY[context];
+  const showStockQuantity = context === "quote";
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setIsPending(true);
 
-    startTransition(async () => {
-      const result = await createProductForQuoteLink({
-        product_name: productName,
-        model_name: modelName,
-        sku,
-        supplier,
-        category,
-        brand,
-        purchase_price: purchasePrice,
-        sale_price: salePrice,
-        stock_quantity: stockQuantity,
+    try {
+      const response = await fetch("/api/products/inline-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_name: productName,
+          model_name: modelName,
+          sku,
+          supplier,
+          category,
+          brand,
+          purchase_price: purchasePrice,
+          sale_price: salePrice,
+          stock_quantity: showStockQuantity ? stockQuantity : 0,
+        }),
       });
 
-      if ("error" in result) {
-        setError(result.error ?? "제품 등록에 실패했습니다.");
+      const result = (await response.json()) as
+        | { product: InlineCreatedProduct }
+        | { error: string };
+
+      if (!response.ok || !("product" in result)) {
+        setError(
+          "error" in result ? result.error : "제품 등록에 실패했습니다.",
+        );
         return;
       }
 
       onCreated(result.product);
       onClose();
-    });
+    } catch {
+      setError("제품 등록에 실패했습니다.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
   return (
@@ -79,17 +115,17 @@ export default function QuoteProductCreateModal({
             제품 등록
           </h3>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            검색되지 않은 제품을 재고에 등록한 뒤 견적에 추가할 수 있습니다.
+            {copy.description}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="quote_create_supplier" className={labelClass}>
+            <label htmlFor="inline_create_supplier" className={labelClass}>
               공급처 <span className="text-red-500">*</span>
             </label>
             <input
-              id="quote_create_supplier"
+              id="inline_create_supplier"
               value={supplier}
               onChange={(event) => setSupplier(event.target.value)}
               required
@@ -99,11 +135,11 @@ export default function QuoteProductCreateModal({
           </div>
 
           <div>
-            <label htmlFor="quote_create_product_name" className={labelClass}>
+            <label htmlFor="inline_create_product_name" className={labelClass}>
               제품명 <span className="text-red-500">*</span>
             </label>
             <input
-              id="quote_create_product_name"
+              id="inline_create_product_name"
               value={productName}
               onChange={(event) => setProductName(event.target.value)}
               required
@@ -112,11 +148,11 @@ export default function QuoteProductCreateModal({
           </div>
 
           <div>
-            <label htmlFor="quote_create_model_name" className={labelClass}>
+            <label htmlFor="inline_create_model_name" className={labelClass}>
               모델명 <span className="text-red-500">*</span>
             </label>
             <input
-              id="quote_create_model_name"
+              id="inline_create_model_name"
               value={modelName}
               onChange={(event) => setModelName(event.target.value)}
               required
@@ -125,11 +161,11 @@ export default function QuoteProductCreateModal({
           </div>
 
           <div>
-            <label htmlFor="quote_create_sku" className={labelClass}>
+            <label htmlFor="inline_create_sku" className={labelClass}>
               SKU (모델번호) <span className="text-red-500">*</span>
             </label>
             <input
-              id="quote_create_sku"
+              id="inline_create_sku"
               value={sku}
               onChange={(event) => setSku(event.target.value)}
               required
@@ -139,22 +175,22 @@ export default function QuoteProductCreateModal({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="quote_create_category" className={labelClass}>
+              <label htmlFor="inline_create_category" className={labelClass}>
                 카테고리
               </label>
               <input
-                id="quote_create_category"
+                id="inline_create_category"
                 value={category}
                 onChange={(event) => setCategory(event.target.value)}
                 className={inputClass}
               />
             </div>
             <div>
-              <label htmlFor="quote_create_brand" className={labelClass}>
+              <label htmlFor="inline_create_brand" className={labelClass}>
                 브랜드
               </label>
               <input
-                id="quote_create_brand"
+                id="inline_create_brand"
                 value={brand}
                 onChange={(event) => setBrand(event.target.value)}
                 className={inputClass}
@@ -164,11 +200,14 @@ export default function QuoteProductCreateModal({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="quote_create_purchase_price" className={labelClass}>
+              <label
+                htmlFor="inline_create_purchase_price"
+                className={labelClass}
+              >
                 매입가 (원)
               </label>
               <PriceInput
-                id="quote_create_purchase_price"
+                id="inline_create_purchase_price"
                 min={0}
                 value={purchasePrice}
                 onChange={setPurchasePrice}
@@ -176,11 +215,11 @@ export default function QuoteProductCreateModal({
               />
             </div>
             <div>
-              <label htmlFor="quote_create_sale_price" className={labelClass}>
+              <label htmlFor="inline_create_sale_price" className={labelClass}>
                 소비자가 (원)
               </label>
               <PriceInput
-                id="quote_create_sale_price"
+                id="inline_create_sale_price"
                 min={0}
                 value={salePrice}
                 onChange={setSalePrice}
@@ -189,24 +228,31 @@ export default function QuoteProductCreateModal({
             </div>
           </div>
 
-          <div>
-            <label htmlFor="quote_create_stock_quantity" className={labelClass}>
-              현재 재고수량
-            </label>
-            <input
-              id="quote_create_stock_quantity"
-              type="number"
-              min={0}
-              value={stockQuantity}
-              onChange={(event) =>
-                setStockQuantity(Math.max(0, Number(event.target.value) || 0))
-              }
-              className={inputClass}
-            />
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-              기본 보관 위치(3층) 재고로 등록됩니다.
-            </p>
-          </div>
+          {showStockQuantity ? (
+            <div>
+              <label
+                htmlFor="inline_create_stock_quantity"
+                className={labelClass}
+              >
+                현재 재고수량
+              </label>
+              <input
+                id="inline_create_stock_quantity"
+                type="number"
+                min={0}
+                value={stockQuantity}
+                onChange={(event) =>
+                  setStockQuantity(Math.max(0, Number(event.target.value) || 0))
+                }
+                className={inputClass}
+              />
+              {copy.stockHint ? (
+                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                  {copy.stockHint}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {error ? (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">

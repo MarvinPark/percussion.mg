@@ -6,7 +6,8 @@ import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/q
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
 } from "@/components/model-name-autocomplete";
-import QuoteProductCreateModal from "@/components/quote-product-create-modal";
+import InlineProductCreateModal from "@/components/inline-product-create-modal";
+import { toQuoteProductOption } from "@/lib/inline-product-create-shared";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
 import PriceInput from "@/components/price-input";
@@ -877,10 +878,13 @@ export default function QuoteForm({
       </div>
 
       {productCreateQuery !== null ? (
-        <QuoteProductCreateModal
+        <InlineProductCreateModal
+          context="quote"
           initialModelName={productCreateQuery}
           onClose={() => setProductCreateQuery(null)}
-          onCreated={handleQuoteProductCreated}
+          onCreated={(product) =>
+            handleQuoteProductCreated(toQuoteProductOption(product))
+          }
         />
       ) : null}
     </div>

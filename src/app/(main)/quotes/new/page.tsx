@@ -57,32 +57,24 @@ export default async function NewQuotePage() {
           </h2>
         </div>
 
-        {!productCount ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">
-              등록된 제품이 없습니다.
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          {!productCount ? (
+            <p className="mb-4 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300">
+              등록된 제품이 없습니다. 모델명 검색에서 +제품등록으로 바로 추가할
+              수 있습니다.
             </p>
-            <Link
-              href="/products/new"
-              className="mt-4 inline-block text-sm font-medium text-blue-600 underline dark:text-blue-400"
-            >
-              먼저 제품을 등록해 주세요
-            </Link>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <QuoteForm
-              paymentMethods={paymentMethods}
-              saleCategories={saleCategories}
-              contactSuggestions={contactSuggestions}
-              managerName={formatManagerDisplayName(
-                completeProfile.full_name,
-                completeProfile.job_title,
-              )}
-              managerPhone={completeProfile.phone}
-            />
-          </div>
-        )}
+          ) : null}
+          <QuoteForm
+            paymentMethods={paymentMethods}
+            saleCategories={saleCategories}
+            contactSuggestions={contactSuggestions}
+            managerName={formatManagerDisplayName(
+              completeProfile.full_name,
+              completeProfile.job_title,
+            )}
+            managerPhone={completeProfile.phone}
+          />
+        </div>
       </main>
   );
 }

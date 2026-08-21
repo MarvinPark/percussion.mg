@@ -3,7 +3,8 @@
 import { useActionState, useMemo, useState } from "react";
 import { createSale } from "@/app/(main)/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
-import SaleProductCreateModal from "@/components/sale-product-create-modal";
+import InlineProductCreateModal from "@/components/inline-product-create-modal";
+import { toSaleProductOption } from "@/lib/inline-product-create-shared";
 import PhoneInput from "@/components/phone-input";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
@@ -124,6 +125,11 @@ export default function SaleForm({
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [soldAt, setSoldAt] = useState(() => todayString());
+  const [saleCategory, setSaleCategory] = useState(
+    () => saleCategories[0] ?? "",
+  );
+  const [note, setNote] = useState("");
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
@@ -272,7 +278,12 @@ export default function SaleForm({
           <label htmlFor="sale_category" className={labelClass}>
             구분 <span className="text-red-500">*</span>
           </label>
-          <SaleCategorySelect categories={saleCategories} />
+          <SaleCategorySelect
+            categories={saleCategories}
+            value={saleCategory}
+            onChange={setSaleCategory}
+          />
+          <input type="hidden" name="sale_category" value={saleCategory} />
         </div>
 
         <div>
@@ -284,7 +295,8 @@ export default function SaleForm({
             name="sold_at"
             type="date"
             required
-            defaultValue={todayString()}
+            value={soldAt}
+            onChange={(event) => setSoldAt(event.target.value)}
             className={inputClass}
           />
         </div>
@@ -608,6 +620,8 @@ export default function SaleForm({
         <input
           id="note"
           name="note"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
           placeholder="예: 전시품 판매"
           className={inputClass}
         />
@@ -660,10 +674,13 @@ export default function SaleForm({
       </form>
 
       {productCreateModal ? (
-        <SaleProductCreateModal
+        <InlineProductCreateModal
+          context="sale"
           initialModelName={productCreateModal.initialQuery}
           onClose={() => setProductCreateModal(null)}
-          onCreated={handleSaleProductCreated}
+          onCreated={(product) =>
+            handleSaleProductCreated(toSaleProductOption(product))
+          }
         />
       ) : null}
     </>

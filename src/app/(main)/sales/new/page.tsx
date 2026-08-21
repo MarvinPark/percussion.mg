@@ -5,7 +5,6 @@ import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { createClient } from "@/lib/supabase/server";
-import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 import { redirect } from "next/navigation";
 
 export const metadata = createPageMetadata("매출등록");
@@ -19,15 +18,12 @@ export default async function NewSalePage() {
   if (!user) redirect("/login");
 
   const [
-    { data: products },
+    { count: productCount },
     { paymentMethods, error: paymentMethodsError },
     { data: salesContacts },
     { names: saleCategories },
   ] = await Promise.all([
-    supabase
-      .from("products")
-      .select(SALE_PRODUCT_OPTION_SELECT)
-      .order("product_name", { ascending: true }),
+    supabase.from("products").select("*", { count: "exact", head: true }),
     fetchPaymentMethods(supabase),
     supabase
       .from("sales")
@@ -59,19 +55,7 @@ export default async function NewSalePage() {
           </p>
         </div>
 
-        {!products?.length ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">
-              등록된 제품이 없습니다.
-            </p>
-            <Link
-              href="/products/new"
-              className="mt-4 inline-block text-sm font-medium text-blue-600 underline dark:text-blue-400"
-            >
-              먼저 제품을 등록해 주세요
-            </Link>
-          </div>
-        ) : paymentMethodsError ? (
+        {paymentMethodsError ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
             <p className="font-medium">결제 수단을 불러오지 못했습니다.</p>
             <p className="mt-2">
@@ -95,6 +79,12 @@ export default async function NewSalePage() {
           </div>
         ) : (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            {!productCount ? (
+              <p className="mb-4 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300">
+                등록된 제품이 없습니다. 아래 판매 제품 검색에서 +제품등록으로
+                바로 추가할 수 있습니다.
+              </p>
+            ) : null}
             <SaleForm
               paymentMethods={paymentMethods}
               contactSuggestions={contactSuggestions}
