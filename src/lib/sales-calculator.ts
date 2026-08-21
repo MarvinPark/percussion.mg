@@ -25,6 +25,12 @@ export function formatKRW(value: number | string | null | undefined) {
   return amount.toLocaleString("ko-KR");
 }
 
+export function marginAmountClass(amount: number) {
+  return amount < 0
+    ? "text-red-600 dark:text-red-400"
+    : "text-green-700 dark:text-green-300";
+}
+
 export function parsePriceInput(value: string) {
   const digits = value.replace(/[^\d-]/g, "");
   if (!digits || digits === "-") return 0;

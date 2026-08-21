@@ -12,6 +12,7 @@ import SaleCategorySelect from "@/components/sale-category-select";
 import {
   calculateSaleAmounts,
   formatKRW,
+  marginAmountClass,
 } from "@/lib/sales-calculator";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
@@ -508,7 +509,9 @@ export default function SaleEditModal({
               </div>
               <div>
                 <dt className="text-zinc-600 dark:text-zinc-400">마진 (이익)</dt>
-                <dd className="font-bold text-green-700 dark:text-green-300">
+                <dd
+                  className={`font-bold ${marginAmountClass(preview.marginAmount)}`}
+                >
                   {formatKRW(preview.marginAmount)}원
                 </dd>
               </div>

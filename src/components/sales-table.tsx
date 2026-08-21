@@ -11,7 +11,7 @@ import SaleEditModal from "@/components/sale-edit-modal";
 import TablePageSizeSelect from "@/components/table-page-size-select";
 import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
-import { calculateSaleAmounts, formatKRW } from "@/lib/sales-calculator";
+import { calculateSaleAmounts, formatKRW, marginAmountClass } from "@/lib/sales-calculator";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import {
   getDefaultSalesColumnOrder,
@@ -580,12 +580,14 @@ export default function SalesTable({
             -{formatKRW(getDisplayFee(displaySale))}원
           </td>
         );
-      case "margin":
+      case "margin": {
+        const margin = getDisplayMargin(displaySale);
         return (
-          <td className={`${cellClass} font-semibold text-green-700 dark:text-green-300`}>
-            {formatKRW(getDisplayMargin(displaySale))}원
+          <td className={`${cellClass} font-semibold ${marginAmountClass(margin)}`}>
+            {formatKRW(margin)}원
           </td>
         );
+      }
       case "customer":
         return (
           <td className={`${cellClass} text-zinc-700 dark:text-zinc-300`}>
