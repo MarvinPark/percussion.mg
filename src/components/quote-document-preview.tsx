@@ -499,16 +499,25 @@ function DocumentPreviewLayoutControl({
 const headerButtonClass =
   "rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
+function sanitizeFileNamePart(value: string, fallback: string) {
+  return value.replace(/[\\/:*?"<>|]/g, "_").trim() || fallback;
+}
+
+function formatDocumentFileDate(isoDate: string) {
+  const [year, month, day] = isoDate.split("-");
+  if (!year || !month || !day) return "날짜없음";
+  return `${year}.${month}.${day}`;
+}
+
 function buildDocumentFileName(
-  mode: PreviewMode,
   customerName: string,
+  managerName: string,
   quoteDate: string,
 ) {
-  const docType = mode === "quote" ? "견적서" : "거래명세서";
-  const safeName =
-    customerName.replace(/[\\/:*?"<>|]/g, "_").trim() || "고객";
-  const safeDate = quoteDate.replace(/-/g, "") || "날짜없음";
-  return `${docType}_${safeName}_${safeDate}`;
+  const safeDate = formatDocumentFileDate(quoteDate);
+  const safeManager = sanitizeFileNamePart(managerName, "담당자");
+  const safeCustomer = sanitizeFileNamePart(customerName, "고객");
+  return `${safeDate}(${safeManager}) ${safeCustomer}`;
 }
 
 export default function QuoteDocumentPreview({
@@ -537,6 +546,19 @@ export default function QuoteDocumentPreview({
     setRoundingMode("ceil");
     setPreviewLayout("paginated");
   }, [data.quote_date, mode, open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
 
   const previewData = useMemo(
     () => ({ ...data, quote_date: documentDate }),
@@ -669,7 +691,7 @@ export default function QuoteDocumentPreview({
       });
 
       pdf.save(
-        `${buildDocumentFileName(mode, data.customer_name, documentDate)}.pdf`,
+        `${buildDocumentFileName(data.customer_name, data.manager_name, documentDate)}.pdf`,
       );
 
       setActionMessage("PDF 파일을 저장했습니다.");
@@ -717,7 +739,7 @@ export default function QuoteDocumentPreview({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${buildDocumentFileName(mode, data.customer_name, documentDate)}.png`;
+      link.download = `${buildDocumentFileName(data.customer_name, data.manager_name, documentDate)}.png`;
       link.click();
       URL.revokeObjectURL(url);
       setActionMessage("클립보드 복사를 지원하지 않아 PNG 파일로 저장했습니다.");
