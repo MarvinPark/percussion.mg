@@ -1596,8 +1596,6 @@ export async function createProductForSaleLink(input: {
   }
 
   revalidatePath("/products");
-  revalidatePath("/sales");
-  revalidatePath("/sales/new");
 
   return {
     product: {

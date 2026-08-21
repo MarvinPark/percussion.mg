@@ -510,14 +510,17 @@ function formatDocumentFileDate(isoDate: string) {
 }
 
 function buildDocumentFileName(
+  mode: PreviewMode,
   customerName: string,
-  managerName: string,
   quoteDate: string,
 ) {
   const safeDate = formatDocumentFileDate(quoteDate);
-  const safeManager = sanitizeFileNamePart(managerName, "담당자");
   const safeCustomer = sanitizeFileNamePart(customerName, "고객");
-  return `${safeDate}(${safeManager}) ${safeCustomer}`;
+  const customerLabel = safeCustomer.endsWith("님")
+    ? safeCustomer
+    : `${safeCustomer}님`;
+  const docType = mode === "quote" ? "퍼센견적서" : "퍼센거래명세서";
+  return `${safeDate}(${customerLabel})${docType}`;
 }
 
 export default function QuoteDocumentPreview({
@@ -691,7 +694,7 @@ export default function QuoteDocumentPreview({
       });
 
       pdf.save(
-        `${buildDocumentFileName(data.customer_name, data.manager_name, documentDate)}.pdf`,
+        `${buildDocumentFileName(mode, data.customer_name, documentDate)}.pdf`,
       );
 
       setActionMessage("PDF 파일을 저장했습니다.");
@@ -739,7 +742,7 @@ export default function QuoteDocumentPreview({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${buildDocumentFileName(data.customer_name, data.manager_name, documentDate)}.png`;
+      link.download = `${buildDocumentFileName(mode, data.customer_name, documentDate)}.png`;
       link.click();
       URL.revokeObjectURL(url);
       setActionMessage("클립보드 복사를 지원하지 않아 PNG 파일로 저장했습니다.");

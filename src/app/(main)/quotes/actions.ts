@@ -888,8 +888,6 @@ export async function createProductForQuoteLink(input: {
   }
 
   revalidatePath("/products");
-  revalidatePath("/quotes");
-  revalidatePath("/quotes/new");
 
   return {
     product: {
