@@ -999,6 +999,39 @@ export async function deleteStockInMovements(
   return { ok: true, deletedCount };
 }
 
+const PRODUCT_DELETE_BLOCKED_BY_SALES_MESSAGE =
+  "매출 기록이 있어 삭제할 수 없습니다.";
+
+function resolveProductDeleteError(error: { code?: string; message?: string }) {
+  if (error.code === "23503") {
+    const message = error.message?.toLowerCase() ?? "";
+    if (message.includes("sales")) {
+      return PRODUCT_DELETE_BLOCKED_BY_SALES_MESSAGE;
+    }
+    return "다른 데이터와 연결되어 있어 삭제할 수 없습니다.";
+  }
+
+  return "제품 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+async function hasLinkedSales(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productIds: string[],
+) {
+  const { data, error } = await supabase
+    .from("sales")
+    .select("product_id")
+    .in("product_id", productIds)
+    .limit(1);
+
+  if (error) {
+    console.error("hasLinkedSales error:", error);
+    return false;
+  }
+
+  return (data?.length ?? 0) > 0;
+}
+
 export async function deleteProduct(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -1007,7 +1040,16 @@ export async function deleteProduct(formData: FormData) {
   const denied = await ensureManageProducts(supabase);
   if (denied) return;
 
-  await supabase.from("products").delete().eq("id", id);
+  if (await hasLinkedSales(supabase, [id])) {
+    return;
+  }
+
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) {
+    console.error("deleteProduct error:", error);
+    return;
+  }
+
   revalidatePath("/products");
 }
 
@@ -1022,11 +1064,15 @@ export async function deleteProductsByIds(
   const denied = await ensureManageProducts(supabase);
   if (denied) return denied;
 
+  if (await hasLinkedSales(supabase, ids)) {
+    return { error: PRODUCT_DELETE_BLOCKED_BY_SALES_MESSAGE };
+  }
+
   const { error } = await supabase.from("products").delete().in("id", ids);
 
   if (error) {
     console.error("deleteProductsByIds error:", error);
-    return { error: "제품 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+    return { error: resolveProductDeleteError(error) };
   }
 
   revalidatePath("/products");

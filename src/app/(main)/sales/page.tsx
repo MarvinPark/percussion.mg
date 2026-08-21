@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createPageMetadata } from "@/lib/document-titles";
 import {
   alertError,
+  btnPrimary,
   cardDashed,
   pageMain,
   pageSubtitle,
@@ -64,12 +65,19 @@ export default async function SalesPage() {
 
   return (
       <main className={pageMain}>
-        <div className="mb-6">
-          <h2 className={pageTitle}>매출</h2>
-          <p className={pageSubtitle}>
-            판매 기록을 조회·등록하고 수정할 수 있습니다.
-            {canManageSales ? " 행을 더블클릭하면 수정할 수 있습니다." : ""}
-          </p>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className={pageTitle}>매출</h2>
+            <p className={pageSubtitle}>
+              판매 기록을 조회·등록하고 수정할 수 있습니다.
+              {canManageSales ? " 행을 더블클릭하면 수정할 수 있습니다." : ""}
+            </p>
+          </div>
+          {canCreateSales ? (
+            <Link href="/sales/new" className={btnPrimary}>
+              +매출등록
+            </Link>
+          ) : null}
         </div>
 
         {error ? (
