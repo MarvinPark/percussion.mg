@@ -47,7 +47,7 @@ export default async function NewSalePage() {
             ← 매출 목록으로
           </Link>
           <h2 className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            판매 등록
+            매출 등록
           </h2>
           <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
             + 버튼으로 여러 제품을 한 번에 등록할 수 있으며, 등록 시 재고가
