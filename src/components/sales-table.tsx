@@ -3,9 +3,10 @@
 import { Fragment, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteSale, deleteSales, updateSalePurchasePrice, updateSaleShippingCost, updateSaleTotalAmount } from "@/app/(main)/sales/actions";
+import { deleteSale, deleteSales, updateSalePaymentMethod, updateSalePurchasePrice, updateSaleShippingCost, updateSaleTotalAmount } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
+import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
 import SaleEditModal from "@/components/sale-edit-modal";
 import TablePageSizeSelect from "@/components/table-page-size-select";
@@ -13,6 +14,7 @@ import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
 import { calculateSaleAmounts, formatKRW, marginAmountClass } from "@/lib/sales-calculator";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
+import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import {
   getDefaultSalesColumnOrder,
   getSalesBaseColumns,
@@ -100,7 +102,16 @@ type SaleFieldOverrides = {
   unit_sale_price?: number;
   total_amount?: number;
   shipping_cost?: number;
+  payment_method?: string;
+  payment_fee_rate?: number;
 };
+
+function resolvePaymentMethodId(
+  paymentMethodName: string,
+  methods: PaymentMethod[],
+) {
+  return methods.find((method) => method.name === paymentMethodName)?.id ?? "";
+}
 
 function getSaleAmountInputs(sale: SaleWithProduct) {
   return {
@@ -259,6 +270,7 @@ export default function SalesTable({
   className = "",
 }: SalesTableProps) {
   const router = useRouter();
+  const livePaymentMethods = useLivePaymentMethods(paymentMethods);
   const [editingSale, setEditingSale] = useState<SaleWithProduct | null>(null);
   const [deletingSale, setDeletingSale] = useState<SaleWithProduct | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -279,12 +291,16 @@ export default function SalesTable({
   const [savingTotalAmountId, setSavingTotalAmountId] = useState<string | null>(
     null,
   );
+  const [savingPaymentMethodId, setSavingPaymentMethodId] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
   const [isBulkDeleting, startBulkDeleteTransition] = useTransition();
   const [, startPurchasePriceTransition] = useTransition();
   const [, startShippingCostTransition] = useTransition();
   const [, startTotalAmountTransition] = useTransition();
+  const [, startPaymentMethodTransition] = useTransition();
 
   useEffect(() => {
     setOverrides({});
@@ -602,12 +618,42 @@ export default function SalesTable({
             ) : null}
           </td>
         );
-      case "payment":
+      case "payment": {
+        const paymentMethodId = resolvePaymentMethodId(
+          displaySale.payment_method,
+          livePaymentMethods,
+        );
+
         return (
-          <td className={`${cellClass} text-zinc-700 dark:text-zinc-300`}>
-            {sale.payment_method}
+          <td
+            className={`${cellClass} text-zinc-700 dark:text-zinc-300`}
+            onDoubleClick={(event) => event.stopPropagation()}
+          >
+            {canManageSales && livePaymentMethods.length > 0 ? (
+              <PaymentMethodCombobox
+                paymentMethods={livePaymentMethods}
+                value={paymentMethodId}
+                onChange={(nextPaymentMethodId) => {
+                  if (
+                    savingPaymentMethodId === sale.id ||
+                    !nextPaymentMethodId ||
+                    nextPaymentMethodId === paymentMethodId
+                  ) {
+                    return;
+                  }
+                  void savePaymentMethod(sale.id, nextPaymentMethodId);
+                }}
+                showFeeInLabel={false}
+                placeholder="결제"
+                className={`${inlineInputClass} min-w-[5.5rem] px-1 py-0.5 text-left text-inherit disabled:opacity-60`}
+                aria-label={`${sale.products?.product_name ?? "매출"} 결제 방식`}
+              />
+            ) : (
+              displaySale.payment_method
+            )}
           </td>
         );
+      }
       case "actions":
         return (
           <td className={`${cellPaddingClass} whitespace-nowrap px-3 leading-tight`}>
@@ -720,6 +766,42 @@ export default function SalesTable({
       startTotalAmountTransition(async () => {
         const result = await updateSaleTotalAmount(saleId, totalAmount);
         setSavingTotalAmountId(null);
+        if (result.error) {
+          setError(result.error);
+          clearSaleOverride(saleId);
+          resolve({ error: result.error });
+          return;
+        }
+
+        router.refresh();
+        resolve();
+      });
+    });
+  }
+
+  function savePaymentMethod(
+    saleId: string,
+    paymentMethodId: string,
+  ): Promise<{ error?: string } | void> {
+    const sale = sales.find((entry) => entry.id === saleId);
+    if (!sale) return Promise.resolve();
+
+    const method = livePaymentMethods.find(
+      (entry) => entry.id === paymentMethodId,
+    );
+    if (!method) return Promise.resolve();
+
+    setSavingPaymentMethodId(saleId);
+    setError(null);
+    patchSale(sale, {
+      payment_method: method.name,
+      payment_fee_rate: method.fee_rate,
+    });
+
+    return new Promise((resolve) => {
+      startPaymentMethodTransition(async () => {
+        const result = await updateSalePaymentMethod(saleId, paymentMethodId);
+        setSavingPaymentMethodId(null);
         if (result.error) {
           setError(result.error);
           clearSaleOverride(saleId);

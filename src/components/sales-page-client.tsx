@@ -31,6 +31,12 @@ import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/
 const buttonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
+const INITIAL_SECTION_PAGES = {
+  online: 1,
+  wholesale: 1,
+  other: 1,
+} as const;
+
 export type StaffOption = {
   id: string;
   full_name: string;
@@ -61,7 +67,9 @@ export default function SalesPageClient({
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPageBySection, setCurrentPageBySection] = useState<
+    Record<string, number>
+  >({ ...INITIAL_SECTION_PAGES });
   const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
@@ -90,7 +98,7 @@ export default function SalesPageClient({
   }, [preferencesLoaded, rowFontSize, userId]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, [sellerFilter, appliedQuery]);
 
   const sellerOptions = useMemo(() => getUniqueSellerNames(sales), [sales]);
@@ -118,42 +126,23 @@ export default function SalesPageClient({
     () =>
       salesSections.map((section) => {
         const sectionPageSize = pageSizeBySection[section.id] ?? pageSize;
+        const sectionCurrentPage = currentPageBySection[section.id] ?? 1;
         return {
           ...section,
           pageSize: sectionPageSize,
           pagination: paginateItems(
             section.sales,
-            currentPage,
+            sectionCurrentPage,
             sectionPageSize,
           ),
         };
       }),
-    [salesSections, currentPage, pageSize, pageSizeBySection],
+    [salesSections, currentPageBySection, pageSize, pageSizeBySection],
   );
-
-  const visibleSections = useMemo(
-    () => paginatedSections.filter((section) => section.sales.length > 0),
-    [paginatedSections],
-  );
-
-  const pagination = useMemo(() => {
-    const totalPages = Math.max(
-      1,
-      ...paginatedSections.map((section) => section.pagination.totalPages),
-    );
-    const current = Math.min(currentPage, totalPages);
-    return { currentPage: current, totalPages };
-  }, [paginatedSections, currentPage]);
-
-  useEffect(() => {
-    if (currentPage !== pagination.currentPage) {
-      setCurrentPage(pagination.currentPage);
-    }
-  }, [currentPage, pagination.currentPage]);
 
   const applySearch = useCallback(() => {
     setAppliedQuery(draftQuery);
-    setCurrentPage(1);
+    setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, [draftQuery]);
 
   const handleSelectSale = useCallback(
@@ -166,7 +155,7 @@ export default function SalesPageClient({
         "";
       setDraftQuery(value);
       setAppliedQuery(value);
-      setCurrentPage(1);
+      setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
     },
     [],
   );
@@ -175,16 +164,32 @@ export default function SalesPageClient({
     setSellerFilter("");
     setDraftQuery("");
     setAppliedQuery("");
-    setCurrentPage(1);
+    setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, []);
 
-  const handlePageSizeChange = useCallback((sectionId: string, nextPageSize: TablePageSize) => {
-    setPageSizeBySection((current) => ({
-      ...current,
-      [sectionId]: nextPageSize,
-    }));
-    setCurrentPage(1);
-  }, []);
+  const handlePageSizeChange = useCallback(
+    (sectionId: string, nextPageSize: TablePageSize) => {
+      setPageSizeBySection((current) => ({
+        ...current,
+        [sectionId]: nextPageSize,
+      }));
+      setCurrentPageBySection((current) => ({
+        ...current,
+        [sectionId]: 1,
+      }));
+    },
+    [],
+  );
+
+  const handleSectionPageChange = useCallback(
+    (sectionId: string, page: number) => {
+      setCurrentPageBySection((current) => ({
+        ...current,
+        [sectionId]: page,
+      }));
+    },
+    [],
+  );
 
   const toggleSection = useCallback((sectionId: string) => {
     setCollapsedSections((current) => ({
@@ -243,24 +248,10 @@ export default function SalesPageClient({
         </div>
       </div>
 
-      {visibleSections.length === 0 ? (
-        <SalesTable
-          userId={userId}
-          sales={[]}
-          products={products}
-          paymentMethods={paymentMethods}
-          saleCategories={saleCategories}
-          staffOptions={staffOptions}
-          rowFontSize={rowFontSize}
-          canManageSales={canManageSales}
-          emptyMessage={emptyMessage}
-          className="mt-4"
-        />
-      ) : (
-        <div className="mt-4 space-y-4">
-          {visibleSections.map((section) => (
+      <div className="mt-4 space-y-6">
+        {paginatedSections.map((section) => (
+          <section key={section.id}>
             <SalesTable
-              key={section.id}
               userId={userId}
               sales={section.pagination.items}
               products={products}
@@ -279,16 +270,15 @@ export default function SalesPageClient({
               }
               emptyMessage={emptyMessage}
             />
-          ))}
-        </div>
-      )}
-
-      <TablePagination
-        currentPage={pagination.currentPage}
-        totalPages={pagination.totalPages}
-        onPageChange={setCurrentPage}
-        ariaLabel="매출 목록 페이지"
-      />
+            <TablePagination
+              currentPage={section.pagination.currentPage}
+              totalPages={section.pagination.totalPages}
+              onPageChange={(page) => handleSectionPageChange(section.id, page)}
+              ariaLabel={`${section.label} 매출 목록 페이지`}
+            />
+          </section>
+        ))}
+      </div>
     </>
   );
 }

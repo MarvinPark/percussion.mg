@@ -708,6 +708,68 @@ export async function updateSaleShippingCost(
   return { ok: true as const };
 }
 
+export async function updateSalePaymentMethod(
+  saleId: string,
+  paymentMethodId: string,
+): Promise<{ error?: string; ok?: boolean }> {
+  const sale_id = saleId.trim();
+  const payment_method_id = paymentMethodId.trim();
+
+  if (!sale_id) return { error: "판매 기록을 찾을 수 없습니다." };
+  if (!payment_method_id) return { error: "결제 방식을 선택해 주세요." };
+
+  const mutation = await getSaleMutationSupabase();
+  if ("error" in mutation) return { error: mutation.error };
+
+  const supabase = mutation.supabase;
+
+  const { data: paymentMethod } = await supabase
+    .from("payment_methods")
+    .select("name, fee_rate")
+    .eq("id", payment_method_id)
+    .single();
+
+  if (!paymentMethod) return { error: "결제 방식을 찾을 수 없습니다." };
+
+  const { data: sale } = await supabase
+    .from("sales")
+    .select(
+      "id, quantity, unit_sale_price, unit_purchase_price, shipping_cost",
+    )
+    .eq("id", sale_id)
+    .single();
+
+  if (!sale) return { error: "판매 기록을 찾을 수 없습니다." };
+
+  const feeRate = Number(paymentMethod.fee_rate) || 0;
+  const { paymentFeeAmount, marginAmount } = calculateSaleAmounts({
+    quantity: sale.quantity,
+    unitSalePrice: Number(sale.unit_sale_price) || 0,
+    unitPurchasePrice: Number(sale.unit_purchase_price) || 0,
+    feeRate,
+    shippingCost: Number(sale.shipping_cost) || 0,
+  });
+
+  const { error: updateError } = await supabase
+    .from("sales")
+    .update({
+      payment_method: paymentMethod.name,
+      payment_fee_rate: feeRate,
+      payment_fee_amount: paymentFeeAmount,
+      margin_amount: marginAmount,
+    })
+    .eq("id", sale_id);
+
+  if (updateError) {
+    return { error: formatSaleUpdateError(updateError) };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/dashboard");
+
+  return { ok: true as const };
+}
+
 export async function deleteSales(
   saleIds: string[],
 ): Promise<{ error?: string; ok?: boolean; deleted?: number; errors?: string[] }> {
