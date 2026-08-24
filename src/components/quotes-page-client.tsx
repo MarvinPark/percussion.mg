@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import QuotesList, { type QuoteListItem } from "@/components/quotes-list";
 import QuotesListSearch from "@/components/quotes-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
-import TablePagination from "@/components/table-pagination";
 import {
   loadQuoteFavoriteIds,
   loadQuotesPageSize,
@@ -27,6 +26,12 @@ import {
 import type { PaymentMethod } from "@/types/sale";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 
+const INITIAL_SECTION_PAGES = {
+  quoteCompleted: 1,
+  salesCompleted: 1,
+} as const;
+
+type QuoteSectionKey = keyof typeof INITIAL_SECTION_PAGES;
 const buttonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
@@ -86,7 +91,12 @@ export default function QuotesPageClient({
   const [appliedQuery, setAppliedQuery] = useState("");
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_ROW_FONT_SIZE);
   const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPageBySection, setCurrentPageBySection] = useState<
+    Record<QuoteSectionKey, number>
+  >({ ...INITIAL_SECTION_PAGES });
+  const [pageSizeBySection, setPageSizeBySection] = useState<
+    Partial<Record<QuoteSectionKey, TablePageSize>>
+  >({});
   const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
   const [favoritesLoaded, setFavoritesLoaded] = useState(false);
   const [favoriteQuoteIds, setFavoriteQuoteIds] = useState<Set<string>>(
@@ -143,8 +153,13 @@ export default function QuotesPageClient({
   }, [pageSizeLoaded, pageSize, userId]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, [sellerFilter, appliedQuery, pageSize]);
+
+  const convertedQuoteIdSet = useMemo(
+    () => new Set(convertedQuoteIds),
+    [convertedQuoteIds],
+  );
 
   const showToast = useCallback((message: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -173,35 +188,94 @@ export default function QuotesPageClient({
     [quotes, sellerFilter, appliedQuery, productSkuById],
   );
 
-  const { favoriteQuotes, regularQuotes } = useMemo(() => {
-    const favorites: QuoteListItem[] = [];
-    const regular: QuoteListItem[] = [];
+  const { favoriteQuotes, quoteCompletedQuotes, salesCompletedQuotes } =
+    useMemo(() => {
+      const favorites: QuoteListItem[] = [];
+      const quoteCompleted: QuoteListItem[] = [];
+      const salesCompleted: QuoteListItem[] = [];
 
-    for (const quote of filteredQuotes) {
-      if (favoriteQuoteIds.has(quote.id)) {
-        favorites.push(quote);
-      } else {
-        regular.push(quote);
+      for (const quote of filteredQuotes) {
+        if (favoriteQuoteIds.has(quote.id)) {
+          favorites.push(quote);
+          continue;
+        }
+
+        if (convertedQuoteIdSet.has(quote.id)) {
+          salesCompleted.push(quote);
+        } else {
+          quoteCompleted.push(quote);
+        }
       }
-    }
 
-    return { favoriteQuotes: favorites, regularQuotes: regular };
-  }, [filteredQuotes, favoriteQuoteIds]);
+      return {
+        favoriteQuotes: favorites,
+        quoteCompletedQuotes: quoteCompleted,
+        salesCompletedQuotes: salesCompleted,
+      };
+    }, [filteredQuotes, favoriteQuoteIds, convertedQuoteIdSet]);
 
-  const pagination = useMemo(
-    () => paginateItems(regularQuotes, currentPage, pageSize),
-    [regularQuotes, currentPage, pageSize],
-  );
+  const quoteCompletedPagination = useMemo(() => {
+    const sectionPageSize =
+      pageSizeBySection.quoteCompleted ?? pageSize;
+    return paginateItems(
+      quoteCompletedQuotes,
+      currentPageBySection.quoteCompleted,
+      sectionPageSize,
+    );
+  }, [
+    quoteCompletedQuotes,
+    currentPageBySection.quoteCompleted,
+    pageSize,
+    pageSizeBySection.quoteCompleted,
+  ]);
+
+  const salesCompletedPagination = useMemo(() => {
+    const sectionPageSize = pageSizeBySection.salesCompleted ?? pageSize;
+    return paginateItems(
+      salesCompletedQuotes,
+      currentPageBySection.salesCompleted,
+      sectionPageSize,
+    );
+  }, [
+    salesCompletedQuotes,
+    currentPageBySection.salesCompleted,
+    pageSize,
+    pageSizeBySection.salesCompleted,
+  ]);
 
   useEffect(() => {
-    if (currentPage !== pagination.currentPage) {
-      setCurrentPage(pagination.currentPage);
+    if (
+      currentPageBySection.quoteCompleted !==
+      quoteCompletedPagination.currentPage
+    ) {
+      setCurrentPageBySection((current) => ({
+        ...current,
+        quoteCompleted: quoteCompletedPagination.currentPage,
+      }));
     }
-  }, [currentPage, pagination.currentPage]);
+  }, [
+    currentPageBySection.quoteCompleted,
+    quoteCompletedPagination.currentPage,
+  ]);
+
+  useEffect(() => {
+    if (
+      currentPageBySection.salesCompleted !==
+      salesCompletedPagination.currentPage
+    ) {
+      setCurrentPageBySection((current) => ({
+        ...current,
+        salesCompleted: salesCompletedPagination.currentPage,
+      }));
+    }
+  }, [
+    currentPageBySection.salesCompleted,
+    salesCompletedPagination.currentPage,
+  ]);
 
   const applySearch = useCallback(() => {
     setAppliedQuery(draftQuery);
-    setCurrentPage(1);
+    setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, [draftQuery]);
 
   const handleSelectQuote = useCallback(
@@ -209,7 +283,7 @@ export default function QuotesPageClient({
       const value = getQuoteSearchSelectionValue(quote, productSkuById);
       setDraftQuery(value);
       setAppliedQuery(value);
-      setCurrentPage(1);
+      setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
     },
     [productSkuById],
   );
@@ -218,7 +292,7 @@ export default function QuotesPageClient({
     setSellerFilter("");
     setDraftQuery("");
     setAppliedQuery("");
-    setCurrentPage(1);
+    setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, []);
 
   const handleToggleFavorite = useCallback(
@@ -237,10 +311,19 @@ export default function QuotesPageClient({
     [userId],
   );
 
-  const handlePageSizeChange = useCallback((nextPageSize: TablePageSize) => {
-    setPageSize(nextPageSize);
-    setCurrentPage(1);
-  }, []);
+  const handlePageSizeChange = useCallback(
+    (sectionKey: QuoteSectionKey, nextPageSize: TablePageSize) => {
+      setPageSizeBySection((current) => ({
+        ...current,
+        [sectionKey]: nextPageSize,
+      }));
+      setCurrentPageBySection((current) => ({
+        ...current,
+        [sectionKey]: 1,
+      }));
+    },
+    [],
+  );
 
   const handleQuoteDuplicated = useCallback(
     (quoteId: string) => {
@@ -326,13 +409,38 @@ export default function QuotesPageClient({
       </div>
 
       <QuotesList
+        userId={userId}
         favoriteQuotes={favoriteQuotes}
-        quotes={pagination.items}
+        quoteCompletedSection={{
+          items: quoteCompletedPagination.items,
+          totalCount: quoteCompletedQuotes.length,
+          currentPage: quoteCompletedPagination.currentPage,
+          totalPages: quoteCompletedPagination.totalPages,
+          onPageChange: (page) =>
+            setCurrentPageBySection((current) => ({
+              ...current,
+              quoteCompleted: page,
+            })),
+          pageSize: pageSizeBySection.quoteCompleted ?? pageSize,
+          onPageSizeChange: (nextPageSize) =>
+            handlePageSizeChange("quoteCompleted", nextPageSize),
+        }}
+        salesCompletedSection={{
+          items: salesCompletedPagination.items,
+          totalCount: salesCompletedQuotes.length,
+          currentPage: salesCompletedPagination.currentPage,
+          totalPages: salesCompletedPagination.totalPages,
+          onPageChange: (page) =>
+            setCurrentPageBySection((current) => ({
+              ...current,
+              salesCompleted: page,
+            })),
+          pageSize: pageSizeBySection.salesCompleted ?? pageSize,
+          onPageSizeChange: (nextPageSize) =>
+            handlePageSizeChange("salesCompleted", nextPageSize),
+        }}
         favoriteQuoteIds={favoriteQuoteIds}
         onToggleFavorite={handleToggleFavorite}
-        regularQuoteTotalCount={regularQuotes.length}
-        pageSize={pageSize}
-        onPageSizeChange={handlePageSizeChange}
         paymentMethods={paymentMethods}
         saleCategories={saleCategories}
         convertedQuoteIds={convertedQuoteIds}
@@ -349,13 +457,6 @@ export default function QuotesPageClient({
             ? "검색 조건에 맞는 견적 기록이 없습니다."
             : undefined
         }
-      />
-
-      <TablePagination
-        currentPage={pagination.currentPage}
-        totalPages={pagination.totalPages}
-        onPageChange={setCurrentPage}
-        ariaLabel="견적 목록 페이지"
       />
     </>
   );

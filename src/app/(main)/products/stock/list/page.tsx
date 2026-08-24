@@ -1,5 +1,5 @@
 import Link from "next/link";
-import StockInList from "@/components/stock-in-list";
+import StockInListPageClient from "@/components/stock-in-list-page-client";
 import { createPageMetadata } from "@/lib/document-titles";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
@@ -28,7 +28,7 @@ export default async function StockInListPage() {
     .select("*, products(product_name, model_name, sku, supplier)")
     .eq("movement_type", "in")
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(5000);
 
   return (
     <main className="mx-auto max-w-app px-4 py-8">
@@ -87,7 +87,8 @@ export default async function StockInListPage() {
           </Link>
         </div>
       ) : (
-        <StockInList
+        <StockInListPageClient
+          userId={user.id}
           movements={movements as StockMovementWithProduct[]}
           canManage={canManage}
         />

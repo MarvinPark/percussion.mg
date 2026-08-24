@@ -1,13 +1,28 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { Fragment, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteStockInMovements,
   updateStockInMovement,
 } from "@/app/(main)/products/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
+import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import ProductSearchSelect from "@/components/product-search-select";
+import { useConfigurableTableColumns } from "@/hooks/use-configurable-table-columns";
+import { isReorderableConfigurableColumn } from "@/lib/configurable-table-columns";
+import {
+  getStockInColumnOrderStorageKey,
+  getStockInColumnWidthStorageKey,
+  getStockInTableColumns,
+  STOCK_IN_FIXED_END_COLUMN_IDS,
+  STOCK_IN_FIXED_START_COLUMN_IDS,
+  type StockInTableColumnId,
+} from "@/lib/stock-in-table-columns";
+import {
+  getTableHeaderPaddingClass,
+  getTableRowPaddingClass,
+} from "@/lib/table-row-preferences";
 import type { SaleProductOption } from "@/types/sale";
 import type { StockMovementWithProduct } from "@/types/stock-movement";
 
@@ -42,25 +57,67 @@ type EditingCell = {
 };
 
 type StockInListProps = {
+  userId: string;
   movements: StockMovementWithProduct[];
   canManage?: boolean;
+  rowFontSize?: number;
+  emptyMessage?: string;
 };
 
-const cellClass =
-  "whitespace-nowrap px-4 py-3 text-zinc-900 dark:text-zinc-100";
-const editableCellClass =
-  "cursor-text whitespace-nowrap bg-sky-50/80 px-4 py-3 text-zinc-900 hover:bg-sky-100/80 dark:bg-sky-950/25 dark:text-zinc-100 dark:hover:bg-sky-950/40";
+const baseCellClass =
+  "max-w-0 truncate whitespace-nowrap px-4 text-zinc-900 dark:text-zinc-100";
+const baseEditableCellClass =
+  "max-w-0 cursor-text truncate whitespace-nowrap bg-sky-50/80 px-4 text-zinc-900 hover:bg-sky-100/80 dark:bg-sky-950/25 dark:text-zinc-100 dark:hover:bg-sky-950/40";
 const inputClass =
   "w-full min-w-[5rem] rounded border border-blue-400 bg-white px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-blue-500 dark:border-blue-500 dark:bg-zinc-800 dark:text-zinc-100";
 const deleteButtonClass =
   "rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400";
+const tableClassName = "w-full table-fixed text-sm";
 
 export default function StockInList({
+  userId,
   movements,
   canManage = true,
+  rowFontSize = 12,
+  emptyMessage,
 }: StockInListProps) {
   const router = useRouter();
   const skipBlurSaveRef = useRef(false);
+  const rowPaddingClass = getTableRowPaddingClass(rowFontSize);
+  const headerPaddingClass = getTableHeaderPaddingClass(rowFontSize);
+  const cellClass = `${baseCellClass} ${rowPaddingClass}`;
+  const editableCellClass = `${baseEditableCellClass} ${rowPaddingClass}`;
+  const headerClass = `whitespace-nowrap px-4 ${headerPaddingClass} text-xs font-semibold`;
+
+  const baseColumns = useMemo(
+    () => getStockInTableColumns(canManage),
+    [canManage],
+  );
+
+  const {
+    orderedColumns,
+    widths,
+    startResize,
+    tableMinWidth,
+    draggingColumnId,
+    dragOverColumnId,
+    handleColumnDragStart,
+    handleColumnDragEnd,
+    handleColumnDragOver,
+    handleColumnDrop,
+    fixedStart,
+    fixedEnd,
+  } = useConfigurableTableColumns(
+    userId,
+    getStockInColumnOrderStorageKey(userId),
+    getStockInColumnWidthStorageKey(userId),
+    baseColumns,
+    {
+      fixedStart: canManage ? STOCK_IN_FIXED_START_COLUMN_IDS : [],
+      fixedEnd: canManage ? STOCK_IN_FIXED_END_COLUMN_IDS : [],
+    },
+  );
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [draftValue, setDraftValue] = useState("");
@@ -169,33 +226,32 @@ export default function StockInList({
     });
   }
 
-  const toolbar = canManage ? (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        disabled={selectedCount === 0 || isDeleting || isSaving}
-        onClick={() => setDeleteTargetIds([...selectedIds])}
-        className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
-      >
-        삭제{selectedCount > 0 ? ` (${selectedCount})` : ""}
-      </button>
-      <p className="text-xs text-zinc-600 dark:text-zinc-400">
-        모델명·수량 칸을 더블클릭하면 수정할 수 있습니다.
-      </p>
-    </div>
-  ) : null;
+  function getHeaderDragProps(columnId: StockInTableColumnId) {
+    if (
+      !isReorderableConfigurableColumn(columnId, fixedStart, fixedEnd)
+    ) {
+      return {};
+    }
 
-  const tableRows = movements.map((item) => {
+    return {
+      reorderable: true,
+      isDragging: draggingColumnId === columnId,
+      isDragOver: dragOverColumnId === columnId,
+      onColumnDragStart: handleColumnDragStart,
+      onColumnDragEnd: handleColumnDragEnd,
+      onColumnDragOver: handleColumnDragOver,
+      onColumnDrop: handleColumnDrop,
+    };
+  }
+
+  function renderCell(columnId: StockInTableColumnId, item: StockMovementWithProduct) {
     const isEditing = (field: EditingField) =>
       editingCell?.id === item.id && editingCell.field === field;
 
-    return (
-      <tr
-        key={item.id}
-        className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
-      >
-        {canManage ? (
-          <td className="px-3 py-3">
+    switch (columnId) {
+      case "checkbox":
+        return (
+          <td className={`px-3 ${rowPaddingClass}`}>
             <input
               type="checkbox"
               checked={selectedIds.has(item.id)}
@@ -203,82 +259,104 @@ export default function StockInList({
               aria-label={`${item.products?.model_name ?? "입고"} 선택`}
             />
           </td>
-        ) : null}
-        <td className={cellClass}>
-          {formatDate(item.movement_date, item.created_at)}
-        </td>
-        <td className={cellClass}>{formatTime(item.created_at)}</td>
-        <td className={cellClass}>{item.modified_by_name ?? "-"}</td>
-        <td className={cellClass}>{item.products?.supplier ?? "-"}</td>
-        <td className={cellClass}>
-          {item.products?.product_name ?? "삭제된 제품"}
-        </td>
-        <td
-          className={canManage ? editableCellClass : cellClass}
-          onDoubleClick={() => beginEdit(item, "product")}
-        >
-          {isEditing("product") ? (
-            <ProductSearchSelect
-              selectedProduct={draftProduct}
-              onSelect={(product) => {
-                if (!product) {
-                  setDraftProduct(null);
-                  return;
-                }
-                setDraftProduct(product);
-                saveProduct(item.id, product.id);
-              }}
-              onCancel={cancelEdit}
-              compact
-              modelNameOnly
-              emphasizeModelName
-              showHiddenField={false}
-              showHelperText={false}
-              inputId={`stock_in_product_${item.id}`}
-            />
-          ) : (
-            <span className="font-medium">
-              {item.products?.model_name ?? "-"}
-            </span>
-          )}
-        </td>
-        <td
-          className={canManage ? editableCellClass : cellClass}
-          onDoubleClick={() => beginEdit(item, "quantity")}
-        >
-          {isEditing("quantity") ? (
-            <input
-              type="number"
-              min={1}
-              value={draftValue}
-              autoFocus
-              disabled={isSaving}
-              onChange={(event) => setDraftValue(event.target.value)}
-              onBlur={() => {
-                if (skipBlurSaveRef.current) {
-                  skipBlurSaveRef.current = false;
-                  return;
-                }
-                saveQuantity(item.id, draftValue);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur();
-                }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  skipBlurSaveRef.current = true;
-                  cancelEdit();
-                }
-              }}
-              className={`${inputClass} w-20`}
-            />
-          ) : (
-            `${item.quantity}개`
-          )}
-        </td>
-        {canManage ? (
-          <td className="px-3 py-3">
+        );
+      case "movement_date":
+        return (
+          <td className={cellClass}>
+            {formatDate(item.movement_date, item.created_at)}
+          </td>
+        );
+      case "created_time":
+        return (
+          <td className={cellClass}>{formatTime(item.created_at)}</td>
+        );
+      case "modified_by":
+        return (
+          <td className={cellClass}>{item.modified_by_name ?? "-"}</td>
+        );
+      case "supplier":
+        return (
+          <td className={cellClass}>{item.products?.supplier ?? "-"}</td>
+        );
+      case "product_name":
+        return (
+          <td className={cellClass}>
+            {item.products?.product_name ?? "삭제된 제품"}
+          </td>
+        );
+      case "model_name":
+        return (
+          <td
+            className={canManage ? editableCellClass : cellClass}
+            onDoubleClick={() => beginEdit(item, "product")}
+          >
+            {isEditing("product") ? (
+              <ProductSearchSelect
+                selectedProduct={draftProduct}
+                onSelect={(product) => {
+                  if (!product) {
+                    setDraftProduct(null);
+                    return;
+                  }
+                  setDraftProduct(product);
+                  saveProduct(item.id, product.id);
+                }}
+                onCancel={cancelEdit}
+                compact
+                modelNameOnly
+                emphasizeModelName
+                showHiddenField={false}
+                showHelperText={false}
+                inputId={`stock_in_product_${item.id}`}
+              />
+            ) : (
+              <span className="font-medium">
+                {item.products?.model_name ?? "-"}
+              </span>
+            )}
+          </td>
+        );
+      case "quantity":
+        return (
+          <td
+            className={canManage ? editableCellClass : cellClass}
+            onDoubleClick={() => beginEdit(item, "quantity")}
+          >
+            {isEditing("quantity") ? (
+              <input
+                type="number"
+                min={1}
+                value={draftValue}
+                autoFocus
+                disabled={isSaving}
+                onChange={(event) => setDraftValue(event.target.value)}
+                onBlur={() => {
+                  if (skipBlurSaveRef.current) {
+                    skipBlurSaveRef.current = false;
+                    return;
+                  }
+                  saveQuantity(item.id, draftValue);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    skipBlurSaveRef.current = true;
+                    cancelEdit();
+                  }
+                }}
+                className={`${inputClass} w-20`}
+              />
+            ) : (
+              `${item.quantity}개`
+            )}
+          </td>
+        );
+      case "actions":
+        return (
+          <td className={`px-3 ${rowPaddingClass}`}>
             <button
               type="button"
               disabled={isDeleting || isSaving}
@@ -289,14 +367,38 @@ export default function StockInList({
               -
             </button>
           </td>
-        ) : null}
-      </tr>
-    );
-  });
+        );
+      default:
+        return null;
+    }
+  }
+
+  const colGroup = (
+    <colgroup>
+      {orderedColumns.map((column) => (
+        <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
+      ))}
+    </colgroup>
+  );
 
   return (
     <>
-      {toolbar}
+      {canManage ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={selectedCount === 0 || isDeleting || isSaving}
+            onClick={() => setDeleteTargetIds([...selectedIds])}
+            className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+          >
+            삭제{selectedCount > 0 ? ` (${selectedCount})` : ""}
+          </button>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            모델명·수량 칸을 더블클릭하면 수정할 수 있습니다. 헤더는 드래그·
+            너비 조절이 가능합니다.
+          </p>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -305,103 +407,143 @@ export default function StockInList({
       ) : null}
 
       <div className="space-y-3 md:hidden">
-        {movements.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            {canManage ? (
-              <label className="mb-2 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(item.id)}
-                  onChange={(event) => toggleOne(item.id, event.target.checked)}
-                />
-                선택
-              </label>
-            ) : null}
-            <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-              {item.products?.model_name ?? "-"}
-            </p>
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              {item.products?.product_name ?? "삭제된 제품"}
-            </p>
-            <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <dt className="font-medium text-zinc-600 dark:text-zinc-400">
-                  입고일
-                </dt>
-                <dd>{formatDate(item.movement_date, item.created_at)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-zinc-600 dark:text-zinc-400">
-                  기록 시각
-                </dt>
-                <dd>{formatTime(item.created_at)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-zinc-600 dark:text-zinc-400">
-                  기록자
-                </dt>
-                <dd>{item.modified_by_name ?? "-"}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-zinc-600 dark:text-zinc-400">
-                  공급처
-                </dt>
-                <dd>{item.products?.supplier ?? "-"}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-zinc-600 dark:text-zinc-400">
-                  수량
-                </dt>
-                <dd>{item.quantity}개</dd>
-              </div>
-            </dl>
-            {canManage ? (
-              <button
-                type="button"
-                disabled={isDeleting || isSaving}
-                onClick={() => setDeleteTargetIds([item.id])}
-                className={`${deleteButtonClass} mt-3`}
-              >
-                삭제
-              </button>
-            ) : null}
+        {movements.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+            {emptyMessage ?? "표시할 입고 기록이 없습니다."}
           </div>
-        ))}
+        ) : (
+          movements.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              {canManage ? (
+                <label className="mb-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(item.id)}
+                    onChange={(event) => toggleOne(item.id, event.target.checked)}
+                  />
+                  선택
+                </label>
+              ) : null}
+              <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                {item.products?.model_name ?? "-"}
+              </p>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                {item.products?.product_name ?? "삭제된 제품"}
+              </p>
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <dt className="font-medium text-zinc-600 dark:text-zinc-400">
+                    입고일
+                  </dt>
+                  <dd>{formatDate(item.movement_date, item.created_at)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-zinc-600 dark:text-zinc-400">
+                    기록 시각
+                  </dt>
+                  <dd>{formatTime(item.created_at)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-zinc-600 dark:text-zinc-400">
+                    기록자
+                  </dt>
+                  <dd>{item.modified_by_name ?? "-"}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-zinc-600 dark:text-zinc-400">
+                    공급처
+                  </dt>
+                  <dd>{item.products?.supplier ?? "-"}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-zinc-600 dark:text-zinc-400">
+                    수량
+                  </dt>
+                  <dd>{item.quantity}개</dd>
+                </div>
+              </dl>
+              {canManage ? (
+                <button
+                  type="button"
+                  disabled={isDeleting || isSaving}
+                  onClick={() => setDeleteTargetIds([item.id])}
+                  className={`${deleteButtonClass} mt-3`}
+                >
+                  삭제
+                </button>
+              ) : null}
+            </div>
+          ))
+        )}
       </div>
 
       <div className="hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white md:block dark:border-zinc-700 dark:bg-zinc-900">
-        <table className="min-w-full text-sm">
-          <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+        <table className={tableClassName} style={{ minWidth: tableMinWidth }}>
+          {colGroup}
+          <thead
+            className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            style={{ fontSize: `${rowFontSize}px` }}
+          >
             <tr>
-              {canManage ? (
-                <th className="px-3 py-3 font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    ref={(input) => {
-                      if (input) input.indeterminate = someSelected;
-                    }}
-                    onChange={(event) => toggleAll(event.target.checked)}
-                    aria-label="전체 선택"
+              {orderedColumns.map((column) =>
+                column.id === "checkbox" ? (
+                  <th
+                    key={column.id}
+                    className={`px-3 ${headerPaddingClass} font-semibold`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(input) => {
+                        if (input) input.indeterminate = someSelected;
+                      }}
+                      onChange={(event) => toggleAll(event.target.checked)}
+                      aria-label="전체 선택"
+                    />
+                  </th>
+                ) : (
+                  <DraggableTableHeaderCell
+                    key={column.id}
+                    columnId={column.id}
+                    label={column.label}
+                    align={column.align ?? "left"}
+                    className={headerClass}
+                    resizable={column.resizable}
+                    onResizeStart={startResize}
+                    {...getHeaderDragProps(column.id)}
                   />
-                </th>
-              ) : null}
-              <th className="px-4 py-3 font-semibold">입고일</th>
-              <th className="px-4 py-3 font-semibold">기록 시각</th>
-              <th className="px-4 py-3 font-semibold">기록자</th>
-              <th className="px-4 py-3 font-semibold">공급처</th>
-              <th className="px-4 py-3 font-semibold">제품명</th>
-              <th className="px-4 py-3 font-semibold">모델명</th>
-              <th className="px-4 py-3 font-semibold">수량</th>
-              {canManage ? (
-                <th className="px-3 py-3 font-semibold" aria-label="삭제" />
-              ) : null}
+                ),
+              )}
             </tr>
           </thead>
-          <tbody>{tableRows}</tbody>
+          <tbody style={{ fontSize: `${rowFontSize}px` }}>
+            {movements.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={orderedColumns.length}
+                  className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                >
+                  {emptyMessage ?? "표시할 입고 기록이 없습니다."}
+                </td>
+              </tr>
+            ) : (
+              movements.map((item) => (
+                <tr
+                  key={item.id}
+                  className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
+                >
+                  {orderedColumns.map((column) => (
+                    <Fragment key={column.id}>
+                      {renderCell(column.id, item)}
+                    </Fragment>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
         </table>
       </div>
 

@@ -8,6 +8,7 @@ import ModelNameAutocomplete, {
 } from "@/components/model-name-autocomplete";
 import InlineProductCreateModal from "@/components/inline-product-create-modal";
 import { toQuoteProductOption } from "@/lib/inline-product-create-shared";
+import QuoteItemsTable from "@/components/quote-items-table";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
 import PriceInput from "@/components/price-input";
@@ -21,7 +22,6 @@ import {
 } from "@/lib/quote-calculator";
 import {
   DEFAULT_FULFILLMENT_LOCATION,
-  FULFILLMENT_LOCATIONS,
   type FulfillmentLocation,
 } from "@/lib/quote-fulfillment";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
@@ -62,6 +62,7 @@ type QuoteEditInitial = {
 };
 
 type QuoteFormProps = {
+  userId: string;
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   managerName: string;
@@ -135,6 +136,7 @@ function recalculateItem(item: QuoteItemInput): QuoteItemInput {
 }
 
 export default function QuoteForm({
+  userId,
   paymentMethods,
   saleCategories,
   managerName,
@@ -712,155 +714,23 @@ export default function QuoteForm({
         </div>
       </section>
 
-      <section className="-mx-1 overflow-x-auto rounded-xl border border-zinc-200 px-1 dark:border-zinc-700 sm:mx-0 sm:px-0">
-        <table className="min-w-[1180px] w-full text-xs whitespace-nowrap">
-          <thead className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
-            <tr>
-              <th className="w-8 px-1 py-2" aria-label="순서" />
-              <th className="px-2 py-2">출고지</th>
-              <th className="px-2 py-2">공급처</th>
-              <th className="px-2 py-2">매입처</th>
-              <th className="px-2 py-2">모델명</th>
-              <th className="px-2 py-2">제품 설명</th>
-              <th className="px-2 py-2">수량</th>
-              <th className="px-2 py-2">판매단가</th>
-              <th className="px-2 py-2">총 판매가</th>
-              <th className="px-2 py-2">매입가</th>
-              <th className="px-2 py-2">마진</th>
-              <th className="px-2 py-2">마진율</th>
-              <th className="px-2 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={13}
-                  className="px-4 py-8 text-center text-sm text-zinc-500"
-                >
-                  제품을 추가해 주세요.
-                </td>
-              </tr>
-            ) : (
-              items.map((item, index) => (
-                <tr
-                  key={item.product_id}
-                  onDragOver={(event) => handleItemDragOver(event, index)}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    handleItemDrop(index);
-                  }}
-                  className={`border-t border-zinc-200 dark:border-zinc-700 ${
-                    draggingItemIndex === index ? "opacity-50" : ""
-                  } ${
-                    dragOverItemIndex === index
-                      ? "bg-blue-50 dark:bg-blue-950/30"
-                      : ""
-                  }`}
-                >
-                  <td className="px-1 py-2 text-center">
-                    <span
-                      draggable
-                      onDragStart={() => handleItemDragStart(index)}
-                      onDragEnd={handleItemDragEnd}
-                      className="inline-flex cursor-grab select-none px-1 text-zinc-400 active:cursor-grabbing dark:text-zinc-500"
-                      title="드래그하여 순서 변경"
-                      aria-label="순서 변경"
-                    >
-                      ⋮⋮
-                    </span>
-                  </td>
-                  <td className="px-2 py-2">
-                    <select
-                      value={item.fulfillment_location}
-                      onChange={(e) =>
-                        updateItemFulfillmentLocation(
-                          index,
-                          e.target.value as FulfillmentLocation,
-                        )
-                      }
-                      className={`${mobileInputClass} w-24 sm:w-20`}
-                    >
-                      {FULFILLMENT_LOCATIONS.map((location) => (
-                        <option key={location} value={location}>
-                          {location}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">
-                    {item.supplier || "-"}
-                  </td>
-                  <td className="px-2 py-2">
-                    <input
-                      type="text"
-                      value={item.purchase_source}
-                      onChange={(e) =>
-                        updateItemPurchaseSource(index, e.target.value)
-                      }
-                      placeholder="매입처"
-                      className={`${mobileInputClass} w-28 sm:w-24`}
-                    />
-                  </td>
-                  <td className="px-2 py-2 font-medium">{item.model_name}</td>
-                  <td className="max-w-[180px] truncate px-2 py-2">
-                    {item.product_name}
-                  </td>
-                  <td className="px-2 py-2">
-                    <input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) =>
-                        updateItemQuantity(index, Number(e.target.value) || 1)
-                      }
-                      className={`${mobileInputClass} w-32 text-center tabular-nums sm:w-16`}
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <PriceInput
-                      min={0}
-                      value={item.sale_unit_price}
-                      onChange={(saleUnitPrice) =>
-                        updateItemSalePrice(index, saleUnitPrice)
-                      }
-                      className={`${mobileInputClass} w-32 sm:w-28`}
-                    />
-                  </td>
-                  <td className="px-2 py-2 font-semibold">
-                    {formatKRW(item.line_total)}
-                  </td>
-                  <td className="px-2 py-2">
-                    <PriceInput
-                      min={0}
-                      value={item.purchase_price}
-                      onChange={(purchasePrice) =>
-                        updateItemPurchasePrice(index, purchasePrice)
-                      }
-                      className={`${mobileInputClass} w-32 sm:w-28`}
-                    />
-                  </td>
-                  <td className="px-2 py-2 font-semibold text-green-700 dark:text-green-300">
-                    {formatKRW(item.margin)}
-                  </td>
-                  <td className="px-2 py-2">
-                    {(item.margin_rate * 100).toFixed(1)}%
-                  </td>
-                  <td className="px-2 py-2">
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      className="text-red-600 hover:underline"
-                    >
-                      삭제
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <QuoteItemsTable
+        userId={userId}
+        items={items}
+        mobileInputClass={mobileInputClass}
+        draggingItemIndex={draggingItemIndex}
+        dragOverItemIndex={dragOverItemIndex}
+        onItemDragStart={handleItemDragStart}
+        onItemDragEnd={handleItemDragEnd}
+        onItemDragOver={handleItemDragOver}
+        onItemDrop={handleItemDrop}
+        onFulfillmentChange={updateItemFulfillmentLocation}
+        onPurchaseSourceChange={updateItemPurchaseSource}
+        onQuantityChange={updateItemQuantity}
+        onSalePriceChange={updateItemSalePrice}
+        onPurchasePriceChange={updateItemPurchasePrice}
+        onRemoveItem={removeItem}
+      />
 
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
         <p className="mb-2 font-semibold text-zinc-900 dark:text-zinc-100">

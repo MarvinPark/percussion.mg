@@ -12,6 +12,7 @@ import QuoteConvertDialog, {
 } from "@/components/quote-convert-dialog";
 import QuoteForm from "@/components/quote-form";
 import TablePageSizeSelect from "@/components/table-page-size-select";
+import TablePagination from "@/components/table-pagination";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
 import { quoteToCopiedPayload } from "@/lib/quote-clipboard";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
@@ -68,9 +69,21 @@ type StaffOption = {
   full_name: string;
 };
 
+type QuoteListSectionData = {
+  items: QuoteListItem[];
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  pageSize?: TablePageSize;
+  onPageSizeChange?: (pageSize: TablePageSize) => void;
+};
+
 type QuotesListProps = {
+  userId: string;
   favoriteQuotes?: QuoteListItem[];
-  quotes: QuoteListItem[];
+  quoteCompletedSection: QuoteListSectionData;
+  salesCompletedSection: QuoteListSectionData;
   favoriteQuoteIds: Set<string>;
   onToggleFavorite: (quoteId: string) => void;
   paymentMethods: PaymentMethod[];
@@ -82,12 +95,9 @@ type QuotesListProps = {
   currentUserName: string;
   staffOptions: StaffOption[];
   rowFontSize?: number;
-  emptyMessage?: string;
   highlightedQuoteIds?: Set<string>;
   onQuoteDuplicated?: (quoteId: string) => void;
-  regularQuoteTotalCount?: number;
-  pageSize?: TablePageSize;
-  onPageSizeChange?: (pageSize: TablePageSize) => void;
+  emptyMessage?: string;
 };
 
 function formatDate(value: string) {
@@ -172,8 +182,10 @@ function QuoteListSection({
 }
 
 export default function QuotesList({
+  userId,
   favoriteQuotes = [],
-  quotes,
+  quoteCompletedSection,
+  salesCompletedSection,
   favoriteQuoteIds,
   onToggleFavorite,
   paymentMethods,
@@ -188,16 +200,14 @@ export default function QuotesList({
   emptyMessage,
   highlightedQuoteIds,
   onQuoteDuplicated,
-  regularQuoteTotalCount = 0,
-  pageSize,
-  onPageSizeChange,
 }: QuotesListProps) {
   const router = useRouter();
   const convertedQuoteIdSet = new Set(convertedQuoteIds);
   const subFontSize = Math.max(8, rowFontSize - 2);
   const [collapsedSections, setCollapsedSections] = useState({
     favorites: false,
-    all: false,
+    quoteCompleted: false,
+    salesCompleted: false,
   });
   const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
   const [convertingQuote, setConvertingQuote] = useState<QuoteListItem | null>(
@@ -481,8 +491,53 @@ export default function QuotesList({
     );
   }
 
-  const hasQuotes = favoriteQuotes.length > 0 || quotes.length > 0;
-  const showAllQuotesSection = regularQuoteTotalCount > 0;
+  const hasQuotes =
+    favoriteQuotes.length > 0 ||
+    quoteCompletedSection.totalCount > 0 ||
+    salesCompletedSection.totalCount > 0;
+
+  function renderQuoteSection(
+    sectionKey: "quoteCompleted" | "salesCompleted",
+    title: string,
+    titleClassName: string | undefined,
+    section: QuoteListSectionData,
+  ) {
+    if (section.totalCount <= 0) return null;
+
+    return (
+      <div key={sectionKey} className="space-y-4">
+        <QuoteListSection
+          title={title}
+          titleClassName={titleClassName}
+          totalCount={section.totalCount}
+          collapsed={collapsedSections[sectionKey]}
+          onToggle={() =>
+            setCollapsedSections((current) => ({
+              ...current,
+              [sectionKey]: !current[sectionKey],
+            }))
+          }
+          pageSize={section.pageSize}
+          onPageSizeChange={section.onPageSizeChange}
+        >
+          {section.items.length > 0 ? (
+            section.items.map((quote) => renderQuoteRow(quote))
+          ) : (
+            <div className="rounded-lg border border-dashed border-zinc-300 px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+              {emptyMessage ?? "표시할 견적 기록이 없습니다."}
+            </div>
+          )}
+        </QuoteListSection>
+
+        <TablePagination
+          currentPage={section.currentPage}
+          totalPages={section.totalPages}
+          onPageChange={section.onPageChange}
+          ariaLabel={`${title} 페이지`}
+        />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -516,29 +571,19 @@ export default function QuotesList({
           </QuoteListSection>
         ) : null}
 
-        {showAllQuotesSection ? (
-          <QuoteListSection
-            title="전체 견적"
-            totalCount={regularQuoteTotalCount}
-            collapsed={collapsedSections.all}
-            onToggle={() =>
-              setCollapsedSections((current) => ({
-                ...current,
-                all: !current.all,
-              }))
-            }
-            pageSize={pageSize}
-            onPageSizeChange={onPageSizeChange}
-          >
-            {quotes.length > 0 ? (
-              quotes.map((quote) => renderQuoteRow(quote))
-            ) : (
-              <div className="rounded-lg border border-dashed border-zinc-300 px-3 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                {emptyMessage ?? "표시할 견적 기록이 없습니다."}
-              </div>
-            )}
-          </QuoteListSection>
-        ) : null}
+        {renderQuoteSection(
+          "quoteCompleted",
+          "견적중",
+          "text-base font-bold text-zinc-900 dark:text-zinc-100",
+          quoteCompletedSection,
+        )}
+
+        {renderQuoteSection(
+          "salesCompleted",
+          "매출완료",
+          "text-base font-bold text-zinc-700 dark:text-zinc-200",
+          salesCompletedSection,
+        )}
       </div>
 
       {editingQuote ? (
@@ -565,6 +610,7 @@ export default function QuotesList({
               </button>
             </div>
             <QuoteForm
+              userId={userId}
               quoteId={editingQuote.id}
               initialQuote={{
                 quote_date: editingQuote.quote_date,

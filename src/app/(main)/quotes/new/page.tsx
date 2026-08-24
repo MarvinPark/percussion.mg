@@ -65,6 +65,7 @@ export default async function NewQuotePage() {
             </p>
           ) : null}
           <QuoteForm
+            userId={user.id}
             paymentMethods={paymentMethods}
             saleCategories={saleCategories}
             contactSuggestions={contactSuggestions}
