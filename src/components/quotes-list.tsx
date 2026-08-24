@@ -15,6 +15,7 @@ import TablePageSizeSelect from "@/components/table-page-size-select";
 import TablePagination from "@/components/table-pagination";
 import { buildQuotePreviewFromSaved, dbQuoteItemToInput } from "@/lib/quote-mapper";
 import { quoteToCopiedPayload } from "@/lib/quote-clipboard";
+import { buildQuoteOrderCopyText } from "@/lib/quote-order-copy";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
@@ -117,6 +118,9 @@ function summarizeItems(items: QuoteListItem["quote_items"]) {
 
 const actionButtonClass =
   "inline-flex h-[26px] w-[4.25rem] shrink-0 items-center justify-center rounded border text-[11px] font-medium leading-none whitespace-nowrap";
+
+const wideActionButtonClass =
+  "inline-flex h-[26px] w-[5.75rem] shrink-0 items-center justify-center rounded border text-[11px] font-medium leading-none whitespace-nowrap";
 
 const starButtonClass =
   "inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded text-[18px] leading-none transition hover:bg-zinc-100 dark:hover:bg-zinc-800";
@@ -225,6 +229,9 @@ export default function QuotesList({
   const [duplicatingQuoteId, setDuplicatingQuoteId] = useState<string | null>(
     null,
   );
+  const [copiedOrderQuoteId, setCopiedOrderQuoteId] = useState<string | null>(
+    null,
+  );
   const [preview, setPreview] = useState<{
     quote: QuoteListItem;
     mode: "quote" | "invoice";
@@ -304,6 +311,19 @@ export default function QuotesList({
       await deleteQuote(formData);
       setDeletingQuote(null);
       router.refresh();
+    });
+  }
+
+  function handleCopyOrderText(quote: QuoteListItem) {
+    const text = buildQuoteOrderCopyText(quote);
+
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopiedOrderQuoteId(quote.id);
+      window.setTimeout(() => {
+        setCopiedOrderQuoteId((current) =>
+          current === quote.id ? null : current,
+        );
+      }, 1500);
     });
   }
 
@@ -440,6 +460,13 @@ export default function QuotesList({
               className={`${actionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
             >
               거래명세서
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCopyOrderText(quote)}
+              className={`${wideActionButtonClass} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+            >
+              {copiedOrderQuoteId === quote.id ? "복사됨" : "발주글복사"}
             </button>
             {isConverted ? (
               <button
