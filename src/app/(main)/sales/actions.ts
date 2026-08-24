@@ -949,3 +949,164 @@ export async function deleteSale(
 
   return { ok: true as const };
 }
+
+export type BulkUpdateSalesFields = {
+  created_by_name?: string;
+  created_by_user_id?: string | null;
+  sale_category?: string;
+  sold_at?: string;
+  quantity?: number;
+};
+
+export async function bulkUpdateSales(
+  saleIds: string[],
+  fields: BulkUpdateSalesFields,
+): Promise<{
+  error?: string;
+  ok?: boolean;
+  updated?: number;
+  errors?: string[];
+}> {
+  const uniqueIds = [...new Set(saleIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return { error: "수정할 매출을 선택해 주세요." };
+  }
+
+  const hasSellerUpdate = fields.created_by_name !== undefined;
+  const hasCategoryUpdate = fields.sale_category !== undefined;
+  const hasDateUpdate = fields.sold_at !== undefined;
+  const hasQuantityUpdate = fields.quantity !== undefined;
+
+  if (!hasSellerUpdate && !hasCategoryUpdate && !hasDateUpdate && !hasQuantityUpdate) {
+    return { error: "수정할 항목을 하나 이상 입력해 주세요." };
+  }
+
+  if (hasSellerUpdate && !fields.created_by_name?.trim()) {
+    return { error: "판매자를 선택해 주세요." };
+  }
+
+  if (hasDateUpdate && !fields.sold_at?.trim()) {
+    return { error: "판매 날짜를 입력해 주세요." };
+  }
+
+  let normalizedQuantity: number | undefined;
+  if (hasQuantityUpdate) {
+    normalizedQuantity = Math.round(Number(fields.quantity));
+    if (!normalizedQuantity || normalizedQuantity <= 0) {
+      return { error: "수량은 1 이상 입력해 주세요." };
+    }
+  }
+
+  const mutation = await getSaleMutationSupabase();
+  if ("error" in mutation) return { error: mutation.error };
+
+  const supabase = mutation.supabase;
+
+  let resolvedCategory: string | undefined;
+  if (hasCategoryUpdate) {
+    const sale_category = await resolveSaleCategory(
+      supabase,
+      fields.sale_category ?? "",
+    );
+    if (!sale_category) return { error: "구분을 선택해 주세요." };
+    resolvedCategory = sale_category;
+  }
+
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const sale_id of uniqueIds) {
+    const { data: sale } = await supabase
+      .from("sales")
+      .select(
+        "id, product_id, quantity, unit_sale_price, unit_purchase_price, payment_fee_rate, shipping_cost, customer_name",
+      )
+      .eq("id", sale_id)
+      .single();
+
+    if (!sale) {
+      errors.push("판매 기록을 찾을 수 없습니다.");
+      continue;
+    }
+
+    const updatePayload: Record<string, unknown> = {};
+    const stockNote = `판매 일괄 수정${sale.customer_name ? ` — ${sale.customer_name}` : ""}`;
+
+    if (hasSellerUpdate) {
+      updatePayload.created_by_name = fields.created_by_name!.trim();
+      updatePayload.created_by_user_id = fields.created_by_user_id ?? null;
+    }
+
+    if (hasCategoryUpdate && resolvedCategory) {
+      updatePayload.sale_category = resolvedCategory;
+    }
+
+    if (hasDateUpdate) {
+      updatePayload.sold_at = fields.sold_at!.trim();
+    }
+
+    if (
+      hasQuantityUpdate &&
+      normalizedQuantity !== undefined &&
+      normalizedQuantity !== sale.quantity
+    ) {
+      const stockResult = await applySaleStockChange(
+        supabase,
+        sale.product_id,
+        sale.quantity,
+        sale.product_id,
+        normalizedQuantity,
+        stockNote,
+      );
+
+      if ("error" in stockResult) {
+        errors.push(stockResult.error ?? "재고 조정에 실패했습니다.");
+        continue;
+      }
+
+      const { totalAmount, paymentFeeAmount, marginAmount } = calculateSaleAmounts({
+        quantity: normalizedQuantity,
+        unitSalePrice: Number(sale.unit_sale_price) || 0,
+        unitPurchasePrice: Number(sale.unit_purchase_price) || 0,
+        feeRate: Number(sale.payment_fee_rate) || 0,
+        shippingCost: Number(sale.shipping_cost) || 0,
+      });
+
+      updatePayload.quantity = normalizedQuantity;
+      updatePayload.total_amount = totalAmount;
+      updatePayload.payment_fee_amount = paymentFeeAmount;
+      updatePayload.margin_amount = marginAmount;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      updated += 1;
+      continue;
+    }
+
+    const { error: updateError } = await supabase
+      .from("sales")
+      .update(updatePayload)
+      .eq("id", sale_id);
+
+    if (updateError) {
+      errors.push(formatSaleUpdateError(updateError));
+      continue;
+    }
+
+    updated += 1;
+  }
+
+  if (updated === 0) {
+    return {
+      error: errors[0] ?? "일괄 수정에 실패했습니다.",
+      errors,
+    };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/products");
+  revalidatePath("/products/history");
+  revalidatePath("/dashboard");
+
+  return { ok: true, updated, errors };
+}

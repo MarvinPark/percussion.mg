@@ -9,6 +9,7 @@ import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
 import SaleEditModal from "@/components/sale-edit-modal";
+import SalesBulkEditModal from "@/components/sales-bulk-edit-modal";
 import TablePageSizeSelect from "@/components/table-page-size-select";
 import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
@@ -52,6 +53,9 @@ const deleteButtonClass =
 const bulkDeleteButtonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-red-300 bg-red-600 px-2 py-1 text-[12px] leading-none font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-500 dark:hover:bg-red-400";
 
+const bulkEditButtonClass =
+  "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+
 const checkboxCellClass = "w-10 px-2 text-center";
 const emphasizeCellClass = "w-10 px-2 text-center";
 
@@ -90,10 +94,10 @@ function SaleEmphasisToggle({
 }
 
 const inlineInputClass =
-  "w-full min-w-[4.5rem] rounded border border-blue-200 bg-white px-1.5 py-0.5 text-right text-inherit outline-none ring-1 ring-blue-100 dark:border-blue-500/35 dark:bg-zinc-900 dark:ring-blue-500/20";
+  "w-full min-w-[4.5rem] border-0 bg-transparent px-1.5 py-0.5 text-right text-inherit shadow-none outline-none ring-0 focus:border-0 focus:ring-0 dark:bg-transparent";
 
 const editableCellClass =
-  "max-w-0 cursor-text whitespace-nowrap px-3 leading-tight hover:bg-blue-50/40 dark:hover:bg-blue-950/10";
+  "max-w-0 cursor-text whitespace-nowrap px-3 leading-tight";
 
 const tableClassName = "w-full table-fixed text-sm";
 
@@ -282,6 +286,7 @@ export default function SalesTable({
   );
   const [emphasisLoaded, setEmphasisLoaded] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, SaleFieldOverrides>>(
     {},
   );
@@ -919,18 +924,30 @@ export default function SalesTable({
             </button>
 
             {canManageSales ? (
-              <button
-                type="button"
-                disabled={selectedIds.size === 0 || isBulkDeleting}
-                onClick={() => setBulkDeleteOpen(true)}
-                className={bulkDeleteButtonClass}
-              >
-                {isBulkDeleting
-                  ? "삭제 중..."
-                  : selectedIds.size > 0
-                    ? `삭제 (${selectedIds.size})`
-                    : "삭제"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setBulkEditOpen(true)}
+                  className={bulkEditButtonClass}
+                >
+                  {selectedIds.size > 0
+                    ? `일괄수정 (${selectedIds.size})`
+                    : "일괄수정"}
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedIds.size === 0 || isBulkDeleting}
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className={bulkDeleteButtonClass}
+                >
+                  {isBulkDeleting
+                    ? "삭제 중..."
+                    : selectedIds.size > 0
+                      ? `삭제 (${selectedIds.size})`
+                      : "삭제"}
+                </button>
+              </>
             ) : null}
 
             {selectionSummary && selectionSummary.count > 0 ? (
@@ -1123,6 +1140,20 @@ export default function SalesTable({
             if (!isBulkDeleting) setBulkDeleteOpen(false);
           }}
           onConfirm={handleBulkDeleteConfirm}
+        />
+      ) : null}
+
+      {bulkEditOpen ? (
+        <SalesBulkEditModal
+          saleIds={[...selectedIds]}
+          saleCategories={saleCategories}
+          staffOptions={staffOptions}
+          onClose={() => setBulkEditOpen(false)}
+          onSaved={() => {
+            setBulkEditOpen(false);
+            setSelectedIds(new Set());
+            router.refresh();
+          }}
         />
       ) : null}
     </>
