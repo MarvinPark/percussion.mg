@@ -4,8 +4,10 @@ export const SALES_SECTION_ONLINE = "온라인";
 export const SALES_SECTION_WHOLESALE = "도매";
 export const SALES_SECTION_OTHER_LABEL = "그외";
 
+export type SalesSectionId = "online" | "wholesale" | "other";
+
 export type SalesCategorySection = {
-  id: "online" | "wholesale" | "other";
+  id: SalesSectionId;
   label: string;
   sales: SaleWithProduct[];
 };

@@ -12,6 +12,13 @@ import {
 } from "@/lib/sales-list-preferences";
 import { groupSalesByCategorySection } from "@/lib/sales-category-sections";
 import {
+  loadSalesSectionOrder,
+  saveSalesSectionOrder,
+  sortSalesSections,
+  type SalesSectionId,
+} from "@/lib/sales-section-order-preferences";
+import SalesSectionOrderControl from "@/components/sales-section-order-control";
+import {
   filterSales,
   filterSalesBySeller,
   getUniqueSellerNames,
@@ -79,12 +86,18 @@ export default function SalesPageClient({
   const [pageSizeBySection, setPageSizeBySection] = useState<
     Partial<Record<string, TablePageSize>>
   >({});
+  const [sectionOrder, setSectionOrder] = useState<SalesSectionId[]>(() =>
+    loadSalesSectionOrder(userId),
+  );
+  const [sectionOrderLoaded, setSectionOrderLoaded] = useState(false);
 
   useEffect(() => {
     setPageSize(loadSalesPageSize(userId));
     setRowFontSize(loadTableRowFontSize("sales", userId));
+    setSectionOrder(loadSalesSectionOrder(userId));
     setPageSizeLoaded(true);
     setPreferencesLoaded(true);
+    setSectionOrderLoaded(true);
   }, [userId]);
 
   useEffect(() => {
@@ -96,6 +109,11 @@ export default function SalesPageClient({
     if (!preferencesLoaded) return;
     saveTableRowFontSize("sales", userId, rowFontSize);
   }, [preferencesLoaded, rowFontSize, userId]);
+
+  useEffect(() => {
+    if (!sectionOrderLoaded) return;
+    saveSalesSectionOrder(userId, sectionOrder);
+  }, [sectionOrderLoaded, sectionOrder, userId]);
 
   useEffect(() => {
     setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
@@ -118,8 +136,12 @@ export default function SalesPageClient({
   );
 
   const salesSections = useMemo(
-    () => groupSalesByCategorySection(filteredSales),
-    [filteredSales],
+    () =>
+      sortSalesSections(
+        groupSalesByCategorySection(filteredSales),
+        sectionOrder,
+      ),
+    [filteredSales, sectionOrder],
   );
 
   const paginatedSections = useMemo(
@@ -244,6 +266,10 @@ export default function SalesPageClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <SalesSectionOrderControl
+            order={sectionOrder}
+            onChange={setSectionOrder}
+          />
           <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
         </div>
       </div>
