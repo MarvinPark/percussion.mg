@@ -20,10 +20,22 @@ export function isStoreFulfillment(value: unknown): boolean {
 export function isShippingFeeQuoteItem(item: {
   model_name: string;
   product_name: string;
+  category?: string | null;
 }): boolean {
   const model = item.model_name?.trim() ?? "";
   const product = item.product_name?.trim() ?? "";
-  return model === "배송비" || product === "배송비";
+  const category = item.category?.trim() ?? "";
+
+  if (category === "배송비") {
+    return true;
+  }
+
+  return (
+    model === "배송비" ||
+    product === "배송비" ||
+    model.includes("배송비") ||
+    product.includes("배송비")
+  );
 }
 
 export function defaultQuoteConvertPurchaseQuantity(item: {

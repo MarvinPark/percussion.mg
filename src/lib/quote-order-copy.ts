@@ -6,6 +6,7 @@ const ORDER_SUPPLIER_LABEL = "CJ";
 type QuoteOrderCopyItem = {
   model_name: string;
   product_name: string;
+  category?: string | null;
   quantity: number;
 };
 
