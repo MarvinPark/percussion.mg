@@ -270,6 +270,11 @@ export default function ProductsPageClient({
           externalHighlightedIds={highlightedIds}
           listSummary={listSummary}
           searchQuery={searchQuery}
+          emptyMessage={
+            isSearchActive
+              ? "검색 조건에 맞는 제품이 없습니다."
+              : undefined
+          }
           searchSlot={
             <div className="flex flex-wrap items-center gap-2">
               <ProductListSearch

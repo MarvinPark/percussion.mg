@@ -38,6 +38,7 @@ type ProductsWorkspaceProps = {
   searchQuery?: string;
   sort: ProductListSort;
   onSortColumn: (column: ProductSortColumn) => void;
+  emptyMessage?: string;
 };
 
 export default function ProductsWorkspace({
@@ -50,6 +51,7 @@ export default function ProductsWorkspace({
   searchQuery = "",
   sort,
   onSortColumn,
+  emptyMessage,
 }: ProductsWorkspaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -303,6 +305,7 @@ export default function ProductsWorkspace({
         onDuplicateProducts={handleDuplicate}
         onRequestDelete={handleRequestDelete}
         isDuplicating={isDuplicating}
+        emptyMessage={emptyMessage}
       />
     </>
   );

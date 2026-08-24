@@ -85,6 +85,7 @@ type ProductsListProps = {
   readOnly?: boolean;
   sort: ProductListSort;
   onSortColumn: (column: ProductSortColumn) => void;
+  emptyMessage?: string;
 };
 
 type ContextMenuState = {
@@ -374,6 +375,7 @@ export default function ProductsList({
   readOnly = false,
   sort,
   onSortColumn,
+  emptyMessage,
 }: ProductsListProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -1090,7 +1092,17 @@ export default function ProductsList({
               className="font-normal"
               style={{ fontSize: `${rowFontSize}px` }}
             >
-            {products.map((product) => (
+            {products.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={tableColumns.length}
+                  className="px-3 py-8 text-center text-sm font-normal text-zinc-500 dark:text-zinc-400"
+                >
+                  {emptyMessage ?? "표시할 제품이 없습니다."}
+                </td>
+              </tr>
+            ) : (
+              products.map((product) => (
                 <tr
                   key={product.id}
                   id={`product-row-${product.id}`}
@@ -1104,7 +1116,8 @@ export default function ProductsList({
                     </Fragment>
                   ))}
                 </tr>
-              ))}
+              ))
+            )}
           </tbody>
         </table>
         </div>

@@ -95,6 +95,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   }
 
   const { products, error } = pageData;
+  const showProductListView =
+    !error && (listStats.totalCount > 0 || searchQuery.length > 0);
 
   return (
       <main className={pageMain}>
@@ -149,7 +151,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           )}
         </div>
 
-        {!error && listStats.totalCount > 0 ? (
+        {showProductListView ? (
           <ProductsPageClient
             userId={user.id}
             products={products}
@@ -174,13 +176,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               파일 내용을 실행했는지 확인해 주세요.
             </p>
           </div>
-        ) : searchQuery && listStats.totalCount === 0 ? (
-          <div className={cardDashed}>
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">
-              검색 결과가 없습니다.
-            </p>
-          </div>
-        ) : !listStats.totalCount ? (
+        ) : !showProductListView ? (
           <div className={cardDashed}>
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
               아직 등록된 제품이 없습니다.
