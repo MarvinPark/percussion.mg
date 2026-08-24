@@ -112,6 +112,7 @@ function DocumentTable({
   items,
   mode,
   totalAmount,
+  totalConsumerAmount,
   cardFeePercent,
   cardPaymentTotal,
   showTotal,
@@ -121,6 +122,7 @@ function DocumentTable({
   items: QuoteItemInput[];
   mode: PreviewMode;
   totalAmount: number;
+  totalConsumerAmount?: number;
   cardFeePercent: CardFeePercent;
   cardPaymentTotal: number;
   showTotal: boolean;
@@ -205,12 +207,26 @@ function DocumentTable({
               >
                 {mode === "invoice" ? "최종금액" : "합계 (부가세포함)"}
               </td>
-              <td
-                colSpan={mode === "quote" ? 3 : 2}
-                className={`total-amount ${bodyCellClass} whitespace-nowrap py-2 text-right text-base font-bold text-red-600`}
-              >
-                {formatKRW(totalAmount)}원
-              </td>
+              {mode === "quote" ? (
+                <>
+                  <td className={priceCellClass}>
+                    {formatKRW(totalConsumerAmount ?? 0)}
+                  </td>
+                  <td className={priceCellClass} />
+                  <td
+                    className={`total-amount ${priceCellClass} py-2 text-base font-bold text-red-600`}
+                  >
+                    {formatKRW(totalAmount)}원
+                  </td>
+                </>
+              ) : (
+                <td
+                  colSpan={2}
+                  className={`total-amount ${bodyCellClass} whitespace-nowrap py-2 text-right text-base font-bold text-red-600`}
+                >
+                  {formatKRW(totalAmount)}원
+                </td>
+              )}
             </tr>
             {mode === "quote" && cardFeePercent > 0 ? (
               <tr>
@@ -620,6 +636,15 @@ export default function QuoteDocumentPreview({
   const documentTotalAmount =
     mode === "invoice" ? invoicePricing.documentTotal : totals.totalAmount;
 
+  const totalConsumerAmount = useMemo(
+    () =>
+      data.items.reduce(
+        (sum, item) => sum + item.consumer_price * item.quantity,
+        0,
+      ),
+    [data.items],
+  );
+
   if (!open) return null;
 
   const title = mode === "quote" ? "견적서" : "거래명세서";
@@ -872,6 +897,7 @@ export default function QuoteDocumentPreview({
                     items={pageItems}
                     mode={mode}
                     totalAmount={documentTotalAmount}
+                    totalConsumerAmount={totalConsumerAmount}
                     cardFeePercent={cardFeePercent}
                     cardPaymentTotal={cardPaymentTotal}
                     showTotal={isLastPage}
