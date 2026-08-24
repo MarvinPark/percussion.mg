@@ -120,6 +120,17 @@ export default function QuoteConvertDialog({
     yesButtonRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || isPending) return;
+      event.preventDefault();
+      onCancel();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isPending, onCancel]);
+
   const pricingPreview = useMemo(
     () =>
       resolveQuoteConvertPricing(
