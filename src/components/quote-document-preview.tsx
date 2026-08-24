@@ -6,6 +6,7 @@ import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
 } from "@/lib/quote-document-capture";
+import { A4_WIDTH_PX } from "@/lib/quote-document-a4";
 import QuoteCardPricingControls from "@/components/quote-card-pricing-controls";
 import {
   calculateCardPaymentTotal,
@@ -38,7 +39,11 @@ type QuoteDocumentPreviewProps = {
   };
 };
 
-const DOCUMENT_PREVIEW_WIDTH_PX = 794;
+const DOCUMENT_PREVIEW_WIDTH_PX = A4_WIDTH_PX;
+const A4_PAGE_STYLE = {
+  width: "210mm",
+  minHeight: "297mm",
+} as const;
 const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
 const TABLE_COL_WIDTH_4_KOR = "4em";
@@ -371,7 +376,7 @@ const PRINT_PAGE_STYLES = `
   html, body { margin: 0; padding: 0; background: #fff; }
   .print-page {
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     margin: 0 auto;
     page-break-after: always;
     break-after: page;
@@ -383,8 +388,9 @@ const PRINT_PAGE_STYLES = `
   }
   .print-page img {
     display: block;
-    width: 100%;
-    height: auto;
+    width: 210mm;
+    height: 297mm;
+    object-fit: fill;
   }
 `;
 
@@ -676,21 +682,12 @@ export default function QuoteDocumentPreview({
 
       pageCanvases.forEach((canvas, index) => {
         const imgData = canvas.toDataURL("image/jpeg", 0.92);
-        let renderWidth = pageWidth;
-        let renderHeight = (canvas.height * pageWidth) / canvas.width;
-
-        if (renderHeight > pageHeight) {
-          renderHeight = pageHeight;
-          renderWidth = (canvas.width * pageHeight) / canvas.height;
-        }
-
-        const offsetX = (pageWidth - renderWidth) / 2;
 
         if (index > 0) {
           pdf.addPage();
         }
 
-        pdf.addImage(imgData, "JPEG", offsetX, 0, renderWidth, renderHeight);
+        pdf.addImage(imgData, "JPEG", 0, 0, pageWidth, pageHeight);
       });
 
       pdf.save(
@@ -852,11 +849,12 @@ export default function QuoteDocumentPreview({
               return (
                 <div
                   key={`page-${pageIndex}-${previewLayout}`}
-                  className={`print-page bg-white p-4 ${
+                  className={`print-page box-border bg-white p-4 ${
                     isPaginatedView && pageIndex > 0
                       ? "mt-8 border-t-4 border-dashed border-zinc-300 pt-8"
                       : ""
                   }`}
+                  style={A4_PAGE_STYLE}
                 >
                   {isFirstPage ? (
                     <DocumentHeader mode={mode} data={previewData} />

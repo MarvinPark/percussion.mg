@@ -1,7 +1,11 @@
 import { toCanvas } from "html-to-image";
+import {
+  A4_CAPTURE_PIXEL_RATIO,
+  fitCanvasToA4Portrait,
+} from "@/lib/quote-document-a4";
 
 const CAPTURE_OPTIONS = {
-  pixelRatio: 2,
+  pixelRatio: A4_CAPTURE_PIXEL_RATIO,
   backgroundColor: "#ffffff",
   cacheBust: true,
   skipFonts: true,
@@ -49,7 +53,8 @@ async function renderPageCanvas(page: HTMLElement) {
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => resolve());
     });
-    return await toCanvas(page, CAPTURE_OPTIONS);
+    const canvas = await toCanvas(page, CAPTURE_OPTIONS);
+    return fitCanvasToA4Portrait(canvas, A4_CAPTURE_PIXEL_RATIO);
   } finally {
     restoreLayout();
   }
@@ -64,7 +69,7 @@ function mergeCanvases(canvases: HTMLCanvasElement[]) {
     return canvases[0];
   }
 
-  const width = Math.max(...canvases.map((canvas) => canvas.width));
+  const width = canvases[0].width;
   const height = canvases.reduce((sum, canvas) => sum + canvas.height, 0);
 
   if (height > MAX_CANVAS_HEIGHT) {
