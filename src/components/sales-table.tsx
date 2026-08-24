@@ -244,6 +244,8 @@ type SalesTableProps = {
   canManageSales?: boolean;
   sectionTitle?: string;
   sectionTotalCount?: number;
+  /** 체크 합계 계산용 — 페이지를 넘긴 선택도 포함 */
+  sectionSales?: SaleWithProduct[];
   sectionCollapsed?: boolean;
   onSectionToggle?: () => void;
   pageSize?: TablePageSize;
@@ -263,6 +265,7 @@ export default function SalesTable({
   canManageSales = true,
   sectionTitle,
   sectionTotalCount,
+  sectionSales,
   sectionCollapsed = false,
   onSectionToggle,
   pageSize,
@@ -401,6 +404,33 @@ export default function SalesTable({
 
   const allSelected = sales.length > 0 && selectedIds.size === sales.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const selectionSummary = useMemo(() => {
+    if (selectedIds.size === 0) return null;
+
+    const sourceSales = sectionSales ?? sales;
+    let salesTotal = 0;
+    let purchaseTotal = 0;
+    let matchedCount = 0;
+
+    for (const sale of sourceSales) {
+      if (!selectedIds.has(sale.id)) continue;
+      matchedCount += 1;
+      const displaySale = overrides[sale.id]
+        ? { ...sale, ...overrides[sale.id] }
+        : sale;
+      salesTotal += Number(displaySale.total_amount) || 0;
+      purchaseTotal +=
+        (Number(displaySale.unit_purchase_price) || 0) *
+        (Number(displaySale.quantity) || 0);
+    }
+
+    return {
+      count: matchedCount,
+      salesTotal,
+      purchaseTotal,
+    };
+  }, [sales, sectionSales, selectedIds, overrides]);
 
   function toggleAll(checked: boolean) {
     setSelectedIds(
@@ -901,6 +931,30 @@ export default function SalesTable({
                     ? `삭제 (${selectedIds.size})`
                     : "삭제"}
               </button>
+            ) : null}
+
+            {selectionSummary && selectionSummary.count > 0 ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                <span>
+                  체크{" "}
+                  <span className="tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {selectionSummary.count}
+                  </span>
+                  건
+                </span>
+                <span>
+                  매출합계{" "}
+                  <span className="tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {formatKRW(selectionSummary.salesTotal)}원
+                  </span>
+                </span>
+                <span>
+                  매입합계{" "}
+                  <span className="tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {formatKRW(selectionSummary.purchaseTotal)}원
+                  </span>
+                </span>
+              </div>
             ) : null}
 
             {pageSize !== undefined && onPageSizeChange ? (

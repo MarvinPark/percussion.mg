@@ -254,6 +254,7 @@ export default function SalesPageClient({
             <SalesTable
               userId={userId}
               sales={section.pagination.items}
+              sectionSales={section.sales}
               products={products}
               paymentMethods={paymentMethods}
               saleCategories={saleCategories}
