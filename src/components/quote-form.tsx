@@ -28,7 +28,9 @@ import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import { formatKRW } from "@/lib/sales-calculator";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
+import { isQuoteFormDirty } from "@/lib/unsaved-form-dirty";
 import type { PaymentMethod } from "@/types/sale";
 import type {
   QuoteItemInput,
@@ -193,6 +195,30 @@ export default function QuoteForm({
   );
   const modelInputRef = useRef<ModelNameAutocompleteHandle>(null);
 
+  const initialSnapshot = useMemo(() => {
+    if (!initialQuote) return null;
+
+    return JSON.stringify({
+      items: initialQuote.items,
+      quoteDate: initialQuote.quote_date,
+      saleCategory: displaySaleCategoryFromList(
+        initialQuote.sale_category,
+        saleCategories,
+      ),
+      editableManagerName: initialQuote.manager_name,
+      customerName: initialQuote.customer_name ?? "",
+      businessPartner: initialQuote.business_partner ?? "",
+      customerPhone: initialQuote.customer_phone ?? "",
+      customerAddress: initialQuote.customer_address ?? "",
+      customerEmail: initialQuote.customer_email ?? "",
+      customerNote: initialQuote.customer_note ?? "",
+      memo: initialQuote.memo ?? "",
+      paymentMethodId:
+        initialQuote.payment_method_id ??
+        getDefaultPaymentMethodId(paymentMethods),
+    });
+  }, [initialQuote, paymentMethods, saleCategories]);
+
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
       if (isEditing) {
@@ -208,6 +234,42 @@ export default function QuoteForm({
   );
 
   const totals = useMemo(() => calculateQuoteTotals(items), [items]);
+
+  const isDirty = useMemo(
+    () =>
+      isQuoteFormDirty({
+        items,
+        quoteDate,
+        saleCategory,
+        editableManagerName,
+        customerName,
+        businessPartner,
+        customerPhone,
+        customerAddress,
+        customerEmail,
+        customerNote,
+        memo,
+        paymentMethodId,
+        initialSnapshot,
+      }),
+    [
+      items,
+      quoteDate,
+      saleCategory,
+      editableManagerName,
+      customerName,
+      businessPartner,
+      customerPhone,
+      customerAddress,
+      customerEmail,
+      customerNote,
+      memo,
+      paymentMethodId,
+      initialSnapshot,
+    ],
+  );
+
+  const { dialog: leaveDialog } = useUnsavedChangesGuard(isDirty && !isPending);
 
   const selectedPaymentMethod = useMemo(
     () => livePaymentMethods.find((method) => method.id === paymentMethodId),
@@ -890,6 +952,8 @@ export default function QuoteForm({
           }
         />
       ) : null}
+
+      {leaveDialog}
     </div>
   );
 }

@@ -23,7 +23,9 @@ import {
 } from "@/lib/quote-fulfillment";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
+import { isSaleFormDirty } from "@/lib/unsaved-form-dirty";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -173,6 +175,28 @@ export default function SaleForm({
   }, [lines, livePaymentMethods]);
 
   const hasValidLine = lines.some((line) => line.productId);
+
+  const isDirty = useMemo(
+    () =>
+      isSaleFormDirty({
+        businessPartner,
+        customerName,
+        customerPhone,
+        customerAddress,
+        note,
+        lines,
+      }),
+    [
+      businessPartner,
+      customerName,
+      customerPhone,
+      customerAddress,
+      note,
+      lines,
+    ],
+  );
+
+  const { dialog: leaveDialog } = useUnsavedChangesGuard(isDirty && !isPending);
 
   function updateLine(id: string, patch: Partial<SaleLineDraft>) {
     setLines((prev) =>
@@ -685,6 +709,8 @@ export default function SaleForm({
           }
         />
       ) : null}
+
+      {leaveDialog}
     </>
   );
 }
