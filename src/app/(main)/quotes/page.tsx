@@ -89,7 +89,7 @@ export default async function QuotesPage() {
             <p className={pageSubtitle}>견적 클릭으로 수정 · 매출전환</p>
           </div>
           <Link href="/quotes/new" className={btnPrimary}>
-            + 견적서 작성
+            +견적서 작성
           </Link>
         </div>
 

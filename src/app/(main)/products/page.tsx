@@ -3,6 +3,7 @@ import ProductListShowAllButton from "@/components/product-list-show-all-button"
 import { createPageMetadata } from "@/lib/document-titles";
 import {
   alertError,
+  btnPrimary,
   btnSecondary,
   cardDashed,
   pageMain,
@@ -139,6 +140,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 className={btnSecondary}
               >
                 변동 이력
+              </Link>
+              <Link href="/products/new" className={btnPrimary}>
+                +제품등록
               </Link>
           </div>
           ) : (

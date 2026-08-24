@@ -8,6 +8,7 @@ import ThemeToggleButton from "@/components/theme-toggle-button";
 export default function BottomFloatingActions() {
   const pathname = usePathname();
   const showSalesRegister = pathname === "/sales";
+  const showQuoteRegister = pathname === "/quotes";
   const showProductRegister = pathname === "/products";
 
   const registerLinkClass = `${btnPrimary} !rounded-[9999px] px-6 py-3 min-h-[3rem] text-[15px] shadow-[var(--shadow-card)] backdrop-blur-md`;
@@ -17,6 +18,11 @@ export default function BottomFloatingActions() {
       {showSalesRegister ? (
         <Link href="/sales/new" className={registerLinkClass}>
           +매출등록
+        </Link>
+      ) : null}
+      {showQuoteRegister ? (
+        <Link href="/quotes/new" className={registerLinkClass}>
+          +견적서 작성
         </Link>
       ) : null}
       {showProductRegister ? (

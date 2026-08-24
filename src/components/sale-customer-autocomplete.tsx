@@ -79,6 +79,14 @@ export default function SaleCustomerAutocomplete({
           setOpen(nextValue.trim().length >= MIN_QUERY_LENGTH);
         }}
         onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            if (open && matches[highlightIndex]) {
+              handleSelect(matches[highlightIndex]);
+            }
+            return;
+          }
+
           if (!open || matches.length === 0) return;
 
           if (event.key === "ArrowDown") {
@@ -89,9 +97,6 @@ export default function SaleCustomerAutocomplete({
             setHighlightIndex(
               (prev) => (prev - 1 + matches.length) % matches.length,
             );
-          } else if (event.key === "Enter" && matches[highlightIndex]) {
-            event.preventDefault();
-            handleSelect(matches[highlightIndex]);
           } else if (event.key === "Escape") {
             setOpen(false);
           }

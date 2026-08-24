@@ -105,6 +105,33 @@ function linePreview(
   });
 }
 
+function validateSaleLines(lines: SaleLineDraft[]): string | null {
+  const activeLines = lines.filter((line) => line.productId);
+  if (activeLines.length === 0) {
+    return "판매 제품을 1개 이상 추가해 주세요.";
+  }
+
+  for (let index = 0; index < activeLines.length; index += 1) {
+    const line = activeLines[index];
+    const lineNumber = index + 1;
+
+    if (!line.paymentMethodId) {
+      return `${lineNumber}번째 줄: 결제 방식을 선택해 주세요.`;
+    }
+    if (!line.quantity || line.quantity <= 0) {
+      return `${lineNumber}번째 줄: 수량은 1 이상 입력해 주세요.`;
+    }
+    if (line.unitSalePrice < 0) {
+      return `${lineNumber}번째 줄: 판매단가는 0 이상이어야 합니다.`;
+    }
+    if (line.unitPurchasePrice < 0) {
+      return `${lineNumber}번째 줄: 매입가는 0 이상이어야 합니다.`;
+    }
+  }
+
+  return null;
+}
+
 export default function SaleForm({
   paymentMethods,
   contactSuggestions,
@@ -134,6 +161,7 @@ export default function SaleForm({
     () => saleCategories[0] ?? "",
   );
   const [note, setNote] = useState("");
+  const [clientError, setClientError] = useState<string | null>(null);
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
@@ -145,15 +173,17 @@ export default function SaleForm({
   const linesJson = useMemo(
     () =>
       JSON.stringify(
-        lines.map((line) => ({
-          product_id: line.productId,
-          quantity: line.quantity,
-          unit_sale_price: line.unitSalePrice,
-          unit_purchase_price: line.unitPurchasePrice,
-          payment_method_id: line.paymentMethodId,
-          fulfillment_location: line.fulfillmentLocation,
-          shipping_cost: line.shippingCost,
-        })),
+        lines
+          .filter((line) => line.productId)
+          .map((line) => ({
+            product_id: line.productId,
+            quantity: line.quantity,
+            unit_sale_price: line.unitSalePrice,
+            unit_purchase_price: line.unitPurchasePrice,
+            payment_method_id: line.paymentMethodId,
+            fulfillment_location: line.fulfillmentLocation,
+            shipping_cost: line.shippingCost,
+          })),
       ),
     [lines],
   );
@@ -296,7 +326,20 @@ export default function SaleForm({
 
   return (
     <>
-      <form action={formAction} className="space-y-5">
+      <form
+        action={formAction}
+        onSubmit={(event) => {
+          const validationError = validateSaleLines(lines);
+          if (validationError) {
+            event.preventDefault();
+            setClientError(validationError);
+            return;
+          }
+
+          setClientError(null);
+        }}
+        className="space-y-5"
+      >
       <input type="hidden" name="lines_json" value={linesJson} />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -474,7 +517,7 @@ export default function SaleForm({
                       <input
                         type="number"
                         min={1}
-                        required
+                        required={Boolean(line.productId)}
                         value={line.quantity}
                         onChange={(event) =>
                           updateLine(line.id, {
@@ -488,7 +531,7 @@ export default function SaleForm({
                     <td className="px-3 py-2 align-top">
                       <PriceInput
                         min={0}
-                        required
+                        required={Boolean(line.productId)}
                         value={line.unitSalePrice}
                         onChange={(unitSalePrice) =>
                           updateLine(line.id, { unitSalePrice })
@@ -499,7 +542,7 @@ export default function SaleForm({
                     </td>
                     <td className="px-3 py-2 align-top">
                       <PaymentMethodCombobox
-                        required
+                        required={Boolean(line.productId)}
                         paymentMethods={livePaymentMethods}
                         value={line.paymentMethodId}
                         onChange={(paymentMethodId) =>
@@ -682,9 +725,9 @@ export default function SaleForm({
         </p>
       </div>
 
-      {state?.error ? (
+      {(clientError || state?.error) ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {state.error}
+          {clientError ?? state?.error}
         </p>
       ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { formatKRW, parsePriceInput } from "@/lib/sales-calculator";
 
 type PriceInputProps = Omit<
@@ -35,38 +35,58 @@ export default function PriceInput({
   const [text, setText] = useState(() => formatDisplay(numericValue));
   const [focused, setFocused] = useState(false);
   const hiddenRef = useRef<HTMLInputElement>(null);
+  const visibleRef = useRef<HTMLInputElement>(null);
   const lastSyncedValueRef = useRef(numericValue);
+
+  const syncHiddenValue = useCallback((next: number) => {
+    if (hiddenRef.current) {
+      hiddenRef.current.value = String(next);
+    }
+  }, []);
+
+  const commit = useCallback(
+    (raw: string) => {
+      let next = parsePriceInput(raw);
+      if (min !== undefined) {
+        next = Math.max(Number(min), next);
+      }
+
+      if (!isControlled) {
+        setInternalValue(next);
+      }
+
+      lastSyncedValueRef.current = next;
+      onChange?.(next);
+      setText(formatDisplay(next));
+      syncHiddenValue(next);
+
+      return next;
+    },
+    [isControlled, min, onChange, syncHiddenValue],
+  );
 
   useEffect(() => {
     if (focused) return;
     if (lastSyncedValueRef.current === numericValue) return;
     lastSyncedValueRef.current = numericValue;
     setText(formatDisplay(numericValue));
-    if (hiddenRef.current) {
-      hiddenRef.current.value = String(numericValue);
-    }
-  }, [numericValue, focused]);
+    syncHiddenValue(numericValue);
+  }, [focused, numericValue, syncHiddenValue]);
 
-  function commit(raw: string) {
-    let next = parsePriceInput(raw);
-    if (min !== undefined) {
-      next = Math.max(Number(min), next);
-    }
+  useEffect(() => {
+    const visible = visibleRef.current;
+    if (!visible || !name) return;
 
-    if (!isControlled) {
-      setInternalValue(next);
-    }
+    const form = visible.closest("form");
+    if (!form) return;
 
-    lastSyncedValueRef.current = next;
-    onChange?.(next);
-    setText(formatDisplay(next));
-
-    if (hiddenRef.current) {
-      hiddenRef.current.value = String(next);
+    function handleSubmit() {
+      commit(visible!.value);
     }
 
-    return next;
-  }
+    form.addEventListener("submit", handleSubmit, true);
+    return () => form.removeEventListener("submit", handleSubmit, true);
+  }, [commit, name]);
 
   return (
     <>
@@ -80,6 +100,7 @@ export default function PriceInput({
       ) : null}
       <input
         {...rest}
+        ref={visibleRef}
         id={inputId}
         type="text"
         inputMode="numeric"
@@ -99,12 +120,16 @@ export default function PriceInput({
           const raw = event.target.value;
           setText(raw);
           const next = parsePriceInput(raw);
-          if (hiddenRef.current) {
-            hiddenRef.current.value = String(next);
+          const clamped =
+            min !== undefined ? Math.max(Number(min), next) : next;
+
+          if (!isControlled) {
+            setInternalValue(clamped);
           }
-          if (isControlled) {
-            onChange?.(next);
-          }
+
+          lastSyncedValueRef.current = clamped;
+          onChange?.(clamped);
+          syncHiddenValue(clamped);
         }}
         className={className}
       />

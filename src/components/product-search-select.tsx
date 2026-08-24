@@ -313,13 +313,12 @@ export default function ProductSearchSelect({
           }
 
           if (event.key === "Enter") {
+            event.preventDefault();
             if (showDropdown && !isSearching && results.length > 0) {
-              event.preventDefault();
               handleSelectHighlighted();
               return;
             }
             if (showRegisterOption) {
-              event.preventDefault();
               handleRegister();
             }
             return;

@@ -354,9 +354,11 @@ export default function PaymentMethodCombobox({
             return;
           }
 
-          if (event.key === "Enter" && open && matches[highlightIndex]) {
+          if (event.key === "Enter") {
             event.preventDefault();
-            handleSelect(matches[highlightIndex]);
+            if (open && matches[highlightIndex]) {
+              handleSelect(matches[highlightIndex]);
+            }
             return;
           }
 

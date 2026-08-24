@@ -214,6 +214,25 @@ type SaleLineInput = {
   shipping_cost: number;
 };
 
+type PreparedCreateSaleLine = {
+  line: SaleLineInput;
+  lineNumber: number;
+  product: {
+    product_name: string;
+    stock_quantity: number;
+  };
+  paymentMethod: {
+    name: string;
+    fee_rate: number;
+  };
+  unit_purchase_price: number;
+  totalAmount: number;
+  paymentFeeAmount: number;
+  marginAmount: number;
+  stockOutQuantity: number;
+  lineNote: string | null;
+};
+
 function parseSaleLinesJson(
   raw: string,
 ): SaleLineInput[] | { error: string } {
@@ -225,23 +244,24 @@ function parseSaleLinesJson(
 
     const lines: SaleLineInput[] = [];
 
-    for (let index = 0; index < parsed.length; index += 1) {
-      const row = parsed[index] as Record<string, unknown>;
-      const lineNumber = index + 1;
-      const product_id = String(row.product_id ?? "");
-      const quantity = Number(row.quantity ?? 0);
-      const unit_sale_price = Number(row.unit_sale_price ?? 0);
+    for (const row of parsed) {
+      const record = row as Record<string, unknown>;
+      const product_id = String(record.product_id ?? "").trim();
+      if (!product_id) continue;
+
+      const lineNumber = lines.length + 1;
+      const quantity = Number(record.quantity ?? 0);
+      const unit_sale_price = Number(record.unit_sale_price ?? 0);
       const unit_purchase_price = Math.max(
         0,
-        Number(row.unit_purchase_price ?? 0),
+        Number(record.unit_purchase_price ?? 0),
       );
-      const payment_method_id = String(row.payment_method_id ?? "");
-      const fulfillment_location = parseFulfillmentLocation(row.fulfillment_location);
-      const shipping_cost = Math.max(0, Number(row.shipping_cost ?? 0));
+      const payment_method_id = String(record.payment_method_id ?? "").trim();
+      const fulfillment_location = parseFulfillmentLocation(
+        record.fulfillment_location,
+      );
+      const shipping_cost = Math.max(0, Number(record.shipping_cost ?? 0));
 
-      if (!product_id) {
-        return { error: `${lineNumber}번째 줄: 제품을 선택해 주세요.` };
-      }
       if (!quantity || quantity <= 0) {
         return { error: `${lineNumber}번째 줄: 수량은 1 이상 입력해 주세요.` };
       }
@@ -266,35 +286,22 @@ function parseSaleLinesJson(
       });
     }
 
+    if (lines.length === 0) {
+      return { error: "판매 제품을 1개 이상 추가해 주세요." };
+    }
+
     return lines;
   } catch {
     return { error: "판매 제품 정보가 올바르지 않습니다." };
   }
 }
 
-export async function createSale(formData: FormData) {
-  const sale_category_raw = String(formData.get("sale_category") ?? "");
-  const sold_at = String(formData.get("sold_at") ?? "").trim();
-  const lines_json = String(formData.get("lines_json") ?? "");
-  const customer_name = String(formData.get("customer_name") ?? "").trim();
-  const business_partner = String(formData.get("business_partner") ?? "").trim();
-  const customer_phone = String(formData.get("customer_phone") ?? "").trim();
-  const customer_address = String(formData.get("customer_address") ?? "").trim();
-  const note = String(formData.get("note") ?? "").trim();
-
-  const parsedLines = parseSaleLinesJson(lines_json);
-  if ("error" in parsedLines) return { error: parsedLines.error };
-
-  if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
-
-  const supabase = await createClient();
-  const sale_category = await resolveSaleCategory(supabase, sale_category_raw);
-  if (!sale_category) return { error: "구분을 선택해 주세요." };
-
-  const modifier = await requirePermission("createSales");
-  if ("error" in modifier) return { error: modifier.error };
-
-  const stockNote = `판매 출고${customer_name ? ` — ${customer_name}` : ""}`;
+async function prepareCreateSaleLines(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  parsedLines: SaleLineInput[],
+  note: string,
+): Promise<PreparedCreateSaleLine[] | { error: string }> {
+  const prepared: PreparedCreateSaleLine[] = [];
 
   for (let index = 0; index < parsedLines.length; index += 1) {
     const line = parsedLines[index];
@@ -302,7 +309,7 @@ export async function createSale(formData: FormData) {
 
     const { data: product } = await supabase
       .from("products")
-      .select("product_name, purchase_price")
+      .select("product_name, stock_quantity")
       .eq("id", line.product_id)
       .single();
 
@@ -337,11 +344,68 @@ export async function createSale(formData: FormData) {
 
     const stockOutQuantity = fromStore ? line.quantity : 0;
 
-    if (stockOutQuantity > 0) {
+    if (stockOutQuantity > 0 && product.stock_quantity < stockOutQuantity) {
+      return {
+        error: `${lineNumber}번째 줄 (${product.product_name}): 재고가 부족합니다. (현재 ${product.stock_quantity}개)`,
+      };
+    }
+
+    prepared.push({
+      line,
+      lineNumber,
+      product,
+      paymentMethod,
+      unit_purchase_price,
+      totalAmount,
+      paymentFeeAmount,
+      marginAmount,
+      stockOutQuantity,
+      lineNote,
+    });
+  }
+
+  return prepared;
+}
+
+export async function createSale(formData: FormData) {
+  const sale_category_raw = String(formData.get("sale_category") ?? "");
+  const sold_at = String(formData.get("sold_at") ?? "").trim();
+  const lines_json = String(formData.get("lines_json") ?? "");
+  const customer_name = String(formData.get("customer_name") ?? "").trim();
+  const business_partner = String(formData.get("business_partner") ?? "").trim();
+  const customer_phone = String(formData.get("customer_phone") ?? "").trim();
+  const customer_address = String(formData.get("customer_address") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+
+  const parsedLines = parseSaleLinesJson(lines_json);
+  if ("error" in parsedLines) return { error: parsedLines.error };
+
+  if (!sold_at) return { error: "판매 날짜를 입력해 주세요." };
+
+  const supabase = await createClient();
+  const sale_category = await resolveSaleCategory(supabase, sale_category_raw);
+  if (!sale_category) return { error: "구분을 선택해 주세요." };
+
+  const modifier = await requirePermission("createSales");
+  if ("error" in modifier) return { error: modifier.error };
+
+  const preparedLines = await prepareCreateSaleLines(
+    supabase,
+    parsedLines,
+    note,
+  );
+  if ("error" in preparedLines) return { error: preparedLines.error };
+
+  const stockNote = `판매 출고${customer_name ? ` — ${customer_name}` : ""}`;
+
+  for (const prepared of preparedLines) {
+    const { line, lineNumber, product, paymentMethod } = prepared;
+
+    if (prepared.stockOutQuantity > 0) {
       const stockResult = await recordStockOutForSale(
         supabase,
         line.product_id,
-        stockOutQuantity,
+        prepared.stockOutQuantity,
         stockNote,
       );
 
@@ -358,18 +422,18 @@ export async function createSale(formData: FormData) {
       product_id: line.product_id,
       quantity: line.quantity,
       unit_sale_price: line.unit_sale_price,
-      unit_purchase_price,
+      unit_purchase_price: prepared.unit_purchase_price,
       customer_name: customer_name || null,
       business_partner: business_partner || null,
       customer_phone: customer_phone || null,
       customer_address: customer_address || null,
       payment_method: paymentMethod.name,
       payment_fee_rate: paymentMethod.fee_rate,
-      payment_fee_amount: paymentFeeAmount,
-      total_amount: totalAmount,
-      margin_amount: marginAmount,
+      payment_fee_amount: prepared.paymentFeeAmount,
+      total_amount: prepared.totalAmount,
+      margin_amount: prepared.marginAmount,
       shipping_cost: line.shipping_cost,
-      note: lineNote,
+      note: prepared.lineNote,
       created_by_user_id: modifier.userId,
       created_by_name: modifier.name,
     });
