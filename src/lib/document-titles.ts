@@ -54,4 +54,8 @@ export const rootDocumentMetadata: Metadata = {
     template: `${APP_DOCUMENT_TITLE}-%s`,
   },
   description: "Sales · Inventory · Quotation",
+  icons: {
+    icon: "/icon.jpg",
+    apple: "/apple-icon.jpg",
+  },
 };
