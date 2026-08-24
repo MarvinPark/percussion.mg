@@ -8,8 +8,11 @@ import { resolveSaleCategory } from "@/lib/sale-category-options";
 import { getModifierInfo } from "@/lib/profile";
 import {
   addLocationStock,
+  addLocationStockAt,
   deductLocationStock,
+  normalizeStockLocation,
   sumLocationStock,
+  type StockLocation,
 } from "@/lib/stock-locations";
 
 type SalePaymentMethod = {
@@ -116,7 +119,7 @@ export async function getProductForSale(
 ) {
   const { data: product } = await supabase
     .from("products")
-    .select("stock_quantity, purchase_price, product_name")
+    .select("stock_quantity, purchase_price, product_name, stock_location")
     .eq("id", productId)
     .single();
 
@@ -129,6 +132,7 @@ export async function getProductForSale(
       stock_quantity: Number(product.stock_quantity) || 0,
       purchase_price: Number(product.purchase_price) || 0,
       product_name: product.product_name as string,
+      stock_location: product.stock_location as string | null,
     },
   };
 }
@@ -293,6 +297,63 @@ export async function recordStockIn(
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
+
+  return { ok: true as const };
+}
+
+export async function recordStockInToLocation(
+  supabase: SupabaseClient,
+  productId: string,
+  quantity: number,
+  location: StockLocation,
+  note: string,
+) {
+  const modifier = await getModifierInfo();
+  if ("error" in modifier) return modifier;
+
+  if (quantity <= 0) return { ok: true as const };
+
+  const { data: product } = await supabase
+    .from("products")
+    .select(
+      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+    )
+    .eq("id", productId)
+    .single();
+
+  if (!product) return { error: "제품을 찾을 수 없습니다." as const };
+
+  const stockBefore = product.stock_quantity;
+  const locationPatch = addLocationStockAt(product, quantity, location);
+  const stockAfter = sumLocationStock({ ...product, ...locationPatch });
+
+  const { error: movementError } = await supabase.from("stock_movements").insert({
+    product_id: productId,
+    movement_type: "in",
+    quantity,
+    stock_before: stockBefore,
+    stock_after: stockAfter,
+    note,
+    modified_by_user_id: modifier.userId,
+    modified_by_name: modifier.name,
+  });
+
+  if (movementError) {
+    return { error: "재고 입고 기록에 실패했습니다." as const };
+  }
+
+  const { error: updateError } = await supabase
+    .from("products")
+    .update({
+      ...locationPatch,
+      stock_quantity: stockAfter,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId);
+
+  if (updateError) {
+    return { error: "재고 수량 업데이트에 실패했습니다." as const };
+  }
 
   return { ok: true as const };
 }

@@ -11,8 +11,13 @@ import {
   getProductForSale,
   insertSaleRecord,
   recordStockIn,
+  recordStockInToLocation,
   recordStockOutForSale,
 } from "@/lib/sale-recording";
+import {
+  normalizeStockLocation,
+  type StockLocation,
+} from "@/lib/stock-locations";
 import {
   AMOUNT_ROUNDING_MODE_OPTIONS,
   AMOUNT_ROUNDING_UNIT_OPTIONS,
@@ -461,6 +466,7 @@ export async function convertQuoteToSale(
     actualFeeRate?: number;
     roundingUnit?: AmountRoundingUnit;
     roundingMode?: AmountRoundingMode;
+    purchaseQuantities?: Record<string, number>;
   },
 ) {
   if (!quoteId) return { error: "견적 ID가 없습니다." };
@@ -569,7 +575,30 @@ export async function convertQuoteToSale(
     saleId: string;
     productId: string;
     stockOutQuantity: number;
+    stockInQuantity: number;
   }[] = [];
+
+  async function rollbackCompleted() {
+    for (const done of completed.reverse()) {
+      await deleteSaleRecord(supabase, done.saleId);
+      if (done.stockOutQuantity > 0) {
+        await recordStockIn(
+          supabase,
+          done.productId,
+          done.stockOutQuantity,
+          `${stockNote} (매출전환 롤백)`,
+        );
+      }
+      if (done.stockInQuantity > 0) {
+        await recordStockOutForSale(
+          supabase,
+          done.productId,
+          done.stockInQuantity,
+          `${stockNote} (매입 입고 롤백)`,
+        );
+      }
+    }
+  }
 
   for (let index = 0; index < quoteItems.length; index += 1) {
     const item = quoteItems[index];
@@ -594,6 +623,10 @@ export async function convertQuoteToSale(
         : baseUnitSalePrice;
     const unit_purchase_price = Math.round(Number(item.purchase_price) || 0);
     const fromStore = isStoreFulfillment(item.fulfillment_location);
+    const purchaseInQuantity = Math.max(
+      0,
+      Math.round(Number(options?.purchaseQuantities?.[item.id]) || 0),
+    );
 
     if (quantity <= 0) {
       return {
@@ -649,20 +682,32 @@ export async function convertQuoteToSale(
     });
 
     if ("error" in saleResult) {
-      for (const done of completed.reverse()) {
-        await deleteSaleRecord(supabase, done.saleId);
-        if (done.stockOutQuantity > 0) {
-          await recordStockIn(
-            supabase,
-            done.productId,
-            done.stockOutQuantity,
-            `${stockNote} (매출전환 롤백)`,
-          );
-        }
-      }
+      await rollbackCompleted();
       return {
         error: `${lineNumber}번째 줄 (${item.model_name}) 매출 기록 실패: ${saleResult.error}`,
       };
+    }
+
+    const stockLocation = normalizeStockLocation(
+      productResult.product.stock_location,
+    ) as StockLocation;
+
+    if (purchaseInQuantity > 0) {
+      const stockInResult = await recordStockInToLocation(
+        supabase,
+        item.product_id,
+        purchaseInQuantity,
+        stockLocation,
+        `${stockNote} (매입 입고)`,
+      );
+
+      if ("error" in stockInResult) {
+        await deleteSaleRecord(supabase, saleResult.saleId);
+        await rollbackCompleted();
+        return {
+          error: `${lineNumber}번째 줄 (${item.model_name}): ${stockInResult.error}`,
+        };
+      }
     }
 
     const stockOutQuantity = fromStore ? quantity : 0;
@@ -676,18 +721,16 @@ export async function convertQuoteToSale(
       );
 
       if ("error" in stockResult) {
-        await deleteSaleRecord(supabase, saleResult.saleId);
-        for (const done of completed.reverse()) {
-          await deleteSaleRecord(supabase, done.saleId);
-          if (done.stockOutQuantity > 0) {
-            await recordStockIn(
-              supabase,
-              done.productId,
-              done.stockOutQuantity,
-              `${stockNote} (매출전환 롤백)`,
-            );
-          }
+        if (purchaseInQuantity > 0) {
+          await recordStockOutForSale(
+            supabase,
+            item.product_id,
+            purchaseInQuantity,
+            `${stockNote} (매입 입고 롤백)`,
+          );
         }
+        await deleteSaleRecord(supabase, saleResult.saleId);
+        await rollbackCompleted();
         return {
           error: `${lineNumber}번째 줄 (${item.model_name}): ${stockResult.error}`,
         };
@@ -698,12 +741,14 @@ export async function convertQuoteToSale(
       saleId: saleResult.saleId,
       productId: item.product_id,
       stockOutQuantity,
+      stockInQuantity: purchaseInQuantity,
     });
   }
 
   revalidatePath("/sales");
   revalidatePath("/products");
   revalidatePath("/products/history");
+  revalidatePath("/products/stock/list");
   revalidatePath("/dashboard");
   revalidatePath("/quotes");
 

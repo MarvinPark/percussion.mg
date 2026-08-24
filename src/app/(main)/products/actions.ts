@@ -331,7 +331,11 @@ export async function updateProductField(
         return { error: "재고는 0 이상 숫자여야 합니다." };
       }
 
-      const stockBefore = product.stock_quantity;
+      const locationLabel =
+        field === "stock_floor3" ? "3층" : field === "stock_b1" ? "B1" : "의왕";
+      const previousLocationValue = Number(product[field]) || 0;
+      const locationDelta = locationValue - previousLocationValue;
+
       updateData[field] = locationValue;
       updateData.stock_quantity =
         field === "stock_floor3"
@@ -340,15 +344,30 @@ export async function updateProductField(
             ? product.stock_floor3 + locationValue + product.stock_display
             : product.stock_floor3 + product.stock_b1 + locationValue;
 
+      const stockBefore = product.stock_quantity;
       const stockAfter = updateData.stock_quantity as number;
-      if (stockBefore !== stockAfter) {
+
+      if (locationDelta > 0) {
+        const movementResult = await recordStockMovement(supabase, {
+          product_id: productId,
+          movement_type: "in",
+          quantity: locationDelta,
+          stock_before: stockBefore,
+          stock_after: stockAfter,
+          note: `목록에서 ${locationLabel} 입고`,
+        });
+
+        if ("error" in movementResult) {
+          return { error: movementResult.error };
+        }
+      } else if (locationDelta < 0) {
         const movementResult = await recordStockMovement(supabase, {
           product_id: productId,
           movement_type: "adjust",
-          quantity: Math.abs(stockAfter - stockBefore),
+          quantity: Math.abs(locationDelta),
           stock_before: stockBefore,
           stock_after: stockAfter,
-          note: `목록에서 ${field} 수정`,
+          note: `목록에서 ${locationLabel} 수정`,
         });
 
         if ("error" in movementResult) {

@@ -59,6 +59,7 @@ export type QuoteListItem = {
     line_total: number;
     purchase_price: number;
     shipping_cost: number;
+    fulfillment_location?: string | null;
   }[];
 };
 
@@ -249,6 +250,7 @@ export default function QuotesList({
         actualFeeRate: payload.actualFeeRate,
         roundingUnit: payload.roundingUnit,
         roundingMode: payload.roundingMode,
+        purchaseQuantities: payload.purchaseQuantities,
       });
       if (result.error) {
         setActionError(result.error);
@@ -609,6 +611,14 @@ export default function QuotesList({
           title="매출기록하겠습니까?"
           description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
           quoteTotal={convertingQuote.total_amount}
+          items={convertingQuote.quote_items.map((item) => ({
+            id: item.id,
+            model_name: item.model_name,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            fulfillment_location: item.fulfillment_location ?? "매장",
+            purchase_price: item.purchase_price,
+          }))}
           defaultCardFeePercent={defaultCardFeePercentFromPayment(
             convertingQuote.payment_method,
           )}

@@ -42,6 +42,9 @@ export default async function StockHistoryPage() {
     .select(
       "*, products(product_name, model_name, sku, supplier)",
     )
+    .or(
+      "movement_type.eq.out,movement_type.eq.adjust,and(movement_type.eq.in,or(note.is.null,note.not.ilike.목록에서%입고))",
+    )
     .order("created_at", { ascending: false })
     .limit(100);
 

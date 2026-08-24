@@ -122,16 +122,22 @@ export function addLocationStock(
 ): Pick<LocationStockProduct, "stock_floor3" | "stock_b1" | "stock_display"> {
   const location = normalizeStockLocation(product.stock_location);
 
+  return addLocationStockAt(product, quantity, location);
+}
+
+/** 입고 시 지정 위치에 추가 */
+export function addLocationStockAt(
+  product: LocationStockProduct,
+  quantity: number,
+  location: StockLocation,
+): Pick<LocationStockProduct, "stock_floor3" | "stock_b1" | "stock_display"> {
+  const stocks = locationStockRecord(product);
+  stocks[location] += quantity;
+
   return {
-    stock_floor3:
-      location === "3층"
-        ? product.stock_floor3 + quantity
-        : product.stock_floor3,
-    stock_b1: location === "B1" ? product.stock_b1 + quantity : product.stock_b1,
-    stock_display:
-      location === "의왕"
-        ? product.stock_display + quantity
-        : product.stock_display,
+    stock_floor3: stocks["3층"],
+    stock_b1: stocks.B1,
+    stock_display: stocks.의왕,
   };
 }
 
