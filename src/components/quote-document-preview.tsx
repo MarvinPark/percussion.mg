@@ -212,9 +212,9 @@ function DocumentTable({
                   <td className={priceCellClass}>
                     {formatKRW(totalConsumerAmount ?? 0)}
                   </td>
-                  <td className={priceCellClass} />
                   <td
-                    className={`total-amount ${priceCellClass} py-2 text-base font-bold text-red-600`}
+                    colSpan={2}
+                    className={`total-amount ${priceCellClass} overflow-hidden py-2 text-right text-base font-bold text-red-600`}
                   >
                     {formatKRW(totalAmount)}원
                   </td>
