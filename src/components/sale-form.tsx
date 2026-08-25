@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { checkCreateSaleStock, createSale } from "@/app/(main)/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
 import InlineProductCreateModal from "@/components/inline-product-create-modal";
@@ -144,6 +145,7 @@ export default function SaleForm({
   contactSuggestions,
   saleCategories,
 }: SaleFormProps) {
+  const router = useRouter();
   const livePaymentMethods = useLivePaymentMethods(paymentMethods);
   const [lines, setLines] = useState<SaleLineDraft[]>(() => [
     createEmptyLine(paymentMethods),
@@ -181,7 +183,7 @@ export default function SaleForm({
   const lastSaleErrorRef = useRef<string | null>(null);
 
   const [state, formAction, isPending] = useActionState(
-    async (_prev: { error?: string } | null, formData: FormData) => {
+    async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
       return (await createSale(formData)) ?? null;
     },
     null,
@@ -278,6 +280,12 @@ export default function SaleForm({
   useEffect(() => {
     lastSaleErrorRef.current = state?.error ?? null;
   }, [state?.error]);
+
+  useEffect(() => {
+    if (!state?.success) return;
+    router.push("/sales");
+    router.refresh();
+  }, [state?.success, router]);
 
   useEffect(() => {
     const message = state?.error;

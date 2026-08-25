@@ -516,7 +516,7 @@ export async function createSale(formData: FormData) {
   revalidatePath("/products/stock/list");
   revalidatePath("/dashboard");
 
-  redirect("/sales");
+  return { success: true as const };
 }
 
 export type CreateSaleStockCheckItem = {
