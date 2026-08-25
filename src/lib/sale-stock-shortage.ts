@@ -30,7 +30,7 @@ export function getInsufficientStockLines(
     if (!line.productId) continue;
     if (!isStoreFulfillment(line.fulfillmentLocation)) continue;
 
-    const product = selectedProductsByLine[line.id];
+    const product = findProductForLine(line, selectedProductsByLine);
     if (!product) continue;
 
     const currentStock = Number(product.stock_quantity) || 0;
@@ -58,4 +58,41 @@ export function buildPurchaseQuantitiesArray(
   return lines
     .filter((line) => line.productId)
     .map((line) => Math.max(0, Math.round(purchaseQuantitiesByLineId[line.id] ?? 0)));
+}
+
+export type SaleStockCheckResultItem = Omit<SaleStockPurchaseItem, "id"> & {
+  lineIndex: number;
+};
+
+export function mapStockCheckItemsToLines(
+  items: SaleStockCheckResultItem[],
+  lines: SaleLineForStockCheck[],
+): SaleStockPurchaseItem[] {
+  const activeLines = lines.filter((line) => line.productId);
+
+  return items.map((item) => ({
+    id: activeLines[item.lineIndex]?.id ?? String(item.lineIndex),
+    model_name: item.model_name,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    fulfillment_location: item.fulfillment_location,
+    purchase_price: item.purchase_price,
+    current_stock: item.current_stock,
+    default_purchase_quantity: item.default_purchase_quantity,
+  }));
+}
+
+export function findProductForLine(
+  line: SaleLineForStockCheck,
+  selectedProductsByLine: Record<string, SaleProductOption>,
+): SaleProductOption | null {
+  if (selectedProductsByLine[line.id]) {
+    return selectedProductsByLine[line.id] ?? null;
+  }
+
+  return (
+    Object.values(selectedProductsByLine).find(
+      (product) => product.id === line.productId,
+    ) ?? null
+  );
 }

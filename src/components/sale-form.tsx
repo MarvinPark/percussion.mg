@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState } from "react";
-import { createSale } from "@/app/(main)/sales/actions";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { checkCreateSaleStock, createSale } from "@/app/(main)/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
 import InlineProductCreateModal from "@/components/inline-product-create-modal";
 import SaleStockPurchaseDialog from "@/components/sale-stock-purchase-dialog";
@@ -29,6 +29,7 @@ import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
 import {
   buildPurchaseQuantitiesArray,
   getInsufficientStockLines,
+  mapStockCheckItemsToLines,
   type SaleStockPurchaseItem,
 } from "@/lib/sale-stock-shortage";
 import { isSaleFormDirty } from "@/lib/unsaved-form-dirty";
@@ -172,8 +173,12 @@ export default function SaleForm({
   const [stockPurchaseItems, setStockPurchaseItems] = useState<
     SaleStockPurchaseItem[] | null
   >(null);
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const skipStockPurchasePromptRef = useRef(false);
+  const isOpeningStockDialogRef = useRef(false);
+  const handledStockErrorRef = useRef<string | null>(null);
+  const lastSaleErrorRef = useRef<string | null>(null);
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
@@ -238,7 +243,74 @@ export default function SaleForm({
     ],
   );
 
-  const { dialog: leaveDialog } = useUnsavedChangesGuard(isDirty && !isPending);
+  const { dialog: leaveDialog } = useUnsavedChangesGuard(
+    isDirty && !(isPending || isCheckingStock),
+  );
+
+  function submitSaleForm(purchaseQuantitiesJsonValue = "[]") {
+    const form = formRef.current;
+    if (!form) return;
+
+    const formData = new FormData(form);
+    formData.set("purchase_quantities_json", purchaseQuantitiesJsonValue);
+    setPurchaseQuantitiesJson(purchaseQuantitiesJsonValue);
+    formAction(formData);
+  }
+
+  async function resolveInsufficientStockItems() {
+    const clientItems = getInsufficientStockLines(lines, selectedProductsByLine);
+    if (clientItems.length > 0) {
+      return clientItems;
+    }
+
+    const result = await checkCreateSaleStock(linesJson);
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    if (!result.insufficientItems?.length) {
+      return [];
+    }
+
+    return mapStockCheckItemsToLines(result.insufficientItems, lines);
+  }
+
+  useEffect(() => {
+    lastSaleErrorRef.current = state?.error ?? null;
+  }, [state?.error]);
+
+  useEffect(() => {
+    const message = state?.error;
+    if (!message?.includes("재고가 부족")) {
+      handledStockErrorRef.current = null;
+      return;
+    }
+    if (
+      stockPurchaseItems ||
+      isOpeningStockDialogRef.current ||
+      handledStockErrorRef.current === message
+    ) {
+      return;
+    }
+
+    isOpeningStockDialogRef.current = true;
+    handledStockErrorRef.current = message;
+    void resolveInsufficientStockItems()
+      .then((items) => {
+        if (items.length > 0) {
+          setClientError(null);
+          setStockPurchaseItems(items);
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error) {
+          setClientError(error.message);
+        }
+      })
+      .finally(() => {
+        isOpeningStockDialogRef.current = false;
+      });
+  }, [state?.error, stockPurchaseItems, lines, linesJson, selectedProductsByLine]);
 
   function updateLine(id: string, patch: Partial<SaleLineDraft>) {
     setLines((prev) =>
@@ -358,8 +430,12 @@ export default function SaleForm({
     );
     setStockPurchaseItems(null);
     skipStockPurchasePromptRef.current = true;
-    formRef.current?.requestSubmit();
+    submitSaleForm(
+      JSON.stringify(buildPurchaseQuantitiesArray(lines, purchaseQuantities)),
+    );
   }
+
+  const isSubmitting = isPending || isCheckingStock;
 
   return (
     <>
@@ -367,31 +443,44 @@ export default function SaleForm({
         ref={formRef}
         action={formAction}
         onSubmit={(event) => {
-          const validationError = validateSaleLines(lines);
-          if (validationError) {
-            event.preventDefault();
-            setClientError(validationError);
-            return;
-          }
+          event.preventDefault();
 
-          if (!skipStockPurchasePromptRef.current) {
-            const insufficientItems = getInsufficientStockLines(
-              lines,
-              selectedProductsByLine,
-            );
-
-            if (insufficientItems.length > 0) {
-              event.preventDefault();
-              setClientError(null);
-              setStockPurchaseItems(insufficientItems);
+          void (async () => {
+            const validationError = validateSaleLines(lines);
+            if (validationError) {
+              setClientError(validationError);
               return;
             }
 
-            setPurchaseQuantitiesJson("[]");
-          }
+            if (!skipStockPurchasePromptRef.current) {
+              setIsCheckingStock(true);
+              try {
+                const insufficientItems = await resolveInsufficientStockItems();
 
-          skipStockPurchasePromptRef.current = false;
-          setClientError(null);
+                if (insufficientItems.length > 0) {
+                  setClientError(null);
+                  setStockPurchaseItems(insufficientItems);
+                  return;
+                }
+              } catch (error) {
+                setClientError(
+                  error instanceof Error
+                    ? error.message
+                    : "재고 확인에 실패했습니다.",
+                );
+                return;
+              } finally {
+                setIsCheckingStock(false);
+              }
+
+              submitSaleForm("[]");
+              return;
+            }
+
+            skipStockPurchasePromptRef.current = false;
+            setClientError(null);
+            submitSaleForm(purchaseQuantitiesJson);
+          })();
         }}
         className="space-y-5"
       >
@@ -785,7 +874,7 @@ export default function SaleForm({
         </p>
       </div>
 
-      {(clientError || state?.error) ? (
+      {(clientError || (state?.error && !stockPurchaseItems)) ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {clientError ?? state?.error}
         </p>
@@ -793,11 +882,13 @@ export default function SaleForm({
 
       <button
         type="submit"
-        disabled={isPending || !hasValidLine}
+        disabled={isSubmitting || !hasValidLine}
         className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
       >
-        {isPending
-          ? "저장 중..."
+        {isSubmitting
+          ? isCheckingStock
+            ? "재고 확인 중..."
+            : "저장 중..."
           : `판매 등록 (${lines.filter((line) => line.productId).length}건 · 재고 자동 차감)`}
       </button>
       </form>
@@ -816,9 +907,12 @@ export default function SaleForm({
       {stockPurchaseItems ? (
         <SaleStockPurchaseDialog
           items={stockPurchaseItems}
-          isPending={isPending}
+          isPending={isSubmitting}
           onConfirm={handleStockPurchaseConfirm}
-          onCancel={() => setStockPurchaseItems(null)}
+          onCancel={() => {
+            setStockPurchaseItems(null);
+            handledStockErrorRef.current = lastSaleErrorRef.current;
+          }}
         />
       ) : null}
 

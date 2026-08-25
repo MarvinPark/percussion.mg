@@ -519,6 +519,63 @@ export async function createSale(formData: FormData) {
   redirect("/sales");
 }
 
+export type CreateSaleStockCheckItem = {
+  lineIndex: number;
+  model_name: string;
+  product_name: string;
+  quantity: number;
+  fulfillment_location: string;
+  purchase_price: number;
+  current_stock: number;
+  default_purchase_quantity: number;
+};
+
+export async function checkCreateSaleStock(lines_json: string): Promise<{
+  error?: string;
+  insufficientItems?: CreateSaleStockCheckItem[];
+}> {
+  const parsedLines = parseSaleLinesJson(lines_json);
+  if ("error" in parsedLines) return { error: parsedLines.error };
+
+  const supabase = await createClient();
+  const auth = await requirePermission("createSales");
+  if ("error" in auth) return { error: auth.error };
+
+  const insufficientItems: CreateSaleStockCheckItem[] = [];
+
+  for (let index = 0; index < parsedLines.length; index += 1) {
+    const line = parsedLines[index];
+
+    if (!isStoreFulfillment(line.fulfillment_location)) continue;
+
+    const { data: product } = await supabase
+      .from("products")
+      .select("product_name, model_name, stock_quantity")
+      .eq("id", line.product_id)
+      .single();
+
+    if (!product) {
+      return { error: `${index + 1}번째 줄: 제품을 찾을 수 없습니다.` };
+    }
+
+    const currentStock = Number(product.stock_quantity) || 0;
+    if (currentStock >= line.quantity) continue;
+
+    insufficientItems.push({
+      lineIndex: index,
+      model_name: product.model_name?.trim() || "-",
+      product_name: product.product_name?.trim() || "-",
+      quantity: line.quantity,
+      fulfillment_location: line.fulfillment_location,
+      purchase_price: line.unit_purchase_price,
+      current_stock: currentStock,
+      default_purchase_quantity: Math.max(0, line.quantity - currentStock),
+    });
+  }
+
+  return { insufficientItems };
+}
+
 export async function updateSale(formData: FormData) {
   const sale_id = String(formData.get("sale_id") ?? "").trim();
   const sale_category_raw = String(formData.get("sale_category") ?? "");
