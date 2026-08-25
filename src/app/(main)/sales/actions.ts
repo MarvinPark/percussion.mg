@@ -7,10 +7,13 @@ import {
   parseFulfillmentLocation,
 } from "@/lib/quote-fulfillment";
 import { getModifierInfo, requirePermission } from "@/lib/profile";
+import { recordStockInToLocation } from "@/lib/sale-recording";
 import {
   addLocationStock,
   deductLocationStock,
+  normalizeStockLocation,
   sumLocationStock,
+  type StockLocation,
 } from "@/lib/stock-locations";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -220,6 +223,7 @@ type PreparedCreateSaleLine = {
   product: {
     product_name: string;
     stock_quantity: number;
+    stock_location: string | null;
   };
   paymentMethod: {
     name: string;
@@ -230,8 +234,28 @@ type PreparedCreateSaleLine = {
   paymentFeeAmount: number;
   marginAmount: number;
   stockOutQuantity: number;
+  purchaseInQuantity: number;
   lineNote: string | null;
 };
+
+function parsePurchaseQuantitiesJson(raw: string, expectedLength: number) {
+  if (!raw.trim()) {
+    return Array.from({ length: expectedLength }, () => 0);
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return Array.from({ length: expectedLength }, () => 0);
+    }
+
+    return Array.from({ length: expectedLength }, (_, index) =>
+      Math.max(0, Math.round(Number(parsed[index]) || 0)),
+    );
+  } catch {
+    return Array.from({ length: expectedLength }, () => 0);
+  }
+}
 
 function parseSaleLinesJson(
   raw: string,
@@ -300,6 +324,7 @@ async function prepareCreateSaleLines(
   supabase: Awaited<ReturnType<typeof createClient>>,
   parsedLines: SaleLineInput[],
   note: string,
+  purchaseQuantities: number[] = [],
 ): Promise<PreparedCreateSaleLine[] | { error: string }> {
   const prepared: PreparedCreateSaleLine[] = [];
 
@@ -309,7 +334,7 @@ async function prepareCreateSaleLines(
 
     const { data: product } = await supabase
       .from("products")
-      .select("product_name, stock_quantity")
+      .select("product_name, stock_quantity, stock_location")
       .eq("id", line.product_id)
       .single();
 
@@ -343,23 +368,34 @@ async function prepareCreateSaleLines(
       [note || null, fulfillmentNote].filter(Boolean).join(" / ") || null;
 
     const stockOutQuantity = fromStore ? line.quantity : 0;
+    const purchaseInQuantity = Math.max(
+      0,
+      Math.round(Number(purchaseQuantities[index]) || 0),
+    );
+    const availableStock =
+      (Number(product.stock_quantity) || 0) + purchaseInQuantity;
 
-    if (stockOutQuantity > 0 && product.stock_quantity < stockOutQuantity) {
+    if (stockOutQuantity > 0 && availableStock < stockOutQuantity) {
       return {
-        error: `${lineNumber}번째 줄 (${product.product_name}): 재고가 부족합니다. (현재 ${product.stock_quantity}개)`,
+        error: `${lineNumber}번째 줄 (${product.product_name}): 재고가 부족합니다. (현재 ${product.stock_quantity}개${purchaseInQuantity > 0 ? `, 매입 ${purchaseInQuantity}개 후 ${availableStock}개` : ""})`,
       };
     }
 
     prepared.push({
       line,
       lineNumber,
-      product,
+      product: {
+        product_name: product.product_name,
+        stock_quantity: Number(product.stock_quantity) || 0,
+        stock_location: product.stock_location,
+      },
       paymentMethod,
       unit_purchase_price,
       totalAmount,
       paymentFeeAmount,
       marginAmount,
       stockOutQuantity,
+      purchaseInQuantity,
       lineNote,
     });
   }
@@ -376,6 +412,9 @@ export async function createSale(formData: FormData) {
   const customer_phone = String(formData.get("customer_phone") ?? "").trim();
   const customer_address = String(formData.get("customer_address") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
+  const purchase_quantities_json = String(
+    formData.get("purchase_quantities_json") ?? "",
+  );
 
   const parsedLines = parseSaleLinesJson(lines_json);
   if ("error" in parsedLines) return { error: parsedLines.error };
@@ -389,10 +428,16 @@ export async function createSale(formData: FormData) {
   const modifier = await requirePermission("createSales");
   if ("error" in modifier) return { error: modifier.error };
 
+  const purchaseQuantities = parsePurchaseQuantitiesJson(
+    purchase_quantities_json,
+    parsedLines.length,
+  );
+
   const preparedLines = await prepareCreateSaleLines(
     supabase,
     parsedLines,
     note,
+    purchaseQuantities,
   );
   if ("error" in preparedLines) return { error: preparedLines.error };
 
@@ -400,6 +445,25 @@ export async function createSale(formData: FormData) {
 
   for (const prepared of preparedLines) {
     const { line, lineNumber, product, paymentMethod } = prepared;
+
+    if (prepared.purchaseInQuantity > 0) {
+      const stockLocation = normalizeStockLocation(
+        product.stock_location,
+      ) as StockLocation;
+      const stockInResult = await recordStockInToLocation(
+        supabase,
+        line.product_id,
+        prepared.purchaseInQuantity,
+        stockLocation,
+        `${stockNote} (매입 입고)`,
+      );
+
+      if ("error" in stockInResult) {
+        return {
+          error: `${lineNumber}번째 줄 (${product.product_name}): ${stockInResult.error}`,
+        };
+      }
+    }
 
     if (prepared.stockOutQuantity > 0) {
       const stockResult = await recordStockOutForSale(
@@ -449,6 +513,7 @@ export async function createSale(formData: FormData) {
   revalidatePath("/sales");
   revalidatePath("/products");
   revalidatePath("/products/history");
+  revalidatePath("/products/stock/list");
   revalidatePath("/dashboard");
 
   redirect("/sales");

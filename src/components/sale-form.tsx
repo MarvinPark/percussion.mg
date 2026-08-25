@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { createSale } from "@/app/(main)/sales/actions";
 import ProductSearchSelect from "@/components/product-search-select";
 import InlineProductCreateModal from "@/components/inline-product-create-modal";
+import SaleStockPurchaseDialog from "@/components/sale-stock-purchase-dialog";
 import { toSaleProductOption } from "@/lib/inline-product-create-shared";
 import PhoneInput from "@/components/phone-input";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
@@ -25,6 +26,11 @@ import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
+import {
+  buildPurchaseQuantitiesArray,
+  getInsufficientStockLines,
+  type SaleStockPurchaseItem,
+} from "@/lib/sale-stock-shortage";
 import { isSaleFormDirty } from "@/lib/unsaved-form-dirty";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
@@ -162,6 +168,12 @@ export default function SaleForm({
   );
   const [note, setNote] = useState("");
   const [clientError, setClientError] = useState<string | null>(null);
+  const [purchaseQuantitiesJson, setPurchaseQuantitiesJson] = useState("[]");
+  const [stockPurchaseItems, setStockPurchaseItems] = useState<
+    SaleStockPurchaseItem[] | null
+  >(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const skipStockPurchasePromptRef = useRef(false);
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
@@ -324,9 +336,35 @@ export default function SaleForm({
     );
   }
 
+  function handleStockPurchaseConfirm(
+    purchaseQuantities: Record<string, number>,
+  ) {
+    if (!stockPurchaseItems) return;
+
+    for (const item of stockPurchaseItems) {
+      const purchase = Math.max(0, Math.round(purchaseQuantities[item.id] ?? 0));
+      const needed = Math.max(0, item.quantity - item.current_stock);
+      if (purchase < needed) {
+        setClientError(
+          `${item.model_name}: 재고 부족분 ${needed}개 이상 매입 수량을 입력해 주세요.`,
+        );
+        return;
+      }
+    }
+
+    setClientError(null);
+    setPurchaseQuantitiesJson(
+      JSON.stringify(buildPurchaseQuantitiesArray(lines, purchaseQuantities)),
+    );
+    setStockPurchaseItems(null);
+    skipStockPurchasePromptRef.current = true;
+    formRef.current?.requestSubmit();
+  }
+
   return (
     <>
       <form
+        ref={formRef}
         action={formAction}
         onSubmit={(event) => {
           const validationError = validateSaleLines(lines);
@@ -336,11 +374,33 @@ export default function SaleForm({
             return;
           }
 
+          if (!skipStockPurchasePromptRef.current) {
+            const insufficientItems = getInsufficientStockLines(
+              lines,
+              selectedProductsByLine,
+            );
+
+            if (insufficientItems.length > 0) {
+              event.preventDefault();
+              setClientError(null);
+              setStockPurchaseItems(insufficientItems);
+              return;
+            }
+
+            setPurchaseQuantitiesJson("[]");
+          }
+
+          skipStockPurchasePromptRef.current = false;
           setClientError(null);
         }}
         className="space-y-5"
       >
       <input type="hidden" name="lines_json" value={linesJson} />
+      <input
+        type="hidden"
+        name="purchase_quantities_json"
+        value={purchaseQuantitiesJson}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -750,6 +810,15 @@ export default function SaleForm({
           onCreated={(product) =>
             handleSaleProductCreated(toSaleProductOption(product))
           }
+        />
+      ) : null}
+
+      {stockPurchaseItems ? (
+        <SaleStockPurchaseDialog
+          items={stockPurchaseItems}
+          isPending={isPending}
+          onConfirm={handleStockPurchaseConfirm}
+          onCancel={() => setStockPurchaseItems(null)}
         />
       ) : null}
 
