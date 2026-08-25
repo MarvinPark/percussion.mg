@@ -561,7 +561,7 @@ export default function QuoteDocumentPreview({
   const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(0);
   const [roundingUnit, setRoundingUnit] = useState<AmountRoundingUnit>(1000);
   const [roundingMode, setRoundingMode] = useState<AmountRoundingMode>("ceil");
-  const [previewLayout, setPreviewLayout] = useState<PreviewLayout>("paginated");
+  const [previewLayout, setPreviewLayout] = useState<PreviewLayout>("single");
 
   useEffect(() => {
     if (!open) return;
@@ -569,7 +569,7 @@ export default function QuoteDocumentPreview({
     setCardFeePercent(0);
     setRoundingUnit(1000);
     setRoundingMode("ceil");
-    setPreviewLayout("paginated");
+    setPreviewLayout("single");
   }, [data.quote_date, mode, open]);
 
   useEffect(() => {
