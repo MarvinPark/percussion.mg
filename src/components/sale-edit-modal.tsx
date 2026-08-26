@@ -138,6 +138,10 @@ export default function SaleEditModal({
     formData.set("quantity", String(quantity));
     formData.set("unit_sale_price", String(Math.max(0, Math.round(unitSalePrice))));
     formData.set(
+      "unit_purchase_price",
+      String(Math.max(0, Math.round(unitPurchasePrice))),
+    );
+    formData.set(
       "shipping_cost",
       String(Math.max(0, Math.round(shippingCost))),
     );
@@ -189,6 +193,11 @@ export default function SaleEditModal({
 
     if (unitSalePrice < 0) {
       setSaveError("판매 단가는 0 이상이어야 합니다.");
+      return;
+    }
+
+    if (unitPurchasePrice < 0) {
+      setSaveError("매입가는 0 이상이어야 합니다.");
       return;
     }
 
@@ -399,6 +408,19 @@ export default function SaleEditModal({
                 min={0}
                 value={unitSalePrice}
                 onChange={setUnitSalePrice}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit_unit_purchase_price" className={labelClass}>
+                매입가 (원)
+              </label>
+              <PriceInput
+                id="edit_unit_purchase_price"
+                min={0}
+                value={unitPurchasePrice}
+                onChange={setUnitPurchasePrice}
                 className={inputClass}
               />
             </div>

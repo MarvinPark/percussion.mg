@@ -586,6 +586,10 @@ export async function updateSale(formData: FormData) {
     0,
     Math.round(Number(formData.get("unit_sale_price") ?? 0)),
   );
+  const unit_purchase_price = Math.max(
+    0,
+    Math.round(Number(formData.get("unit_purchase_price") ?? 0)),
+  );
   const customer_name = String(formData.get("customer_name") ?? "").trim();
   const business_partner = String(formData.get("business_partner") ?? "").trim();
   const customer_phone = String(formData.get("customer_phone") ?? "").trim();
@@ -614,6 +618,7 @@ export async function updateSale(formData: FormData) {
     return { error: "판매 단가를 올바르게 입력해 주세요." };
   }
   if (unit_sale_price < 0) return { error: "소비자가는 0 이상이어야 합니다." };
+  if (unit_purchase_price < 0) return { error: "매입가는 0 이상이어야 합니다." };
   if (!payment_method_id) return { error: "결제 방식을 선택해 주세요." };
 
   const { data: existingSale } = await supabase
@@ -640,13 +645,6 @@ export async function updateSale(formData: FormData) {
 
   if (!paymentMethod) return { error: "결제 방식을 찾을 수 없습니다." };
 
-  const unit_purchase_price =
-    product_id === existingSale.product_id
-      ? Math.max(
-          0,
-          Math.round(Number(existingSale.unit_purchase_price) || 0),
-        ) || Math.max(0, Math.round(Number(product.purchase_price) || 0))
-      : Math.max(0, Math.round(Number(product.purchase_price) || 0));
   const { totalAmount, paymentFeeAmount, marginAmount } = calculateSaleAmounts({
     quantity,
     unitSalePrice: unit_sale_price,
