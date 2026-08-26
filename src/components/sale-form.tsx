@@ -50,7 +50,13 @@ const bulkBarLabelClass =
   "shrink-0 text-xs font-semibold text-zinc-700 dark:text-zinc-300";
 
 const bulkBarInputClass =
-  "h-[34px] rounded border border-zinc-400 bg-white px-2 text-xs text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+  "h-[34px] rounded border border-zinc-400 bg-white px-2 text-base text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+const mobileFieldInputClass =
+  "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+const mobileFieldLabelClass =
+  "mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300";
 
 const bulkBarButtonClass =
   "inline-flex h-[34px] shrink-0 items-center rounded border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
@@ -558,16 +564,16 @@ export default function SaleForm({
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               판매 제품
             </h3>
-            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+            <p className="mt-0.5 hidden text-xs text-zinc-600 sm:block dark:text-zinc-400">
               + 버튼으로 여러 제품을 한 번에 등록할 수 있습니다. 수량·결제방식은
               행마다 선택하거나 아래 일괄 적용을 사용하세요.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-800/40">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={bulkBarLabelClass}>수량 일괄</span>
+        <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-800/40 sm:space-y-0">
+          <div className="flex flex-nowrap items-center gap-1.5 sm:mr-4 sm:inline-flex sm:flex-wrap sm:items-center sm:gap-2">
+            <span className={`${bulkBarLabelClass} shrink-0`}>수량 일괄</span>
             <input
               type="number"
               min={1}
@@ -575,27 +581,28 @@ export default function SaleForm({
               onChange={(event) =>
                 setBulkQuantity(Math.max(1, Number(event.target.value) || 1))
               }
-              className={`${bulkBarInputClass} w-20`}
+              className={`${bulkBarInputClass} w-16 shrink-0 sm:w-20`}
               aria-label="일괄 적용할 수량"
             />
             <button
               type="button"
               onClick={applyBulkQuantity}
               disabled={bulkQuantity < 1 || lines.length === 0}
-              className={bulkBarButtonClass}
+              className={`${bulkBarButtonClass} shrink-0 whitespace-nowrap px-2 sm:px-3`}
             >
               전체 적용
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={bulkBarLabelClass}>결제방식 일괄</span>
-            <div className="min-w-[10rem] max-w-xs">
+          <div className="flex flex-nowrap items-center gap-1.5 sm:inline-flex sm:flex-wrap sm:items-center sm:gap-2">
+            <span className={`${bulkBarLabelClass} shrink-0`}>결제 일괄</span>
+            <div className="min-w-0 flex-1 sm:min-w-[10rem] sm:max-w-xs sm:flex-none">
               <PaymentMethodCombobox
                 paymentMethods={livePaymentMethods}
                 value={bulkPaymentMethodId}
                 onChange={setBulkPaymentMethodId}
-                className={`${bulkBarInputClass} w-full min-w-[10rem]`}
+                preferNativeSelect
+                className={`${bulkBarInputClass} w-full min-w-0 sm:min-w-[10rem]`}
                 aria-label="일괄 적용할 결제방식"
               />
             </div>
@@ -603,14 +610,181 @@ export default function SaleForm({
               type="button"
               onClick={applyBulkPaymentMethod}
               disabled={!bulkPaymentMethodId || lines.length === 0}
-              className={bulkBarButtonClass}
+              className={`${bulkBarButtonClass} shrink-0 whitespace-nowrap px-2 sm:px-3`}
             >
               전체 적용
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
+        <div className="space-y-3 sm:hidden">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              판매 제품
+            </p>
+            <button
+              type="button"
+              onClick={handleHeaderRegisterProduct}
+              className="rounded border border-blue-600 px-2 py-1 text-[11px] font-semibold leading-none text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
+            >
+              + 제품등록
+            </button>
+          </div>
+
+          {lines.map((line, index) => {
+            const preview = linePreview(line, livePaymentMethods);
+
+            return (
+              <div
+                key={line.id}
+                className="space-y-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    제품 {index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeLine(line.id)}
+                    disabled={lines.length <= 1}
+                    className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    aria-label={`${index + 1}번째 제품 삭제`}
+                  >
+                    삭제
+                  </button>
+                </div>
+
+                <div>
+                  <label className={mobileFieldLabelClass}>출고지</label>
+                  <select
+                    value={line.fulfillmentLocation}
+                    onChange={(event) =>
+                      updateLine(line.id, {
+                        fulfillmentLocation: event.target
+                          .value as FulfillmentLocation,
+                      })
+                    }
+                    className={mobileFieldInputClass}
+                    aria-label={`${index + 1}번째 출고지`}
+                  >
+                    {FULFILLMENT_LOCATIONS.map((location) => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={mobileFieldLabelClass}>판매제품</label>
+                  <ProductSearchSelect
+                    selectedProduct={selectedProductsByLine[line.id] ?? null}
+                    onSelect={(product) => handleProductChange(line.id, product)}
+                    onRegisterProduct={(query) =>
+                      openProductCreate(line.id, query)
+                    }
+                    emphasizeModelName
+                    showHiddenField={false}
+                    showHelperText={Boolean(line.productId)}
+                    inputId={`product_search_${line.id}`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={mobileFieldLabelClass} htmlFor={`sale_quantity_${line.id}`}>
+                      판매수량
+                    </label>
+                    <input
+                      id={`sale_quantity_${line.id}`}
+                      type="number"
+                      min={1}
+                      required={Boolean(line.productId)}
+                      value={line.quantity}
+                      onChange={(event) =>
+                        updateLine(line.id, {
+                          quantity: Number(event.target.value) || 0,
+                        })
+                      }
+                      className={mobileFieldInputClass}
+                      aria-label={`${index + 1}번째 판매수량`}
+                    />
+                  </div>
+                  <div>
+                    <label className={mobileFieldLabelClass}>판매단가</label>
+                    <PriceInput
+                      min={0}
+                      required={Boolean(line.productId)}
+                      value={line.unitSalePrice}
+                      onChange={(unitSalePrice) =>
+                        updateLine(line.id, { unitSalePrice })
+                      }
+                      className={mobileFieldInputClass}
+                      aria-label={`${index + 1}번째 판매단가`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={mobileFieldLabelClass}>결제방식</label>
+                  <PaymentMethodCombobox
+                    required={Boolean(line.productId)}
+                    paymentMethods={livePaymentMethods}
+                    value={line.paymentMethodId}
+                    onChange={(paymentMethodId) =>
+                      updateLine(line.id, { paymentMethodId })
+                    }
+                    preferNativeSelect
+                    className={mobileFieldInputClass}
+                    aria-label={`${index + 1}번째 결제방식`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={mobileFieldLabelClass}>매입가</label>
+                    {line.productId ? (
+                      <PriceInput
+                        min={0}
+                        value={line.unitPurchasePrice}
+                        onChange={(unitPurchasePrice) =>
+                          updateLine(line.id, { unitPurchasePrice })
+                        }
+                        className={mobileFieldInputClass}
+                        aria-label={`${index + 1}번째 매입가`}
+                      />
+                    ) : (
+                      <p className="py-2.5 text-sm text-zinc-400">-</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={mobileFieldLabelClass}>업체배송비</label>
+                    <PriceInput
+                      min={0}
+                      value={line.shippingCost}
+                      onChange={(shippingCost) =>
+                        updateLine(line.id, { shippingCost })
+                      }
+                      className={mobileFieldInputClass}
+                      aria-label={`${index + 1}번째 업체 배송비`}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/60">
+                  <span className="text-zinc-600 dark:text-zinc-400">마진</span>
+                  <span className={`font-semibold ${marginAmountClass(preview.marginAmount)}`}>
+                    {line.productId
+                      ? `${formatKRW(preview.marginAmount)}원`
+                      : "-"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-xl border border-zinc-200 sm:block dark:border-zinc-700">
           <table className="min-w-[1080px] w-full text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
               <tr>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { listPaymentMethods } from "@/app/(main)/sales/payment-methods/actions";
+import { useMobileViewport } from "@/hooks/use-mobile-viewport";
 import { sortPaymentMethods } from "@/lib/payment-methods";
 import type { PaymentMethod } from "@/types/sale";
 
@@ -22,6 +23,7 @@ type PaymentMethodComboboxProps = {
   placeholder?: string;
   required?: boolean;
   showFeeInLabel?: boolean;
+  preferNativeSelect?: boolean;
   "aria-label"?: string;
   registerInput?: (element: HTMLInputElement | null) => void;
 };
@@ -58,9 +60,12 @@ export default function PaymentMethodCombobox({
   placeholder = "결제 방식 검색",
   required = false,
   showFeeInLabel = true,
+  preferNativeSelect = false,
   "aria-label": ariaLabel,
   registerInput,
 }: PaymentMethodComboboxProps) {
+  const isMobile = useMobileViewport();
+  const useNativeSelect = preferNativeSelect && isMobile;
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
@@ -308,6 +313,33 @@ export default function PaymentMethodCombobox({
         )}
       </ul>
     ) : null;
+
+  if (useNativeSelect) {
+    return (
+      <div ref={containerRef} className="relative min-w-0">
+        {name ? (
+          <input type="hidden" name={name} value={value} required={required} />
+        ) : null}
+        <select
+          id={id}
+          value={value}
+          required={required}
+          aria-label={ariaLabel}
+          onChange={(event) => onChange(event.target.value)}
+          className={className}
+        >
+          <option value="" disabled={required}>
+            결제 방식 선택
+          </option>
+          {methods.map((method) => (
+            <option key={method.id} value={method.id}>
+              {methodLabel(method, showFeeInLabel)}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="relative min-w-0">
