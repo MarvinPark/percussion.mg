@@ -12,7 +12,7 @@ import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
 import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
-import SaleTextAutocomplete from "@/components/sale-text-autocomplete";
+import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import {
   calculateSaleAmounts,
   formatKRW,
@@ -162,6 +162,7 @@ export default function SaleForm({
   );
   const [bulkQuantity, setBulkQuantity] = useState(1);
   const [businessPartner, setBusinessPartner] = useState("");
+  const [partnerId, setPartnerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -779,12 +780,13 @@ export default function SaleForm({
             <label htmlFor="business_partner" className={labelClass}>
               거래처명
             </label>
-            <SaleTextAutocomplete
+            <BusinessPartnerAutocomplete
               id="business_partner"
               name="business_partner"
               value={businessPartner}
+              partnerId={partnerId}
               onChange={setBusinessPartner}
-              suggestions={contactSuggestions.businessPartners}
+              onPartnerIdChange={setPartnerId}
               placeholder="예: OO음악학원"
               className={inputClass}
             />

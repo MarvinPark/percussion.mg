@@ -20,6 +20,17 @@ function isMissingRolePermissionsTable(message: string | undefined) {
   );
 }
 
+function mergeDefaultPermissions(map: RolePermissionMap): RolePermissionMap {
+  for (const role of Object.keys(map) as UserRole[]) {
+    for (const permission of DEFAULT_ROLE_PERMISSIONS[role]) {
+      if (!map[role].includes(permission)) {
+        map[role].push(permission);
+      }
+    }
+  }
+  return map;
+}
+
 function buildRolePermissionMapFromRows(
   rows: { role: string; permission: string }[],
 ): RolePermissionMap {
@@ -46,6 +57,7 @@ function buildRolePermissionMapFromRows(
     }
   }
 
+  mergeDefaultPermissions(map);
   ensureAdminSafety(map);
   return map;
 }

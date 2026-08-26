@@ -29,6 +29,7 @@ type SaleLinePayload = {
   unit_purchase_price: number;
   customer_name: string | null;
   business_partner: string | null;
+  partner_id?: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   payment_method: string;
@@ -65,6 +66,10 @@ export function formatSaleInsertError(error: {
 
   if (message.includes("quote_id")) {
     return "sales 테이블에 quote_id 컬럼이 없습니다. supabase/schema-quotes-conversion.sql을 실행해 주세요.";
+  }
+
+  if (message.includes("partner_id")) {
+    return "sales 테이블에 partner_id 컬럼이 없습니다. supabase/schema-business-partners.sql을 실행해 주세요.";
   }
 
   if (message.includes("shipping_cost")) {
@@ -167,6 +172,7 @@ export async function insertSaleRecord(
     unit_purchase_price: Math.round(payload.unit_purchase_price),
     customer_name: payload.customer_name,
     business_partner: payload.business_partner,
+    partner_id: payload.partner_id ?? null,
     customer_phone: payload.customer_phone,
     customer_address: payload.customer_address,
     payment_method: payload.payment_method,

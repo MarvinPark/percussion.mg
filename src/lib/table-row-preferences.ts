@@ -52,3 +52,16 @@ export function getTableHeaderPaddingClass(fontSize: number) {
   if (fontSize <= 12) return "py-1.5";
   return "py-2";
 }
+
+/** 거래처 목록 행 높이 (매출 대비 약 1.5배) */
+export function getPartnersTableRowPaddingClass(fontSize: number) {
+  if (fontSize <= 10) return "py-1.5";
+  if (fontSize <= 12) return "py-2";
+  return "py-2.5";
+}
+
+export function getPartnersTableHeaderPaddingClass(fontSize: number) {
+  if (fontSize <= 10) return "py-2";
+  if (fontSize <= 12) return "py-2.5";
+  return "py-3";
+}

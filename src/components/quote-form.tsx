@@ -14,7 +14,7 @@ import PhoneInput from "@/components/phone-input";
 import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
 import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
-import SaleTextAutocomplete from "@/components/sale-text-autocomplete";
+import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import {
   calculateQuoteLine,
   calculateQuoteTotals,
@@ -51,6 +51,7 @@ type QuoteEditInitial = {
   sale_category: string;
   customer_name: string;
   business_partner: string;
+  partner_id: string;
   customer_phone: string;
   customer_address: string;
   customer_email: string;
@@ -177,6 +178,7 @@ export default function QuoteForm({
   const [businessPartner, setBusinessPartner] = useState(
     initialQuote?.business_partner ?? "",
   );
+  const [partnerId, setPartnerId] = useState(initialQuote?.partner_id ?? "");
   const [customerPhone, setCustomerPhone] = useState(
     initialQuote?.customer_phone ?? "",
   );
@@ -210,6 +212,7 @@ export default function QuoteForm({
       editableManagerName: initialQuote.manager_name,
       customerName: initialQuote.customer_name ?? "",
       businessPartner: initialQuote.business_partner ?? "",
+      partnerId: initialQuote.partner_id ?? "",
       customerPhone: initialQuote.customer_phone ?? "",
       customerAddress: initialQuote.customer_address ?? "",
       customerEmail: initialQuote.customer_email ?? "",
@@ -246,6 +249,7 @@ export default function QuoteForm({
         editableManagerName,
         customerName,
         businessPartner,
+        partnerId,
         customerPhone,
         customerAddress,
         customerEmail,
@@ -261,6 +265,7 @@ export default function QuoteForm({
       editableManagerName,
       customerName,
       businessPartner,
+      partnerId,
       customerPhone,
       customerAddress,
       customerEmail,
@@ -517,12 +522,13 @@ export default function QuoteForm({
               <label htmlFor="quote_business_partner" className={labelClass}>
                 거래처명
               </label>
-              <SaleTextAutocomplete
+              <BusinessPartnerAutocomplete
                 id="quote_business_partner"
                 name="business_partner"
                 value={businessPartner}
+                partnerId={partnerId}
                 onChange={setBusinessPartner}
-                suggestions={contactSuggestions.businessPartners}
+                onPartnerIdChange={setPartnerId}
                 placeholder="입력"
                 className={inputClass}
               />
@@ -786,6 +792,7 @@ export default function QuoteForm({
           <input type="hidden" name="payment_method_id" value={paymentMethodId} />
           <input type="hidden" name="customer_name" value={customerName} />
           <input type="hidden" name="business_partner" value={businessPartner} />
+          <input type="hidden" name="partner_id" value={partnerId} />
           <input type="hidden" name="customer_phone" value={customerPhone} />
           <input
             type="hidden"

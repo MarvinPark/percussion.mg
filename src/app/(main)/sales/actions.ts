@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { resolvePartnerForSave } from "@/lib/business-partners";
 
 type SaleMutationSupabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -42,6 +43,9 @@ function formatSaleUpdateError(error: { message?: string } | null) {
   }
   if (message.includes("customer_phone") || message.includes("customer_address")) {
     return "sales 테이블에 고객 연락처 컬럼이 없습니다. supabase/schema-sales-update.sql을 실행해 주세요.";
+  }
+  if (message.includes("partner_id")) {
+    return "sales 테이블에 partner_id 컬럼이 없습니다. supabase/schema-business-partners.sql을 실행해 주세요.";
   }
   if (message.includes("created_by_name") || message.includes("created_by_user_id")) {
     return "sales 테이블에 담당자 컬럼이 없습니다. supabase/schema-sales.sql을 확인해 주세요.";
@@ -409,6 +413,7 @@ export async function createSale(formData: FormData) {
   const lines_json = String(formData.get("lines_json") ?? "");
   const customer_name = String(formData.get("customer_name") ?? "").trim();
   const business_partner = String(formData.get("business_partner") ?? "").trim();
+  const partner_id = String(formData.get("partner_id") ?? "").trim();
   const customer_phone = String(formData.get("customer_phone") ?? "").trim();
   const customer_address = String(formData.get("customer_address") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
@@ -427,6 +432,15 @@ export async function createSale(formData: FormData) {
 
   const modifier = await requirePermission("createSales");
   if ("error" in modifier) return { error: modifier.error };
+
+  const partnerResult = await resolvePartnerForSave(supabase, {
+    partner_id: partner_id || null,
+    business_partner: business_partner || null,
+    source: "sale",
+    contact_name: customer_name || null,
+    contact_phone: customer_phone || null,
+    contact_address: customer_address || null,
+  });
 
   const purchaseQuantities = parsePurchaseQuantitiesJson(
     purchase_quantities_json,
@@ -488,7 +502,8 @@ export async function createSale(formData: FormData) {
       unit_sale_price: line.unit_sale_price,
       unit_purchase_price: prepared.unit_purchase_price,
       customer_name: customer_name || null,
-      business_partner: business_partner || null,
+      business_partner: partnerResult.business_partner,
+      partner_id: partnerResult.partner_id,
       customer_phone: customer_phone || null,
       customer_address: customer_address || null,
       payment_method: paymentMethod.name,
@@ -592,6 +607,7 @@ export async function updateSale(formData: FormData) {
   );
   const customer_name = String(formData.get("customer_name") ?? "").trim();
   const business_partner = String(formData.get("business_partner") ?? "").trim();
+  const partner_id = String(formData.get("partner_id") ?? "").trim();
   const customer_phone = String(formData.get("customer_phone") ?? "").trim();
   const customer_address = String(formData.get("customer_address") ?? "").trim();
   const payment_method_id = String(formData.get("payment_method_id") ?? "");
@@ -645,6 +661,15 @@ export async function updateSale(formData: FormData) {
 
   if (!paymentMethod) return { error: "결제 방식을 찾을 수 없습니다." };
 
+  const partnerResult = await resolvePartnerForSave(supabase, {
+    partner_id: partner_id || null,
+    business_partner: business_partner || null,
+    source: "sale",
+    contact_name: customer_name || null,
+    contact_phone: customer_phone || null,
+    contact_address: customer_address || null,
+  });
+
   const { totalAmount, paymentFeeAmount, marginAmount } = calculateSaleAmounts({
     quantity,
     unitSalePrice: unit_sale_price,
@@ -678,7 +703,8 @@ export async function updateSale(formData: FormData) {
       unit_sale_price,
       unit_purchase_price,
       customer_name: customer_name || null,
-      business_partner: business_partner || null,
+      business_partner: partnerResult.business_partner,
+      partner_id: partnerResult.partner_id,
       customer_phone: customer_phone || null,
       customer_address: customer_address || null,
       payment_method: paymentMethod.name,

@@ -45,6 +45,7 @@ export function isQuoteFormDirty(input: {
   editableManagerName: string;
   customerName: string;
   businessPartner: string;
+  partnerId: string;
   customerPhone: string;
   customerAddress: string;
   customerEmail: string;
@@ -60,6 +61,7 @@ export function isQuoteFormDirty(input: {
     editableManagerName: input.editableManagerName,
     customerName: input.customerName,
     businessPartner: input.businessPartner,
+    partnerId: input.partnerId,
     customerPhone: input.customerPhone,
     customerAddress: input.customerAddress,
     customerEmail: input.customerEmail,

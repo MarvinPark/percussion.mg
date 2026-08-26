@@ -48,6 +48,7 @@ import { resolveSaleCategory } from "@/lib/sale-category-options";
 import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
+import { resolvePartnerForSave } from "@/lib/business-partners";
 
 function parseQuoteItems(raw: string): QuoteItemInput[] | { error: string } {
   try {
@@ -159,6 +160,10 @@ function formatQuoteSaveError(error: {
     return "quotes 테이블에 거래처명(business_partner) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-business-partner.sql (또는 schema-quotes-update.sql)을 실행해 주세요.";
   }
 
+  if (message.includes("partner_id")) {
+    return "quotes 테이블에 partner_id 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-business-partners.sql을 실행해 주세요.";
+  }
+
   if (message.includes("sale_category")) {
     return (
       formatSaleCategoryDbError(message, "quotes") ??
@@ -195,6 +200,7 @@ function readQuoteFormFields(formData: FormData) {
     sale_category: String(formData.get("sale_category") ?? "").trim(),
     customer_name: String(formData.get("customer_name") ?? "").trim(),
     business_partner: String(formData.get("business_partner") ?? "").trim(),
+    partner_id: String(formData.get("partner_id") ?? "").trim(),
     customer_phone: String(formData.get("customer_phone") ?? "").trim(),
     customer_address: String(formData.get("customer_address") ?? "").trim(),
     customer_email: String(formData.get("customer_email") ?? "").trim(),
@@ -204,6 +210,21 @@ function readQuoteFormFields(formData: FormData) {
     payment_method_id: String(formData.get("payment_method_id") ?? "").trim(),
     itemsRaw: String(formData.get("items_json") ?? ""),
   };
+}
+
+async function resolveQuotePartner(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fields: ReturnType<typeof readQuoteFormFields>,
+) {
+  return resolvePartnerForSave(supabase, {
+    partner_id: fields.partner_id || null,
+    business_partner: fields.business_partner || null,
+    source: "quote",
+    contact_name: fields.customer_name || null,
+    contact_phone: fields.customer_phone || null,
+    contact_email: fields.customer_email || null,
+    contact_address: fields.customer_address || null,
+  });
 }
 
 export async function createQuote(formData: FormData) {
@@ -234,13 +255,16 @@ export async function createQuote(formData: FormData) {
 
   const { paymentMethod } = paymentResult;
 
+  const partnerResult = await resolveQuotePartner(supabase, fields);
+
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .insert({
       quote_date: fields.quote_date,
       sale_category,
       customer_name: fields.customer_name,
-      business_partner: fields.business_partner || null,
+      business_partner: partnerResult.business_partner,
+      partner_id: partnerResult.partner_id,
       customer_phone: fields.customer_phone || null,
       customer_address: fields.customer_address || null,
       customer_email: fields.customer_email || null,
@@ -337,13 +361,24 @@ export async function pasteQuote(payload: CopiedQuotePayload) {
 
   const { paymentMethod } = paymentResult;
 
+  const partnerResult = await resolvePartnerForSave(supabase, {
+    partner_id: null,
+    business_partner: payload.business_partner?.trim() || null,
+    source: "quote",
+    contact_name: customer_name || null,
+    contact_phone: payload.customer_phone?.trim() || null,
+    contact_email: payload.customer_email?.trim() || null,
+    contact_address: payload.customer_address?.trim() || null,
+  });
+
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .insert({
       quote_date,
       sale_category,
       customer_name,
-      business_partner: payload.business_partner?.trim() || null,
+      business_partner: partnerResult.business_partner,
+      partner_id: partnerResult.partner_id,
       customer_phone: payload.customer_phone?.trim() || null,
       customer_address: payload.customer_address?.trim() || null,
       customer_email: payload.customer_email?.trim() || null,
@@ -410,13 +445,16 @@ export async function updateQuote(formData: FormData) {
 
   const { paymentMethod } = paymentResult;
 
+  const partnerResult = await resolveQuotePartner(supabase, fields);
+
   const { error: quoteError } = await supabase
     .from("quotes")
     .update({
       quote_date: fields.quote_date,
       sale_category,
       customer_name: fields.customer_name,
-      business_partner: fields.business_partner || null,
+      business_partner: partnerResult.business_partner,
+      partner_id: partnerResult.partner_id,
       customer_phone: fields.customer_phone || null,
       customer_address: fields.customer_address || null,
       customer_email: fields.customer_email || null,
@@ -667,6 +705,7 @@ export async function convertQuoteToSale(
       unit_purchase_price,
       customer_name: quote.customer_name || null,
       business_partner: quote.business_partner || null,
+      partner_id: quote.partner_id || null,
       customer_phone: quote.customer_phone || null,
       customer_address: quote.customer_address || null,
       payment_method: paymentMethod.name,

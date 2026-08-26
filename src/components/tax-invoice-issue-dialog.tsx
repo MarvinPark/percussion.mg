@@ -1,0 +1,355 @@
+"use client";
+
+import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  getTaxInvoiceIssueContext,
+  issueTaxInvoiceFromSales,
+  type TaxInvoiceIssueContext,
+} from "@/app/(main)/sales/invoice-actions";
+import TaxInvoicePartnerFields, {
+  createPartnerDraft,
+  draftToPartnerForValidation,
+  draftToPartnerInput,
+  type TaxInvoicePartnerDraft,
+} from "@/components/tax-invoice-partner-fields";
+import {
+  computeInvoiceReady,
+  missingInvoiceFields,
+} from "@/lib/business-partners";
+import { formatKRW } from "@/lib/sales-calculator";
+import {
+  getTodayIsoDate,
+  validateTaxInvoiceIsoDate,
+} from "@/lib/tax-invoice-dates";
+
+const inputClass =
+  "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+type TaxInvoiceIssueDialogProps = {
+  saleIds: string[];
+  onClose: () => void;
+  onIssued?: () => void;
+};
+
+export default function TaxInvoiceIssueDialog({
+  saleIds,
+  onClose,
+  onIssued,
+}: TaxInvoiceIssueDialogProps) {
+  const [itemName, setItemName] = useState("악기");
+  const [writeDate, setWriteDate] = useState(getTodayIsoDate);
+  const [itemPurchaseDate, setItemPurchaseDate] = useState(getTodayIsoDate);
+  const [purposeType, setPurposeType] = useState<"영수" | "청구">("영수");
+  const [context, setContext] = useState<TaxInvoiceIssueContext | null>(null);
+  const [partnerDraft, setPartnerDraft] = useState<TaxInvoicePartnerDraft | null>(
+    null,
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isLoading, startLoad] = useTransition();
+  const [isIssuing, startIssue] = useTransition();
+  const maxSelectableDate = getTodayIsoDate();
+
+  useEffect(() => {
+    startLoad(async () => {
+      const result = await getTaxInvoiceIssueContext({ saleIds });
+
+      if ("error" in result) {
+        setContext(null);
+        setPartnerDraft(null);
+        setLoadError(result.error);
+        return;
+      }
+
+      setContext(result.context);
+      setPartnerDraft(
+        createPartnerDraft(result.context.partner, result.context.displayName),
+      );
+      setLoadError(null);
+    });
+  }, [saleIds]);
+
+  function handleIssue() {
+    if (!context || !partnerDraft) return;
+
+    setIssueError(null);
+
+    const writeDateError = validateTaxInvoiceIsoDate(writeDate);
+    if (writeDateError) {
+      setIssueError(`작성일자: ${writeDateError}`);
+      return;
+    }
+
+    const itemDateError = validateTaxInvoiceIsoDate(itemPurchaseDate);
+    if (itemDateError) {
+      setIssueError(`품목일자: ${itemDateError}`);
+      return;
+    }
+
+    startIssue(async () => {
+      const shouldSavePartner =
+        !context.invoiceReady ||
+        partnerDraft.partnerId !== context.partnerId ||
+        !draftValidation.invoiceReady;
+
+      const result = await issueTaxInvoiceFromSales({
+        saleIds,
+        itemName,
+        purposeType,
+        writeDate,
+        itemPurchaseDate,
+        partner: shouldSavePartner
+          ? {
+              ...draftToPartnerInput(partnerDraft),
+              partnerId: partnerDraft.partnerId,
+            }
+          : null,
+      });
+
+      if ("error" in result) {
+        setIssueError(result.error ?? "세금계산서 발행에 실패했습니다.");
+        return;
+      }
+
+      setSuccessMessage(
+        `${result.partnerName} — ${result.saleCount}건, ${formatKRW(result.totalAmount)}원 세금계산서가 발행되었습니다.`,
+      );
+      onIssued?.();
+    });
+  }
+
+  const draftValidation = useMemo(() => {
+    if (!partnerDraft) {
+      return { invoiceReady: false, missing: [] as string[] };
+    }
+
+    const partner = draftToPartnerForValidation(partnerDraft);
+    const invoiceReady = computeInvoiceReady({
+      partner_type: partnerDraft.partner_type,
+      corp_num: partner.corp_num,
+      corp_name: partner.corp_name,
+      display_name: partnerDraft.displayName,
+      ceo_name: partner.ceo_name,
+      biz_type: partner.biz_type,
+      biz_class: partner.biz_class,
+      invoice_address: partner.invoice_address,
+      contact_address: partner.contact_address,
+      invoice_email: partner.invoice_email,
+      contact_email: partner.contact_email,
+    });
+
+    return {
+      invoiceReady,
+      missing: invoiceReady ? [] : missingInvoiceFields(partner),
+    };
+  }, [partnerDraft]);
+
+  const needsPartnerForm = context ? !draftValidation.invoiceReady : false;
+  const issueButtonLabel = needsPartnerForm ? "저장 후 발행" : "발행";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div
+        role="dialog"
+        aria-labelledby="tax-invoice-issue-title"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2
+              id="tax-invoice-issue-title"
+              className="text-lg font-bold text-zinc-900 dark:text-zinc-100"
+            >
+              세금계산서 발행
+            </h2>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              선택한 매출 {saleIds.length}건을 품목 1개로 합산해 발행합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isIssuing}
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            닫기
+          </button>
+        </div>
+
+        {isLoading ? (
+          <p className="text-sm text-zinc-500">불러오는 중…</p>
+        ) : loadError ? (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            {loadError}
+          </p>
+        ) : context && partnerDraft ? (
+          <div className="space-y-4">
+            <dl className="grid gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-800/40">
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-600 dark:text-zinc-400">선택 매출</dt>
+                <dd className="font-medium text-zinc-900 dark:text-zinc-100">
+                  {context.saleCount}건
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-600 dark:text-zinc-400">합계 (VAT 포함)</dt>
+                <dd className="font-bold text-zinc-900 dark:text-zinc-100">
+                  {formatKRW(context.totalAmount)}원
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-600 dark:text-zinc-400">공급가액</dt>
+                <dd className="tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {formatKRW(context.supplyCost)}원
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-600 dark:text-zinc-400">세액</dt>
+                <dd className="tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {formatKRW(context.tax)}원
+                </dd>
+              </div>
+            </dl>
+
+            {needsPartnerForm || !context.invoiceReady ? (
+              <TaxInvoicePartnerFields
+                draft={partnerDraft}
+                missing={draftValidation.missing}
+                disabled={isIssuing}
+                onChange={setPartnerDraft}
+              />
+            ) : (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+                거래처{" "}
+                <span className="font-semibold">{partnerDraft.displayName}</span>
+                의 세금계산서 정보가 확인되었습니다.
+              </p>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="tax_invoice_write_date"
+                  className="mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+                >
+                  작성일자
+                </label>
+                <input
+                  id="tax_invoice_write_date"
+                  type="date"
+                  value={writeDate}
+                  max={maxSelectableDate}
+                  onChange={(event) => setWriteDate(event.target.value)}
+                  disabled={isIssuing}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="tax_invoice_item_purchase_date"
+                  className="mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+                >
+                  품목일자
+                </label>
+                <input
+                  id="tax_invoice_item_purchase_date"
+                  type="date"
+                  value={itemPurchaseDate}
+                  max={maxSelectableDate}
+                  onChange={(event) => setItemPurchaseDate(event.target.value)}
+                  disabled={isIssuing}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              작성일자와 품목일자는 오늘 또는 과거 날짜만 선택할 수 있습니다.
+            </p>
+
+            <div>
+              <label
+                htmlFor="tax_invoice_item_name"
+                className="mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+              >
+                품목명
+              </label>
+              <input
+                id="tax_invoice_item_name"
+                value={itemName}
+                onChange={(event) => setItemName(event.target.value)}
+                placeholder="예) 악기"
+                disabled={isIssuing}
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                여러 매출을 선택해도 세금계산서 품목은 1개로 발행됩니다.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="tax_invoice_purpose"
+                className="mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+              >
+                영수/청구
+              </label>
+              <select
+                id="tax_invoice_purpose"
+                value={purposeType}
+                onChange={(event) =>
+                  setPurposeType(event.target.value as "영수" | "청구")
+                }
+                disabled={isIssuing}
+                className={inputClass}
+              >
+                <option value="영수">영수</option>
+                <option value="청구">청구</option>
+              </select>
+            </div>
+
+            {issueError ? (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                {issueError}
+              </p>
+            ) : null}
+
+            {successMessage ? (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+                {successMessage}
+              </p>
+            ) : null}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isIssuing}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                {successMessage ? "닫기" : "취소"}
+              </button>
+              {!successMessage ? (
+                <button
+                  type="button"
+                  onClick={handleIssue}
+                  disabled={
+                    isIssuing ||
+                    !itemName.trim() ||
+                    !partnerDraft.displayName.trim() ||
+                    Boolean(validateTaxInvoiceIsoDate(writeDate)) ||
+                    Boolean(validateTaxInvoiceIsoDate(itemPurchaseDate))
+                  }
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-400"
+                >
+                  {isIssuing ? "처리 중…" : issueButtonLabel}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}

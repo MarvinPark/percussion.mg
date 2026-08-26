@@ -33,6 +33,7 @@ export type QuoteListItem = {
   sale_category: string | null;
   customer_name: string;
   business_partner: string | null;
+  partner_id: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   customer_email: string | null;
@@ -634,6 +635,7 @@ export default function QuotesList({
                 ),
                 customer_name: editingQuote.customer_name,
                 business_partner: editingQuote.business_partner ?? "",
+                partner_id: editingQuote.partner_id ?? "",
                 customer_phone: editingQuote.customer_phone ?? "",
                 customer_address: editingQuote.customer_address ?? "",
                 customer_email: editingQuote.customer_email ?? "",

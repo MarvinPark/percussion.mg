@@ -24,7 +24,7 @@ function getActiveNavHref(pathname: string, navItems: NavItem[]) {
   ).href;
 }
 
-const GRAY_NAV_HREFS = new Set(["/products", "/sales", "/quotes"]);
+const GRAY_NAV_HREFS = new Set(["/products", "/sales", "/quotes", "/partners"]);
 
 export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
   const pathname = usePathname();

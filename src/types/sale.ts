@@ -15,6 +15,7 @@ export type Sale = {
   unit_purchase_price: number;
   customer_name: string | null;
   business_partner: string | null;
+  partner_id: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   payment_method: string;

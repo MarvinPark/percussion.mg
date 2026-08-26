@@ -79,6 +79,7 @@ type SavedQuoteForPreview = {
   sale_category: string | null;
   customer_name: string;
   business_partner: string | null;
+  partner_id?: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   customer_email: string | null;
@@ -103,6 +104,7 @@ export function buildQuotePreviewFromSaved(
     sale_category: displaySaleCategory(quote.sale_category),
     customer_name: quote.customer_name,
     business_partner: quote.business_partner ?? "",
+    partner_id: quote.partner_id ?? "",
     customer_phone: quote.customer_phone ?? "",
     customer_address: quote.customer_address ?? "",
     customer_email: quote.customer_email ?? "",

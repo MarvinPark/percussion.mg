@@ -28,6 +28,7 @@ export type QuoteFormData = {
   sale_category: string;
   customer_name: string;
   business_partner: string;
+  partner_id: string;
   customer_phone: string;
   customer_address: string;
   customer_email: string;
@@ -45,6 +46,7 @@ export type Quote = {
   sale_category: string;
   customer_name: string;
   business_partner: string | null;
+  partner_id: string | null;
   customer_phone: string;
   customer_address: string | null;
   customer_email: string | null;

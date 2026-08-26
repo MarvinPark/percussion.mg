@@ -45,5 +45,7 @@ insert into role_permission_grants (role, permission) values
   ('employee', 'createSales'),
   ('employee', 'manageSales'),
   ('employee', 'viewQuotes'),
-  ('employee', 'manageQuotes')
+  ('employee', 'manageQuotes'),
+  ('employee', 'viewPartners'),
+  ('employee', 'managePartners')
 on conflict (role, permission) do nothing;

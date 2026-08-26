@@ -8,6 +8,8 @@ export type Permission =
   | "manageSales"
   | "viewQuotes"
   | "manageQuotes"
+  | "viewPartners"
+  | "managePartners"
   | "manageUsers"
   | "managePaymentMethods";
 
@@ -19,6 +21,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manageSales",
   "viewQuotes",
   "manageQuotes",
+  "viewPartners",
+  "managePartners",
   "manageUsers",
   "managePaymentMethods",
 ];
@@ -31,6 +35,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   manageSales: "매출 수정·삭제",
   viewQuotes: "견적 조회",
   manageQuotes: "견적 작성·수정",
+  viewPartners: "거래처 조회",
+  managePartners: "거래처 등록·수정",
   manageUsers: "사용자·권한 관리",
   managePaymentMethods: "결제수단 관리",
 };
@@ -50,6 +56,10 @@ export const PERMISSION_GROUPS: {
   {
     label: "견적",
     permissions: ["viewQuotes", "manageQuotes"],
+  },
+  {
+    label: "거래처",
+    permissions: ["viewPartners", "managePartners"],
   },
   {
     label: "관리자 설정",
@@ -74,6 +84,8 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMap = {
     "manageSales",
     "viewQuotes",
     "manageQuotes",
+    "viewPartners",
+    "managePartners",
     "manageUsers",
     "managePaymentMethods",
   ],
@@ -85,6 +97,8 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMap = {
     "manageSales",
     "viewQuotes",
     "manageQuotes",
+    "viewPartners",
+    "managePartners",
   ],
   employee: [
     "viewProducts",
@@ -93,6 +107,8 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMap = {
     "manageSales",
     "viewQuotes",
     "manageQuotes",
+    "viewPartners",
+    "managePartners",
   ],
 };
 
@@ -138,6 +154,14 @@ export function canAccessPath(
     return hasPermission(role, "viewQuotes", permissionMap);
   }
 
+  if (pathname === "/partners/new") {
+    return hasPermission(role, "managePartners", permissionMap);
+  }
+
+  if (pathname.startsWith("/partners")) {
+    return hasPermission(role, "viewPartners", permissionMap);
+  }
+
   if (pathname.startsWith("/sales/payment-methods")) {
     return hasPermission(role, "managePaymentMethods", permissionMap);
   }
@@ -169,6 +193,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
     label: "주요재고",
     permission: "viewProducts",
   },
+  { href: "/partners", label: "거래처", permission: "viewPartners" },
   { href: "/settings/users", label: "관리자", permission: "manageUsers" },
   { href: "/my-page", label: "마이페이지" },
 ];

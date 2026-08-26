@@ -9,6 +9,8 @@ const EXACT_PAGE_TITLES: Record<string, string> = {
   "/sales/payment-methods": "결제수단",
   "/quotes": "견적",
   "/quotes/new": "견적서 작성",
+  "/partners": "거래처",
+  "/partners/new": "거래처 등록",
   "/products": "재고",
   "/products/new": "제품등록",
   "/products/stock": "입고/출고",
@@ -34,6 +36,10 @@ export function resolvePageTitleSegment(pathname: string): string | null {
 
   if (/^\/products\/[^/]+\/edit$/.test(pathname)) {
     return "제품수정";
+  }
+
+  if (/^\/partners\/[^/]+\/edit$/.test(pathname)) {
+    return "거래처 수정";
   }
 
   return null;

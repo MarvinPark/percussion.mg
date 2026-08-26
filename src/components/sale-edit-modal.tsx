@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
+import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import ProductSearchSelect from "@/components/product-search-select";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
@@ -86,6 +87,7 @@ export default function SaleEditModal({
   const [soldAt, setSoldAt] = useState(soldAtInputValue(sale.sold_at));
   const [customerName, setCustomerName] = useState(sale.customer_name ?? "");
   const [businessPartner, setBusinessPartner] = useState(sale.business_partner ?? "");
+  const [partnerId, setPartnerId] = useState(sale.partner_id ?? "");
   const [customerPhone, setCustomerPhone] = useState(sale.customer_phone ?? "");
   const [customerAddress, setCustomerAddress] = useState(sale.customer_address ?? "");
   const [note, setNote] = useState(sale.note ?? "");
@@ -150,6 +152,7 @@ export default function SaleEditModal({
     formData.set("created_by_user_id", selectedSellerUserId);
     formData.set("customer_name", customerName.trim());
     formData.set("business_partner", businessPartner.trim());
+    formData.set("partner_id", partnerId.trim());
     formData.set("customer_phone", customerPhone.trim());
     formData.set("customer_address", customerAddress.trim());
     formData.set("note", note.trim());
@@ -462,11 +465,13 @@ export default function SaleEditModal({
                 <label htmlFor="edit_business_partner" className={labelClass}>
                   거래처명
                 </label>
-                <input
+                <BusinessPartnerAutocomplete
                   id="edit_business_partner"
                   name="business_partner"
                   value={businessPartner}
-                  onChange={(event) => setBusinessPartner(event.target.value)}
+                  partnerId={partnerId}
+                  onChange={setBusinessPartner}
+                  onPartnerIdChange={setPartnerId}
                   className={inputClass}
                 />
               </div>

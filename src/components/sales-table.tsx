@@ -10,6 +10,7 @@ import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
 import SaleEditModal from "@/components/sale-edit-modal";
 import SalesBulkEditModal from "@/components/sales-bulk-edit-modal";
+import TaxInvoiceIssueDialog from "@/components/tax-invoice-issue-dialog";
 import TablePageSizeSelect from "@/components/table-page-size-select";
 import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
@@ -55,6 +56,9 @@ const bulkDeleteButtonClass =
 
 const bulkEditButtonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+
+const taxInvoiceButtonClass =
+  "inline-flex h-[26px] shrink-0 items-center rounded border border-blue-300 bg-blue-600 px-2 py-1 text-[12px] leading-none font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400";
 
 const checkboxCellClass = "w-10 px-2 text-center";
 const emphasizeCellClass = "w-10 px-2 text-center";
@@ -287,6 +291,7 @@ export default function SalesTable({
   const [emphasisLoaded, setEmphasisLoaded] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [taxInvoiceOpen, setTaxInvoiceOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, SaleFieldOverrides>>(
     {},
   );
@@ -937,6 +942,16 @@ export default function SalesTable({
                 </button>
                 <button
                   type="button"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setTaxInvoiceOpen(true)}
+                  className={taxInvoiceButtonClass}
+                >
+                  {selectedIds.size > 0
+                    ? `세금계산서 (${selectedIds.size})`
+                    : "세금계산서"}
+                </button>
+                <button
+                  type="button"
                   disabled={selectedIds.size === 0 || isBulkDeleting}
                   onClick={() => setBulkDeleteOpen(true)}
                   className={bulkDeleteButtonClass}
@@ -1151,6 +1166,17 @@ export default function SalesTable({
           onClose={() => setBulkEditOpen(false)}
           onSaved={() => {
             setBulkEditOpen(false);
+            setSelectedIds(new Set());
+            router.refresh();
+          }}
+        />
+      ) : null}
+
+      {taxInvoiceOpen ? (
+        <TaxInvoiceIssueDialog
+          saleIds={[...selectedIds]}
+          onClose={() => setTaxInvoiceOpen(false)}
+          onIssued={() => {
             setSelectedIds(new Set());
             router.refresh();
           }}
