@@ -575,6 +575,9 @@ export default function QuoteDocumentPreview({
   useEffect(() => {
     if (!open) return;
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
@@ -582,7 +585,10 @@ export default function QuoteDocumentPreview({
     }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open, onClose]);
 
   const previewData = useMemo(
@@ -777,19 +783,19 @@ export default function QuoteDocumentPreview({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+    <div className="fixed inset-0 z-50 bg-black/50 sm:flex sm:items-center sm:justify-center sm:p-4">
+      <div className="flex h-[100dvh] min-h-0 w-full flex-col bg-white shadow-xl sm:h-auto sm:max-h-[92vh] sm:max-w-4xl sm:rounded-2xl dark:bg-zinc-900">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-zinc-200 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3 dark:border-zinc-700">
+          <h3 className="text-sm font-semibold text-zinc-900 sm:text-base dark:text-zinc-100">
             {title} 미리보기
             {itemPages.length > 1 ? ` (${itemPages.length}페이지)` : ""}
           </h3>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end sm:gap-2">
             <button
               type="button"
               onClick={() => void handlePdfExport()}
               disabled={isBusy}
-              className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-400"
+              className="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:text-sm dark:bg-red-500 dark:hover:bg-red-400"
             >
               {isPdfGenerating ? "PDF 다운 중..." : "PDF다운"}
             </button>
@@ -797,7 +803,7 @@ export default function QuoteDocumentPreview({
               type="button"
               onClick={() => void handleCopyCapture()}
               disabled={isBusy}
-              className={headerButtonClass}
+              className={`${headerButtonClass} px-2.5 py-1.5 text-xs sm:px-3 sm:text-sm`}
             >
               {isCopying ? "캡쳐 중..." : "캡쳐후복사"}
             </button>
@@ -805,14 +811,14 @@ export default function QuoteDocumentPreview({
               type="button"
               onClick={() => void handlePrint()}
               disabled={isBusy}
-              className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-700"
+              className="rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:text-sm dark:bg-zinc-700"
             >
               {isPrinting ? "인쇄 준비 중..." : "인쇄"}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-600"
+              className="rounded-lg border border-zinc-300 px-2.5 py-1.5 text-xs sm:px-3 sm:text-sm dark:border-zinc-600"
             >
               닫기
             </button>
@@ -820,24 +826,28 @@ export default function QuoteDocumentPreview({
         </div>
 
         {actionMessage ? (
-          <p className="border-b border-zinc-200 px-4 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+          <p className="shrink-0 border-b border-zinc-200 px-3 py-2 text-xs text-zinc-600 sm:px-4 sm:text-sm dark:border-zinc-700 dark:text-zinc-300">
             {actionMessage}
           </p>
         ) : null}
 
-        <DocumentDateControl
-          mode={mode}
-          value={documentDate}
-          onChange={setDocumentDate}
-        />
+        <div className="shrink-0">
+          <DocumentDateControl
+            mode={mode}
+            value={documentDate}
+            onChange={setDocumentDate}
+          />
+        </div>
 
-        <DocumentPreviewLayoutControl
-          pageCount={itemPages.length}
-          layout={previewLayout}
-          onChange={setPreviewLayout}
-        />
+        <div className="shrink-0">
+          <DocumentPreviewLayoutControl
+            pageCount={itemPages.length}
+            layout={previewLayout}
+            onChange={setPreviewLayout}
+          />
+        </div>
 
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+        <div className="shrink-0 border-b border-zinc-200 px-3 py-2 sm:px-4 sm:py-3 dark:border-zinc-700">
           <QuoteCardPricingControls
             compact
             cardFeePercent={cardFeePercent}
@@ -856,7 +866,7 @@ export default function QuoteDocumentPreview({
           />
         </div>
 
-        <div className="overflow-x-auto overflow-y-auto overscroll-x-contain p-4">
+        <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain touch-pan-y p-2 sm:p-4">
           <div
             ref={printRef}
             className="mx-auto shrink-0 bg-white text-zinc-900"
