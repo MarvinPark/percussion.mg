@@ -7,6 +7,7 @@ const EXACT_PAGE_TITLES: Record<string, string> = {
   "/sales": "매출",
   "/sales/new": "매출등록",
   "/sales/payment-methods": "결제수단",
+  "/sales/tax-invoices": "세금계산서 발행",
   "/quotes": "견적",
   "/quotes/new": "견적서 작성",
   "/partners": "거래처",

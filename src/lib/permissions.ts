@@ -166,6 +166,10 @@ export function canAccessPath(
     return hasPermission(role, "managePaymentMethods", permissionMap);
   }
 
+  if (pathname.startsWith("/sales/tax-invoices")) {
+    return hasPermission(role, "viewSales", permissionMap);
+  }
+
   if (
     pathname === "/products/new" ||
     /^\/products\/[^/]+\/edit\/?$/.test(pathname) ||

@@ -32,6 +32,7 @@ export default async function SalesPage() {
   const permissionMap = await getRolePermissionMap();
   const canManageSales = hasPermission(role, "manageSales", permissionMap);
   const canCreateSales = hasPermission(role, "createSales", permissionMap);
+  const canViewSales = hasPermission(role, "viewSales", permissionMap);
 
   const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, { names: saleCategories }] =
     await Promise.all([
@@ -73,11 +74,21 @@ export default async function SalesPage() {
               {canManageSales ? " 행을 더블클릭하면 수정할 수 있습니다." : ""}
             </p>
           </div>
-          {canCreateSales ? (
-            <Link href="/sales/new" className={btnPrimary}>
-              +매출등록
-            </Link>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {canViewSales ? (
+              <Link
+                href="/sales/tax-invoices"
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                세금계산서 발행 내역
+              </Link>
+            ) : null}
+            {canCreateSales ? (
+              <Link href="/sales/new" className={btnPrimary}>
+                +매출등록
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         {error ? (

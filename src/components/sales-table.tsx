@@ -1175,9 +1175,11 @@ export default function SalesTable({
       {taxInvoiceOpen ? (
         <TaxInvoiceIssueDialog
           saleIds={[...selectedIds]}
-          onClose={() => setTaxInvoiceOpen(false)}
-          onIssued={() => {
+          onClose={() => {
+            setTaxInvoiceOpen(false);
             setSelectedIds(new Set());
+          }}
+          onIssued={() => {
             router.refresh();
           }}
         />

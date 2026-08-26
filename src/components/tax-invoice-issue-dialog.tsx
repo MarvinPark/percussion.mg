@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   getTaxInvoiceIssueContext,
+  getTaxInvoicePopbillStatus,
   issueTaxInvoiceFromSales,
   type TaxInvoiceIssueContext,
 } from "@/app/(main)/sales/invoice-actions";
+import PopbillStatusPanel from "@/components/popbill-status-panel";
 import TaxInvoicePartnerFields, {
   createPartnerDraft,
   draftToPartnerForValidation,
@@ -21,6 +23,7 @@ import {
   getTodayIsoDate,
   validateTaxInvoiceIsoDate,
 } from "@/lib/tax-invoice-dates";
+import type { PopbillIssueStatus } from "@/lib/popbill/readiness";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
@@ -36,6 +39,7 @@ export default function TaxInvoiceIssueDialog({
   onClose,
   onIssued,
 }: TaxInvoiceIssueDialogProps) {
+  const [lockedSaleIds] = useState(() => [...saleIds]);
   const [itemName, setItemName] = useState("악기");
   const [writeDate, setWriteDate] = useState(getTodayIsoDate);
   const [itemPurchaseDate, setItemPurchaseDate] = useState(getTodayIsoDate);
@@ -46,32 +50,62 @@ export default function TaxInvoiceIssueDialog({
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [issueError, setIssueError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successDetail, setSuccessDetail] = useState<string | null>(null);
+  const [popbillStatus, setPopbillStatus] = useState<PopbillIssueStatus | null>(
+    null,
+  );
+  const [popbillStatusError, setPopbillStatusError] = useState<string | null>(
+    null,
+  );
   const [isLoading, startLoad] = useTransition();
   const [isIssuing, startIssue] = useTransition();
   const maxSelectableDate = getTodayIsoDate();
 
   useEffect(() => {
-    startLoad(async () => {
-      const result = await getTaxInvoiceIssueContext({ saleIds });
+    if (lockedSaleIds.length === 0) {
+      setLoadError("발행할 매출을 선택해 주세요.");
+      return;
+    }
 
-      if ("error" in result) {
+    startLoad(async () => {
+      const [contextResult, statusResult] = await Promise.all([
+        getTaxInvoiceIssueContext({ saleIds: lockedSaleIds }),
+        getTaxInvoicePopbillStatus(),
+      ]);
+
+      if ("error" in statusResult) {
+        setPopbillStatus(null);
+        setPopbillStatusError(statusResult.error);
+      } else {
+        setPopbillStatus(statusResult);
+        setPopbillStatusError(null);
+      }
+
+      if ("error" in contextResult) {
         setContext(null);
         setPartnerDraft(null);
-        setLoadError(result.error);
+        setLoadError(contextResult.error);
         return;
       }
 
-      setContext(result.context);
+      setContext(contextResult.context);
       setPartnerDraft(
-        createPartnerDraft(result.context.partner, result.context.displayName),
+        createPartnerDraft(contextResult.context.partner, contextResult.context.displayName),
       );
       setLoadError(null);
     });
-  }, [saleIds]);
+  }, [lockedSaleIds]);
 
   function handleIssue() {
     if (!context || !partnerDraft) return;
+
+    if (popbillStatus && !popbillStatus.isTest) {
+      const confirmed = window.confirm(
+        "운영 환경입니다. 발행하면 국세청에 실제 신고되는 세금계산서가 발행됩니다. 계속하시겠습니까?",
+      );
+      if (!confirmed) return;
+    }
 
     setIssueError(null);
 
@@ -94,7 +128,7 @@ export default function TaxInvoiceIssueDialog({
         !draftValidation.invoiceReady;
 
       const result = await issueTaxInvoiceFromSales({
-        saleIds,
+        saleIds: lockedSaleIds,
         itemName,
         purposeType,
         writeDate,
@@ -112,9 +146,10 @@ export default function TaxInvoiceIssueDialog({
         return;
       }
 
-      setSuccessMessage(
-        `${result.partnerName} — ${result.saleCount}건, ${formatKRW(result.totalAmount)}원 세금계산서가 발행되었습니다.`,
+      setSuccessDetail(
+        `${result.partnerName} · ${result.saleCount}건 · ${formatKRW(result.totalAmount)}원`,
       );
+      setIsSuccess(true);
       onIssued?.();
     });
   }
@@ -147,6 +182,13 @@ export default function TaxInvoiceIssueDialog({
 
   const needsPartnerForm = context ? !draftValidation.invoiceReady : false;
   const issueButtonLabel = needsPartnerForm ? "저장 후 발행" : "발행";
+  const canIssue =
+    Boolean(popbillStatus?.ready) &&
+    !popbillStatusError &&
+    Boolean(itemName.trim()) &&
+    Boolean(partnerDraft?.displayName.trim()) &&
+    !validateTaxInvoiceIsoDate(writeDate) &&
+    !validateTaxInvoiceIsoDate(itemPurchaseDate);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -155,6 +197,46 @@ export default function TaxInvoiceIssueDialog({
         aria-labelledby="tax-invoice-issue-title"
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
+        {isSuccess ? (
+          <div className="py-6 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-300">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M20 6L9 17l-5-5"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <h2
+              id="tax-invoice-issue-title"
+              className="text-xl font-bold text-zinc-900 dark:text-zinc-100"
+            >
+              발행 성공하였습니다.
+            </h2>
+            {successDetail ? (
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                {successDetail}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-6 min-w-[120px] rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
+            >
+              OK
+            </button>
+          </div>
+        ) : (
+          <>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2
@@ -164,7 +246,7 @@ export default function TaxInvoiceIssueDialog({
               세금계산서 발행
             </h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              선택한 매출 {saleIds.length}건을 품목 1개로 합산해 발행합니다.
+              선택한 매출 {lockedSaleIds.length}건을 품목 1개로 합산해 발행합니다.
             </p>
           </div>
           <button
@@ -185,6 +267,14 @@ export default function TaxInvoiceIssueDialog({
           </p>
         ) : context && partnerDraft ? (
           <div className="space-y-4">
+            {popbillStatus ? (
+              <PopbillStatusPanel status={popbillStatus} compact />
+            ) : popbillStatusError ? (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                {popbillStatusError}
+              </p>
+            ) : null}
+
             <dl className="grid gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-800/40">
               <div className="flex justify-between gap-3">
                 <dt className="text-zinc-600 dark:text-zinc-400">선택 매출</dt>
@@ -315,12 +405,6 @@ export default function TaxInvoiceIssueDialog({
               </p>
             ) : null}
 
-            {successMessage ? (
-              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
-                {successMessage}
-              </p>
-            ) : null}
-
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -328,27 +412,21 @@ export default function TaxInvoiceIssueDialog({
                 disabled={isIssuing}
                 className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
-                {successMessage ? "닫기" : "취소"}
+                취소
               </button>
-              {!successMessage ? (
-                <button
-                  type="button"
-                  onClick={handleIssue}
-                  disabled={
-                    isIssuing ||
-                    !itemName.trim() ||
-                    !partnerDraft.displayName.trim() ||
-                    Boolean(validateTaxInvoiceIsoDate(writeDate)) ||
-                    Boolean(validateTaxInvoiceIsoDate(itemPurchaseDate))
-                  }
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-400"
-                >
-                  {isIssuing ? "처리 중…" : issueButtonLabel}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={handleIssue}
+                disabled={isIssuing || !canIssue}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-400"
+              >
+                {isIssuing ? "처리 중…" : issueButtonLabel}
+              </button>
             </div>
           </div>
         ) : null}
+          </>
+        )}
       </div>
     </div>
   );

@@ -13,7 +13,13 @@ import {
   splitVatInclusive,
   validatePartnerForIssue,
 } from "@/lib/popbill/taxinvoice";
-import { isPopbillConfigured } from "@/lib/popbill/env";
+import { getPopbillEnv, isPopbillConfigured } from "@/lib/popbill/env";
+import {
+  assertPopbillReadyForIssue,
+  formatPopbillErrorMessage,
+  getPopbillIssueStatus,
+  type PopbillIssueStatus,
+} from "@/lib/popbill/readiness";
 import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import type { BusinessPartner, BusinessPartnerInput } from "@/types/business-partner";
@@ -196,6 +202,28 @@ export async function savePartnerForTaxInvoiceIssue(input: {
   };
 }
 
+export async function getTaxInvoicePopbillStatus(): Promise<
+  PopbillIssueStatus | { error: string }
+> {
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
+
+  if (!isPopbillConfigured()) {
+    return {
+      error:
+        "Popbill 환경 변수가 설정되지 않았습니다. POPBILL_LINK_ID, POPBILL_SECRET_KEY, POPBILL_CORP_NUM을 확인해 주세요.",
+    };
+  }
+
+  try {
+    return await getPopbillIssueStatus();
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Popbill 상태를 확인하지 못했습니다.",
+    };
+  }
+}
+
 export async function issueTaxInvoiceFromSales(input: {
   saleIds: string[];
   itemName?: string;
@@ -293,15 +321,60 @@ export async function issueTaxInvoiceFromSales(input: {
     purposeType: input.purposeType,
   });
 
+  const readiness = await assertPopbillReadyForIssue();
+  if ("error" in readiness) {
+    return { error: readiness.error };
+  }
+
+  const { supplyCost, tax: taxAmount } = splitVatInclusive(totalAmount);
+  const purposeType = input.purposeType ?? "영수";
+
   try {
     const result = await registPopbillTaxInvoice(taxinvoice);
-    revalidatePath("/sales");
 
     const ntsConfirmNum =
-      (result.ntssendDT as string | undefined) ??
       (result.ntsconfirmNum as string | undefined) ??
       (result.confirmNum as string | undefined) ??
       null;
+    const popbillCode =
+      typeof result.code === "number"
+        ? result.code
+        : Number(result.code) || null;
+    const popbillMessage =
+      result.message != null ? String(result.message) : null;
+
+    const partner = partnerContext.partner;
+    const { error: insertError } = await loaded.supabase
+      .from("tax_invoice_issues")
+      .insert({
+        mgt_key: mgtKey,
+        partner_id: partner.id,
+        partner_name: partner.display_name,
+        partner_corp_num: partner.corp_num,
+        partner_email: partner.invoice_email || partner.contact_email,
+        sale_ids: saleIds,
+        sale_count: loaded.sales.length,
+        item_name: itemName,
+        purpose_type: purposeType,
+        write_date: writeDateIso,
+        item_purchase_date: itemPurchaseDateIso,
+        total_amount: totalAmount,
+        supply_cost: supplyCost,
+        tax_amount: taxAmount,
+        nts_confirm_num: ntsConfirmNum,
+        popbill_code: popbillCode,
+        popbill_message: popbillMessage,
+        issued_by_user_id: auth.userId,
+        issued_by_name: auth.name,
+        is_test: getPopbillEnv().isTest,
+      });
+
+    if (insertError) {
+      console.error("세금계산서 발행 내역 저장 실패:", insertError.message);
+    }
+
+    revalidatePath("/sales");
+    revalidatePath("/sales/tax-invoices");
 
     return {
       success: true as const,
@@ -310,10 +383,9 @@ export async function issueTaxInvoiceFromSales(input: {
       totalAmount,
       itemName,
       saleCount: loaded.sales.length,
-      partnerName: partnerContext.partner.display_name,
+      partnerName: partner.display_name,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { error: `세금계산서 발행에 실패했습니다. ${message}` };
+    return { error: formatPopbillErrorMessage(error) };
   }
 }
