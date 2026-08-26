@@ -323,6 +323,18 @@ function isUuid(value: string) {
   );
 }
 
+export function getPartnerCustomerFields(partner: BusinessPartnerSuggestion) {
+  return {
+    customerName:
+      partner.contact_name?.trim() || partner.ceo_name?.trim() || "",
+    customerPhone: partner.contact_phone?.trim() || "",
+    customerAddress:
+      partner.contact_address?.trim() ||
+      partner.invoice_address?.trim() ||
+      "",
+  };
+}
+
 export function mapBusinessPartnerSuggestion(
   partner: BusinessPartner,
 ): BusinessPartnerSuggestion {

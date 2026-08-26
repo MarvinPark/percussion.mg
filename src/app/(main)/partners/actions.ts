@@ -178,14 +178,11 @@ export async function deleteBusinessPartner(formData: FormData) {
 
 export async function searchBusinessPartnersForAutocomplete(query: string) {
   const trimmed = query.trim();
-  if (trimmed.length < 1) {
-    return { partners: [] as ReturnType<typeof mapBusinessPartnerSuggestion>[] };
-  }
 
   const supabase = await createClient();
   const { partners, error } = await fetchBusinessPartners(supabase, {
-    search: trimmed,
-    limit: 12,
+    search: trimmed || undefined,
+    limit: trimmed ? 20 : 50,
   });
 
   if (error) {

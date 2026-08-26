@@ -13,6 +13,7 @@ import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
 import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
+import { getPartnerCustomerFields } from "@/lib/business-partners";
 import {
   calculateSaleAmounts,
   formatKRW,
@@ -182,6 +183,10 @@ export default function SaleForm({
   const isOpeningStockDialogRef = useRef(false);
   const handledStockErrorRef = useRef<string | null>(null);
   const lastSaleErrorRef = useRef<string | null>(null);
+  const [focusTarget, setFocusTarget] = useState<{
+    lineId: string;
+    field: "product" | "quantity";
+  } | null>(null);
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
@@ -283,6 +288,24 @@ export default function SaleForm({
   }, [state?.error]);
 
   useEffect(() => {
+    if (!focusTarget) return;
+
+    const { lineId, field } = focusTarget;
+    requestAnimationFrame(() => {
+      const element =
+        field === "product"
+          ? document.getElementById(`product_search_${lineId}`)
+          : document.getElementById(`sale_quantity_${lineId}`);
+      element?.focus();
+      setFocusTarget(null);
+    });
+  }, [lines, focusTarget]);
+
+  function scheduleLineFocus(lineId: string, field: "product" | "quantity") {
+    setFocusTarget({ lineId, field });
+  }
+
+  useEffect(() => {
     if (!state?.success) return;
     router.push("/sales");
     router.refresh();
@@ -377,16 +400,16 @@ export default function SaleForm({
       unitSalePrice: product.sale_price ?? 0,
       unitPurchasePrice: product.purchase_price ?? 0,
     });
+    scheduleLineFocus(lineId, "quantity");
   }
 
   function addLine() {
-    setLines((prev) => [
-      ...prev,
-      createEmptyLine(livePaymentMethods, {
-        paymentMethodId: bulkPaymentMethodId,
-        quantity: bulkQuantity,
-      }),
-    ]);
+    const newLine = createEmptyLine(livePaymentMethods, {
+      paymentMethodId: bulkPaymentMethodId,
+      quantity: bulkQuantity,
+    });
+    setLines((prev) => [...prev, newLine]);
+    scheduleLineFocus(newLine.id, "product");
   }
 
   function removeLine(id: string) {
@@ -673,6 +696,7 @@ export default function SaleForm({
                     </td>
                     <td className="px-3 py-2 align-top">
                       <input
+                        id={`sale_quantity_${line.id}`}
                         type="number"
                         min={1}
                         required={Boolean(line.productId)}
@@ -787,6 +811,12 @@ export default function SaleForm({
               partnerId={partnerId}
               onChange={setBusinessPartner}
               onPartnerIdChange={setPartnerId}
+              onSelectPartner={(partner) => {
+                const fields = getPartnerCustomerFields(partner);
+                if (fields.customerName) setCustomerName(fields.customerName);
+                if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
+                if (fields.customerAddress) setCustomerAddress(fields.customerAddress);
+              }}
               placeholder="예: OO음악학원"
               className={inputClass}
             />

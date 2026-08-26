@@ -2,6 +2,7 @@ export type PartnersTableColumnId =
   | "display_name"
   | "corp_num"
   | "ceo_name"
+  | "phone"
   | "email"
   | "address"
   | "biz_type"
@@ -38,6 +39,13 @@ export const PARTNERS_TABLE_COLUMNS: PartnersTableColumn[] = [
     label: "대표자",
     minWidth: 72,
     defaultWidth: 96,
+    resizable: true,
+  },
+  {
+    id: "phone",
+    label: "전화번호",
+    minWidth: 100,
+    defaultWidth: 128,
     resizable: true,
   },
   {
@@ -88,7 +96,7 @@ export const PARTNERS_TABLE_COLUMNS: PartnersTableColumn[] = [
 export const PARTNERS_FIXED_END_COLUMN_IDS: PartnersTableColumnId[] = ["actions"];
 
 export function getPartnersColumnOrderStorageKey(userId: string) {
-  return `pc-partners-column-order-v5-${userId}`;
+  return `pc-partners-column-order-v6-${userId}`;
 }
 
 export function getDefaultPartnersColumnOrder(canManage: boolean) {
@@ -116,7 +124,7 @@ export function getDefaultPartnersColumnWidths() {
 }
 
 export function getPartnersColumnWidthStorageKey(userId: string) {
-  return `pc-partners-column-widths-v5-${userId}`;
+  return `pc-partners-column-widths-v6-${userId}`;
 }
 
 export function loadPartnersColumnWidths(userId: string) {

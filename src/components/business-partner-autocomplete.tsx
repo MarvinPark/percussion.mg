@@ -37,23 +37,18 @@ export default function BusinessPartnerAutocomplete({
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    const query = value.trim();
-    if (!query) {
-      setMatches([]);
-      setIsSearching(false);
-      return;
-    }
+    if (!open) return;
 
     setIsSearching(true);
     const timer = window.setTimeout(() => {
-      void searchBusinessPartnersForAutocomplete(query).then((response) => {
+      void searchBusinessPartnersForAutocomplete(value).then((response) => {
         setMatches(response.partners);
         setIsSearching(false);
       });
-    }, 250);
+    }, value.trim() ? 250 : 0);
 
     return () => window.clearTimeout(timer);
-  }, [value]);
+  }, [open, value]);
 
   useEffect(() => {
     setHighlightIndex(0);
@@ -83,51 +78,70 @@ export default function BusinessPartnerAutocomplete({
   function handleInputChange(nextValue: string) {
     onPartnerIdChange("");
     onChange(nextValue);
-    setOpen(nextValue.trim().length >= 1);
+    setOpen(true);
   }
 
-  const showDropdown = open && value.trim().length >= 1;
+  const showDropdown = open;
 
   return (
     <div ref={containerRef} className="relative">
       <input type="hidden" name={name} value={value} />
       <input type="hidden" name="partner_id" value={partnerId} />
-      <input
-        id={id}
-        type="text"
-        value={value}
-        placeholder={placeholder}
-        autoComplete="off"
-        disabled={disabled}
-        onChange={(event) => handleInputChange(event.target.value)}
-        onFocus={() => {
-          if (value.trim().length >= 1) setOpen(true);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            if (showDropdown && matches[highlightIndex]) {
-              handleSelect(matches[highlightIndex]);
+      <div className="relative">
+        <input
+          id={id}
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          autoComplete="off"
+          disabled={disabled}
+          onChange={(event) => handleInputChange(event.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (showDropdown && matches[highlightIndex]) {
+                handleSelect(matches[highlightIndex]);
+              }
+              return;
             }
-            return;
-          }
 
-          if (!showDropdown || matches.length === 0) return;
+            if (!showDropdown || matches.length === 0) return;
 
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setHighlightIndex((prev) => (prev + 1) % matches.length);
-          } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            setHighlightIndex(
-              (prev) => (prev - 1 + matches.length) % matches.length,
-            );
-          } else if (event.key === "Escape") {
-            setOpen(false);
-          }
-        }}
-        className={className}
-      />
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setHighlightIndex((prev) => (prev + 1) % matches.length);
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setHighlightIndex(
+                (prev) => (prev - 1 + matches.length) % matches.length,
+              );
+            } else if (event.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+          className={`${className} pr-9`}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          disabled={disabled}
+          aria-label="거래처 목록 열기"
+          onClick={() => setOpen((current) => !current)}
+          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-zinc-500 hover:text-zinc-700 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-zinc-200"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M6 9l6 6 6-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
 
       {showDropdown ? (
         <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
@@ -137,7 +151,9 @@ export default function BusinessPartnerAutocomplete({
             </li>
           ) : matches.length === 0 ? (
             <li className="px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">
-              등록된 거래처가 없습니다. 저장 시 자동 등록됩니다.
+              {value.trim()
+                ? "일치하는 거래처가 없습니다. 저장 시 자동 등록됩니다."
+                : "등록된 거래처가 없습니다."}
             </li>
           ) : (
             matches.map((partner, index) => (

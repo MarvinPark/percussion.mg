@@ -15,6 +15,7 @@ import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
 import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
+import { getPartnerCustomerFields } from "@/lib/business-partners";
 import {
   calculateQuoteLine,
   calculateQuoteTotals,
@@ -529,6 +530,14 @@ export default function QuoteForm({
                 partnerId={partnerId}
                 onChange={setBusinessPartner}
                 onPartnerIdChange={setPartnerId}
+                onSelectPartner={(partner) => {
+                  const fields = getPartnerCustomerFields(partner);
+                  if (fields.customerName) setCustomerName(fields.customerName);
+                  if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
+                  if (fields.customerAddress) {
+                    setCustomerAddress(fields.customerAddress);
+                  }
+                }}
                 placeholder="입력"
                 className={inputClass}
               />

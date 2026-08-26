@@ -9,6 +9,7 @@ import TablePageSizeSelect from "@/components/table-page-size-select";
 import { usePartnersColumnWidths } from "@/hooks/use-partners-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
 import { formatRegNum } from "@/lib/business-partners";
+import { formatPhoneForDisplay } from "@/lib/phone-format";
 import {
   loadPartnersEmphasizedIds,
   savePartnersEmphasizedIds,
@@ -331,6 +332,12 @@ export default function PartnersTable({
         return (
           <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
             {partner.ceo_name || "-"}
+          </td>
+        );
+      case "phone":
+        return (
+          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
+            {formatPhoneForDisplay(partner.contact_phone) || "-"}
           </td>
         );
       case "email":
