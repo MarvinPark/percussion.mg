@@ -539,3 +539,41 @@ create unique index if not exists sales_external_order_unique
 -- ===== schema-sales-shipping-cost.sql =====
 alter table sales
   add column if not exists shipping_cost numeric(12, 0) not null default 0;
+
+-- ===== schema-quote-reservations.sql =====
+alter table quotes
+  add column if not exists is_reserved boolean not null default false;
+
+create table if not exists quote_reservations (
+  id uuid primary key default gen_random_uuid(),
+  quote_id uuid not null references quotes(id) on delete cascade,
+  quote_item_id uuid not null references quote_items(id) on delete cascade,
+  product_id uuid not null references products(id) on delete cascade,
+  quantity integer not null check (quantity > 0),
+  created_at timestamptz not null default now(),
+  unique (quote_item_id)
+);
+
+create index if not exists quote_reservations_quote_id_idx
+  on quote_reservations (quote_id);
+
+create index if not exists quote_reservations_product_id_idx
+  on quote_reservations (product_id);
+
+alter table quote_reservations enable row level security;
+
+drop policy if exists "로그인 사용자 견적 예약 조회" on quote_reservations;
+create policy "로그인 사용자 견적 예약 조회"
+  on quote_reservations for select to authenticated using (true);
+
+drop policy if exists "로그인 사용자 견적 예약 등록" on quote_reservations;
+create policy "로그인 사용자 견적 예약 등록"
+  on quote_reservations for insert to authenticated with check (true);
+
+drop policy if exists "로그인 사용자 견적 예약 수정" on quote_reservations;
+create policy "로그인 사용자 견적 예약 수정"
+  on quote_reservations for update to authenticated using (true);
+
+drop policy if exists "로그인 사용자 견적 예약 삭제" on quote_reservations;
+create policy "로그인 사용자 견적 예약 삭제"
+  on quote_reservations for delete to authenticated using (true);

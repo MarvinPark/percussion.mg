@@ -49,6 +49,12 @@ import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
 import { resolvePartnerForSave } from "@/lib/business-partners";
+import {
+  applyQuoteReservations,
+  getReservableQuoteItems,
+  releaseQuoteReservations,
+  syncProductReservedQuantity,
+} from "@/lib/quote-reservations";
 
 function parseQuoteItems(raw: string): QuoteItemInput[] | { error: string } {
   try {
@@ -491,6 +497,25 @@ export async function updateQuote(formData: FormData) {
     return { error: "견적 항목 수정에 실패했습니다." };
   }
 
+  const { data: updatedQuote } = await supabase
+    .from("quotes")
+    .select("is_reserved, quote_items(*)")
+    .eq("id", quoteId)
+    .single();
+
+  if (updatedQuote?.is_reserved) {
+    const reservationResult = await applyQuoteReservations(
+      supabase,
+      quoteId,
+      updatedQuote.quote_items ?? [],
+    );
+    if ("error" in reservationResult && reservationResult.error) {
+      return { error: reservationResult.error };
+    }
+    revalidatePath("/products");
+    revalidatePath("/products/stock/list");
+  }
+
   revalidatePath("/quotes");
   return { success: true };
 }
@@ -554,6 +579,13 @@ export async function convertQuoteToSale(
 
   if (!quote.payment_method_id) {
     return { error: "결제 방식이 설정되지 않은 견적입니다. 견적을 수정해 주세요." };
+  }
+
+  const releaseResult = await releaseQuoteReservations(supabase, quoteId, {
+    keepIntent: true,
+  });
+  if ("error" in releaseResult && releaseResult.error) {
+    return { error: releaseResult.error };
   }
 
   const { data: paymentMethod } = await supabase
@@ -801,6 +833,16 @@ export async function cancelQuoteConversion(quoteId: string) {
   const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return { error: auth.error };
 
+  const { data: quote, error: quoteError } = await supabase
+    .from("quotes")
+    .select("is_reserved, quote_items(*)")
+    .eq("id", quoteId)
+    .single();
+
+  if (quoteError || !quote) {
+    return { error: "견적을 찾을 수 없습니다." };
+  }
+
   const { data: sales, error: salesError } = await supabase
     .from("sales")
     .select("id, product_id, quantity, customer_name")
@@ -848,6 +890,18 @@ export async function cancelQuoteConversion(quoteId: string) {
     await deleteSaleRecord(supabase, sale.id);
   }
 
+  if (quote.is_reserved) {
+    const reservationResult = await applyQuoteReservations(
+      supabase,
+      quoteId,
+      quote.quote_items ?? [],
+    );
+    if ("error" in reservationResult && reservationResult.error) {
+      return { error: reservationResult.error };
+    }
+    revalidatePath("/products/stock/list");
+  }
+
   revalidatePath("/sales");
   revalidatePath("/products");
   revalidatePath("/products/history");
@@ -855,6 +909,83 @@ export async function cancelQuoteConversion(quoteId: string) {
   revalidatePath("/quotes");
 
   return { success: true };
+}
+
+export async function reserveQuote(quoteId: string) {
+  if (!quoteId) return { error: "견적 ID가 없습니다." };
+
+  const supabase = await createClient();
+  const auth = await requirePermission("manageQuotes");
+  if ("error" in auth) return { error: auth.error };
+
+  const { data: existingSales } = await supabase
+    .from("sales")
+    .select("id")
+    .eq("quote_id", quoteId)
+    .limit(1);
+
+  if (existingSales?.length) {
+    return { error: "이미 매출전환된 견적은 예약할 수 없습니다." };
+  }
+
+  const { data: quote, error: quoteError } = await supabase
+    .from("quotes")
+    .select("*, quote_items(*)")
+    .eq("id", quoteId)
+    .single();
+
+  if (quoteError || !quote) {
+    return { error: "견적을 찾을 수 없습니다." };
+  }
+
+  const reservableItems = getReservableQuoteItems(quote.quote_items ?? []);
+  if (reservableItems.length === 0) {
+    return { error: "예약할 매장 출고 품목이 없습니다." };
+  }
+
+  for (const item of reservableItems) {
+    if (!item.product_id) {
+      return {
+        error: `${item.model_name}: 제품 연결이 없어 예약할 수 없습니다.`,
+      };
+    }
+  }
+
+  const result = await applyQuoteReservations(
+    supabase,
+    quoteId,
+    quote.quote_items ?? [],
+  );
+  if ("error" in result && result.error) {
+    return { error: result.error };
+  }
+
+  revalidatePath("/quotes");
+  revalidatePath("/products");
+  revalidatePath("/products/stock/list");
+  revalidatePath("/dashboard");
+
+  return { success: true as const };
+}
+
+export async function releaseQuote(quoteId: string) {
+  if (!quoteId) return { error: "견적 ID가 없습니다." };
+
+  const supabase = await createClient();
+  const auth = await requirePermission("manageQuotes");
+  if ("error" in auth) return { error: auth.error };
+
+  const result = await releaseQuoteReservations(supabase, quoteId);
+  if ("error" in result && result.error) {
+    return { error: result.error };
+  }
+
+  revalidatePath("/quotes");
+  revalidatePath("/products");
+  revalidatePath("/products/stock/list");
+  revalidatePath("/dashboard");
+
+  return { success: true as const };
 }
 
 export async function searchQuoteProductsForAutocomplete(
@@ -922,6 +1053,27 @@ export async function deleteQuote(formData: FormData) {
   const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return;
 
+  const { data: reservations } = await supabase
+    .from("quote_reservations")
+    .select("product_id")
+    .eq("quote_id", quoteId);
+
+  const productIds = [
+    ...new Set(
+      (reservations ?? [])
+        .map((row) => row.product_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+
   await supabase.from("quotes").delete().eq("id", quoteId);
+
+  for (const productId of productIds) {
+    await syncProductReservedQuantity(supabase, productId);
+  }
+
   revalidatePath("/quotes");
+  revalidatePath("/products");
+  revalidatePath("/products/stock/list");
+  revalidatePath("/dashboard");
 }

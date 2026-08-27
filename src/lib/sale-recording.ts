@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { availableProductStock } from "@/lib/product-stock-display";
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import {
   DEFAULT_SALE_CATEGORY,
@@ -109,9 +110,10 @@ export async function validateProductStock(
     return productResult;
   }
 
-  if (productResult.product.stock_quantity < quantity) {
+  const available = availableProductStock(productResult.product);
+  if (available < quantity) {
     return {
-      error: `재고가 부족합니다. (현재 ${productResult.product.stock_quantity}개, 판매 ${quantity}개)` as const,
+      error: `재고가 부족합니다. (가용 ${available}개, 판매 ${quantity}개)` as const,
     };
   }
 
@@ -124,7 +126,9 @@ export async function getProductForSale(
 ) {
   const { data: product } = await supabase
     .from("products")
-    .select("stock_quantity, purchase_price, product_name, stock_location")
+    .select(
+      "stock_quantity, reserved_quantity, purchase_price, product_name, stock_location",
+    )
     .eq("id", productId)
     .single();
 
@@ -135,6 +139,7 @@ export async function getProductForSale(
   return {
     product: {
       stock_quantity: Number(product.stock_quantity) || 0,
+      reserved_quantity: Number(product.reserved_quantity) || 0,
       purchase_price: Number(product.purchase_price) || 0,
       product_name: product.product_name as string,
       stock_location: product.stock_location as string | null,

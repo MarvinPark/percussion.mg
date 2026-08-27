@@ -59,7 +59,7 @@ function grossStock(product: Product) {
 }
 
 function netStock(product: Product, reserved: number) {
-  return Math.max(0, grossStock(product) - reserved);
+  return grossStock(product) - reserved;
 }
 
 function lineTotal(product: Product, reserved: number) {
@@ -230,40 +230,19 @@ function ProductCells({
         );
       case "reserved":
         return (
-          <td className={`${cellClass} text-center`}>
-            <input
-              type="number"
-              min={0}
-              max={grossStock(item)}
-              value={reserved}
-              disabled={isPending && pendingId === item.id}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                if (Number.isNaN(next) || next < 0) return;
-                onReservedChange(
-                  item.id,
-                  Math.min(next, grossStock(item)),
-                );
-              }}
-              onBlur={(event) => {
-                const next = event.target.value;
-                const saved = String(item.reserved_quantity ?? 0);
-                if (next !== saved) onReservedSave(item.id, next);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur();
-                }
-              }}
-              className="w-12 rounded border border-zinc-300 bg-white px-1 py-0.5 text-center dark:border-zinc-600 dark:bg-zinc-800"
-              style={{ fontSize: "inherit" }}
-              aria-label={`${item.model_name} 예약 수량`}
-            />
+          <td className={`${cellClass} text-center tabular-nums`}>
+            {item.reserved_quantity ?? 0}
           </td>
         );
       case "total":
         return (
-          <td className={`${cellClass} text-center font-semibold`}>{totalQty}</td>
+          <td
+            className={`${cellClass} text-center font-semibold tabular-nums ${
+              totalQty < 0 ? "text-red-600 dark:text-red-400" : ""
+            }`}
+          >
+            {totalQty}
+          </td>
         );
       case "unit":
         return (

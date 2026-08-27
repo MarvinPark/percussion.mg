@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteQuote, convertQuoteToSale, cancelQuoteConversion, pasteQuote } from "@/app/(main)/quotes/actions";
+import { deleteQuote, convertQuoteToSale, cancelQuoteConversion, pasteQuote, reserveQuote, releaseQuote } from "@/app/(main)/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import QuoteConvertDialog, {
@@ -44,6 +44,7 @@ export type QuoteListItem = {
   payment_method: string | null;
   total_amount: number;
   card_amount: number;
+  is_reserved?: boolean;
   created_by_name: string | null;
   created_at: string;
   quote_items: {
@@ -125,6 +126,9 @@ const wideActionButtonClass =
 
 const starButtonClass =
   "inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded text-[18px] leading-none transition hover:bg-zinc-100 dark:hover:bg-zinc-800";
+
+const reserveButtonClass =
+  "inline-flex h-[26px] w-[2.75rem] shrink-0 items-center justify-center rounded border text-[10px] font-semibold leading-none whitespace-nowrap transition";
 
 type QuoteListSectionProps = {
   title: string;
@@ -227,6 +231,8 @@ export default function QuotesList({
   const [isCancelling, startCancel] = useTransition();
   const [isDeleting, startDelete] = useTransition();
   const [isDuplicating, startDuplicate] = useTransition();
+  const [isReserving, startReserve] = useTransition();
+  const [releasingQuote, setReleasingQuote] = useState<QuoteListItem | null>(null);
   const [duplicatingQuoteId, setDuplicatingQuoteId] = useState<string | null>(
     null,
   );
@@ -302,6 +308,36 @@ export default function QuotesList({
     });
   }
 
+  function handleReserveQuote(quote: QuoteListItem) {
+    if (convertedQuoteIdSet.has(quote.id)) return;
+
+    startReserve(async () => {
+      setActionError(null);
+      const result = await reserveQuote(quote.id);
+      if (result.error) {
+        setActionError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function handleConfirmRelease() {
+    if (!releasingQuote) return;
+
+    startReserve(async () => {
+      setActionError(null);
+      const result = await releaseQuote(releasingQuote.id);
+      if (result.error) {
+        setActionError(result.error);
+        setReleasingQuote(null);
+        return;
+      }
+      setReleasingQuote(null);
+      router.refresh();
+    });
+  }
+
   function handleCopyOrderText(quote: QuoteListItem) {
     const text = buildQuoteOrderCopyText(quote);
 
@@ -360,11 +396,37 @@ export default function QuotesList({
         } ${
           isConverted
             ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
-            : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
+            : quote.is_reserved
+              ? "border-emerald-200 bg-emerald-50/35 hover:border-emerald-300 hover:bg-emerald-50/55 dark:border-emerald-800/70 dark:bg-emerald-950/15 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/25"
+              : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
         }`}
       >
         <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-2">
           <div className="flex min-w-0 flex-1 items-start gap-1.5 md:items-center">
+            {!isConverted ? (
+              <button
+                type="button"
+                aria-label={quote.is_reserved ? "예약 해제" : "재고 예약"}
+                aria-pressed={Boolean(quote.is_reserved)}
+                disabled={isReserving}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (quote.is_reserved) {
+                    setActionError(null);
+                    setReleasingQuote(quote);
+                    return;
+                  }
+                  handleReserveQuote(quote);
+                }}
+                className={`${reserveButtonClass} disabled:opacity-60 ${
+                  quote.is_reserved
+                    ? "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                    : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {quote.is_reserved ? "예약됨" : "예약"}
+              </button>
+            ) : null}
             <button
               type="button"
               aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}
@@ -714,6 +776,17 @@ export default function QuotesList({
           onConfirm={handleConfirmCancel}
           onCancel={() => {
             if (!isCancelling) setCancellingQuote(null);
+          }}
+        />
+      ) : null}
+
+      {releasingQuote ? (
+        <ConfirmDialog
+          title="예약을 해제하시겠습니까?"
+          description={`${releasingQuote.customer_name} 견적의 재고 예약을 해제합니다.`}
+          onConfirm={handleConfirmRelease}
+          onCancel={() => {
+            if (!isReserving) setReleasingQuote(null);
           }}
         />
       ) : null}

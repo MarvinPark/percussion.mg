@@ -11,6 +11,7 @@ import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ExcelProductActions from "@/components/excel-product-actions";
 import ProductsBulkEditModal from "@/components/products-bulk-edit-modal";
 import ProductsList from "@/components/products-list";
+import type { ProductReservationsByProductId } from "@/lib/product-reservations";
 import type { ProductListSort, ProductSortColumn } from "@/lib/product-list-sort";
 import type { Product } from "@/types/product";
 
@@ -31,6 +32,7 @@ function ActionToast({ message }: { message: string }) {
 type ProductsWorkspaceProps = {
   userId: string;
   products: Product[];
+  reservationsByProductId?: ProductReservationsByProductId;
   readOnly?: boolean;
   externalHighlightedIds?: Set<string>;
   searchSlot?: ReactNode;
@@ -44,6 +46,7 @@ type ProductsWorkspaceProps = {
 export default function ProductsWorkspace({
   userId,
   products,
+  reservationsByProductId = {},
   readOnly = false,
   externalHighlightedIds,
   searchSlot,
@@ -266,7 +269,7 @@ export default function ProductsWorkspace({
           </div>
         ) : null}
         {!readOnly ? (
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 max-md:ml-0 max-md:w-full">
             <ExcelProductActions searchQuery={searchQuery} sort={sort} />
           </div>
         ) : null}
@@ -293,6 +296,7 @@ export default function ProductsWorkspace({
       <ProductsList
         userId={userId}
         products={products}
+        reservationsByProductId={reservationsByProductId}
         readOnly={readOnly}
         sort={sort}
         onSortColumn={onSortColumn}

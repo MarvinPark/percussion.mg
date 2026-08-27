@@ -27,7 +27,7 @@ export function getReorderableColumnIds(
 }
 
 export function getColumnOrderStorageKey(userId: string) {
-  return `pc-product-column-order-${userId}`;
+  return `pc-product-column-order-v2-${userId}`;
 }
 
 export function getDefaultColumnOrder(

@@ -14,5 +14,6 @@ export function productToSaleProductOption(product: Product): SaleProductOption 
     sale_price: product.sale_price,
     purchase_price: product.purchase_price,
     stock_quantity: product.stock_quantity,
+    reserved_quantity: product.reserved_quantity ?? 0,
   };
 }

@@ -10,6 +10,7 @@ export type ProductTableColumnId =
   | "stock_floor3"
   | "stock_b1"
   | "stock_display"
+  | "reserved_quantity"
   | "stock_quantity"
   | "purchase_price"
   | "sale_price"
@@ -45,11 +46,18 @@ export const PRODUCT_TABLE_COLUMNS: ProductTableColumn[] = [
     defaultWidth: 96,
     resizable: true,
   },
+  { id: "sale_price", label: "소비자가", minWidth: 72, defaultWidth: 96, resizable: true },
   { id: "stock_floor3", label: "3층", minWidth: 44, defaultWidth: 52, resizable: true },
   { id: "stock_b1", label: "B1", minWidth: 44, defaultWidth: 52, resizable: true },
   { id: "stock_display", label: "의왕", minWidth: 44, defaultWidth: 52, resizable: true },
-  { id: "stock_quantity", label: "합계", minWidth: 48, defaultWidth: 56, resizable: true },
-  { id: "sale_price", label: "소비자가", minWidth: 72, defaultWidth: 96, resizable: true },
+  {
+    id: "reserved_quantity",
+    label: "예약",
+    minWidth: 72,
+    defaultWidth: 96,
+    resizable: true,
+  },
+  { id: "stock_quantity", label: "가용", minWidth: 48, defaultWidth: 56, resizable: true },
   { id: "actions", label: "변경", minWidth: 72, defaultWidth: 88, resizable: false },
 ];
 

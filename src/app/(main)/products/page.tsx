@@ -22,6 +22,7 @@ import {
   PRODUCT_PAGE_SIZE,
   readProductPageSizeCookie,
 } from "@/lib/product-list-loader";
+import { fetchProductReservationsByProductIds } from "@/lib/product-reservations";
 import { parseProductListSort } from "@/lib/product-list-sort";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
@@ -96,6 +97,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   }
 
   const { products, error } = pageData;
+  const reservationsByProductId =
+    products.length > 0
+      ? await fetchProductReservationsByProductIds(
+          supabase,
+          products.map((product) => product.id),
+        ).catch(() => ({}))
+      : {};
   const showProductListView =
     !error && (listStats.totalCount > 0 || searchQuery.length > 0);
 
@@ -116,32 +124,41 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </p>
           </div>
           {canManageProducts ? (
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2 max-md:w-full max-md:flex-nowrap max-md:gap-1 max-md:overflow-x-auto max-md:pb-0.5">
               <Link
                 href="/products/key-stock"
-                className={btnSecondary}
+                className={`${btnSecondary} max-md:shrink-0 max-md:px-2 max-md:py-1 max-md:text-[11px] max-md:font-medium`}
               >
                 주요재고
               </Link>
               <Link
                 href="/products/stock"
-                className={btnSecondary}
+                className={`${btnSecondary} max-md:shrink-0 max-md:px-2 max-md:py-1 max-md:text-[11px] max-md:font-medium`}
               >
                 입고기록
               </Link>
               <Link
                 href="/products/stock/list"
-                className={btnSecondary}
+                className={`${btnSecondary} max-md:shrink-0 max-md:px-2 max-md:py-1 max-md:text-[11px] max-md:font-medium`}
               >
                 입고목록
               </Link>
               <Link
-                href="/products/history"
-                className={btnSecondary}
+                href="/products/reservations"
+                className={`${btnSecondary} max-md:shrink-0 max-md:px-2 max-md:py-1 max-md:text-[11px] max-md:font-medium`}
               >
-                변동 이력
+                예약목록
               </Link>
-              <Link href="/products/new" className={btnPrimary}>
+              <Link
+                href="/products/history"
+                className={`${btnSecondary} max-md:shrink-0 max-md:px-2 max-md:py-1 max-md:text-[11px] max-md:font-medium`}
+              >
+                변동이력
+              </Link>
+              <Link
+                href="/products/new"
+                className={`${btnPrimary} max-md:shrink-0 max-md:px-2 max-md:py-1 max-md:text-[11px] max-md:font-semibold`}
+              >
                 +제품등록
               </Link>
           </div>
@@ -159,6 +176,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <ProductsPageClient
             userId={user.id}
             products={products}
+            reservationsByProductId={reservationsByProductId}
             listStats={listStats}
             currentPage={currentPage}
             totalPages={totalPages}

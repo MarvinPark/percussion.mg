@@ -20,6 +20,7 @@ import {
   type ProductListSort,
   type ProductSortColumn,
 } from "@/lib/product-list-sort";
+import type { ProductReservationsByProductId } from "@/lib/product-reservations";
 import type { Product } from "@/types/product";
 import type { SaleProductOption } from "@/types/sale";
 
@@ -58,6 +59,7 @@ function syncProductsUrl(
 type ProductsPageClientProps = {
   userId: string;
   products: Product[];
+  reservationsByProductId?: ProductReservationsByProductId;
   listStats: ProductListStats;
   currentPage: number;
   totalPages: number;
@@ -70,6 +72,7 @@ type ProductsPageClientProps = {
 export default function ProductsPageClient({
   userId,
   products: initialProducts,
+  reservationsByProductId: initialReservationsByProductId = {},
   listStats: initialListStats,
   currentPage: initialCurrentPage,
   totalPages: initialTotalPages,
@@ -80,6 +83,9 @@ export default function ProductsPageClient({
 }: ProductsPageClientProps) {
   const [isPending, startTransition] = useTransition();
   const [products, setProducts] = useState(initialProducts);
+  const [reservationsByProductId, setReservationsByProductId] = useState(
+    initialReservationsByProductId,
+  );
   const [listStats, setListStats] = useState(initialListStats);
   const [currentPage, setCurrentPage] = useState(initialCurrentPage);
   const [totalPages, setTotalPages] = useState(initialTotalPages);
@@ -97,6 +103,7 @@ export default function ProductsPageClient({
 
   useEffect(() => {
     setProducts(initialProducts);
+    setReservationsByProductId(initialReservationsByProductId);
     setListStats(initialListStats);
     setCurrentPage(initialCurrentPage);
     setTotalPages(initialTotalPages);
@@ -109,6 +116,7 @@ export default function ProductsPageClient({
     }
   }, [
     initialProducts,
+    initialReservationsByProductId,
     initialListStats,
     initialCurrentPage,
     initialTotalPages,
@@ -161,6 +169,7 @@ export default function ProductsPageClient({
       const resolvedPageSize = (result.pageSize ?? nextPageSize) as ProductPageSize;
 
       setProducts(result.products);
+      setReservationsByProductId(result.reservationsByProductId ?? {});
       setListStats(result.listStats);
       setCurrentPage(result.currentPage);
       setTotalPages(result.totalPages);
@@ -264,6 +273,7 @@ export default function ProductsPageClient({
         <ProductsWorkspace
           userId={userId}
           products={products}
+          reservationsByProductId={reservationsByProductId}
           readOnly={readOnly}
           sort={sort}
           onSortColumn={handleSortColumn}

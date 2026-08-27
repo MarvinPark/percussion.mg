@@ -88,9 +88,14 @@ export default async function QuotesPage() {
             <h2 className={pageTitle}>견적</h2>
             <p className={pageSubtitle}>견적 클릭으로 수정 · 매출전환</p>
           </div>
-          <Link href="/quotes/new" className={btnPrimary}>
-            +견적서 작성
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/products/reservations" className={btnSecondary}>
+              예약목록
+            </Link>
+            <Link href="/quotes/new" className={btnPrimary}>
+              +견적서 작성
+            </Link>
+          </div>
         </div>
 
         {error ? (

@@ -1,4 +1,5 @@
 import { isStoreFulfillment } from "@/lib/quote-fulfillment";
+import { availableProductStock } from "@/lib/product-stock-display";
 import type { SaleProductOption } from "@/types/sale";
 
 export type SaleStockPurchaseItem = {
@@ -33,7 +34,7 @@ export function getInsufficientStockLines(
     const product = findProductForLine(line, selectedProductsByLine);
     if (!product) continue;
 
-    const currentStock = Number(product.stock_quantity) || 0;
+    const currentStock = availableProductStock(product);
     if (currentStock >= line.quantity) continue;
 
     items.push({

@@ -19,7 +19,7 @@ import {
 } from "@/lib/product-list-sort";
 
 const buttonClass =
-  "inline-flex items-center gap-1 rounded border border-zinc-300 px-2 py-1 text-[12px] leading-none font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
+  "inline-flex shrink-0 items-center gap-1 rounded border border-zinc-300 px-2 py-1 text-[12px] leading-none font-normal whitespace-nowrap text-zinc-700 hover:bg-zinc-50 max-md:px-1.5 max-md:text-[10px] dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
 
 function ExcelIcon() {
   return (
@@ -181,8 +181,8 @@ export default function ExcelProductActions({
 
   return (
     <>
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex flex-wrap justify-end gap-1">
+      <div className="flex flex-col items-end gap-1 max-md:w-full max-md:items-stretch">
+        <div className="flex flex-wrap justify-end gap-1 max-md:w-full max-md:flex-nowrap max-md:overflow-x-auto max-md:pb-0.5">
           <a href="/api/products/excel-template" className={buttonClass}>
             <ExcelIcon />
             엑셀양식 다운로드

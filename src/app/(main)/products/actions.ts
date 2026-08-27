@@ -18,6 +18,10 @@ import {
   resolveDuplicateSku,
   resolveRegistrationSku,
 } from "@/lib/product-duplicate";
+import {
+  fetchProductReservationsByProductIds,
+  type ProductReservationsByProductId,
+} from "@/lib/product-reservations";
 import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
 import {
   addLocationStock,
@@ -1391,52 +1395,11 @@ export async function updateKeyStockReserved(
   productId: string,
   rawValue: string,
 ): Promise<{ error?: string }> {
-  if (!productId) {
-    return { error: "수정할 제품을 찾을 수 없습니다." };
-  }
-
-  const reserved_quantity = Number(rawValue);
-  if (Number.isNaN(reserved_quantity) || reserved_quantity < 0) {
-    return { error: "예약 수량은 0 이상 숫자여야 합니다." };
-  }
-
-  const supabase = await createClient();
-  const denied = await ensureManageProducts(supabase);
-  if (denied) return denied;
-
-  const { data: product } = await supabase
-    .from("products")
-    .select("stock_quantity, is_key_stock")
-    .eq("id", productId)
-    .single();
-
-  if (!product) {
-    return { error: "제품을 찾을 수 없습니다." };
-  }
-
-  if (!product.is_key_stock) {
-    return { error: "주요 재고 제품만 예약 수량을 수정할 수 있습니다." };
-  }
-
-  if (reserved_quantity > product.stock_quantity) {
-    return { error: "예약 수량은 총 재고(3층+B1+의왕) 이하로 입력해 주세요." };
-  }
-
-  const { error } = await supabase
-    .from("products")
-    .update({
-      reserved_quantity,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", productId);
-
-  if (error) {
-    return { error: "예약 수량 수정에 실패했습니다." };
-  }
-
-  revalidatePath("/products/key-stock");
-
-  return {};
+  void productId;
+  void rawValue;
+  return {
+    error: "예약 수량은 견적 목록의 예약 버튼으로 관리합니다.",
+  };
 }
 
 export async function toggleKeyStock(
@@ -1603,9 +1566,17 @@ export async function loadProductsListView(input: {
     Math.ceil(listStats.totalCount / pageSize),
   );
   const currentPage = Math.min(requestedPage, totalPages);
+  const reservationsByProductId =
+    pageData.products.length > 0
+      ? await fetchProductReservationsByProductIds(
+          supabase,
+          pageData.products.map((product) => product.id),
+        ).catch(() => ({} as ProductReservationsByProductId))
+      : {};
 
   return {
     products: pageData.products,
+    reservationsByProductId,
     listStats,
     currentPage,
     totalPages,

@@ -19,6 +19,9 @@ import {
   type ProductSortColumn,
 } from "@/lib/product-list-sort";
 import { isLowStockProduct } from "@/lib/product-stock";
+import ProductReservationList from "@/components/product-reservation-list";
+import { availableProductStock } from "@/lib/product-stock-display";
+import type { ProductReservationsByProductId } from "@/lib/product-reservations";
 import {
   getNextTableFocus,
   TABLE_FIELD_ORDER,
@@ -73,6 +76,7 @@ const hiddenScrollbarClass =
 type ProductsListProps = {
   userId: string;
   products: Product[];
+  reservationsByProductId?: ProductReservationsByProductId;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
   highlightedIds: Set<string>;
@@ -122,9 +126,11 @@ function getEditableFieldOrder(columnIds: ProductTableColumnId[]) {
 
 function ProductDetailModal({
   product,
+  reservationEntries,
   onClose,
 }: {
   product: Product;
+  reservationEntries: ProductReservationsByProductId[string];
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -153,7 +159,12 @@ function ProductDetailModal({
     { label: "현재고(3층)", value: `${product.stock_floor3 ?? 0}개` },
     { label: "현재고(B1)", value: `${product.stock_b1 ?? 0}개` },
     { label: "현재고(의왕)", value: `${product.stock_display ?? 0}개` },
-    { label: "재고 합계", value: `${product.stock_quantity}개` },
+    { label: "예약", value: `${product.reserved_quantity ?? 0}개` },
+    {
+      label: "가용",
+      value: `${availableProductStock(product)}개`,
+    },
+    { label: "실재고 합계", value: `${product.stock_quantity}개` },
     { label: "재고 위치", value: product.stock_location ?? "3층" },
     { label: "주요 재고", value: product.is_key_stock ? "예" : "아니오" },
     { label: "최소알림", value: `${product.min_stock_quantity}개` },
@@ -164,12 +175,12 @@ function ProductDetailModal({
   const isLowStock = isLowStockProduct(product);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 max-md:items-end max-md:pb-28 max-md:pt-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-detail-title"
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl max-md:max-h-[min(75vh,calc(100dvh-7rem))] dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -207,6 +218,15 @@ function ProductDetailModal({
             </div>
           ))}
         </dl>
+
+        {reservationEntries.length > 0 ? (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/40 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/20">
+            <p className="mb-1 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              예약 견적
+            </p>
+            <ProductReservationList entries={reservationEntries} />
+          </div>
+        ) : null}
 
         <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
           <Link
@@ -363,6 +383,7 @@ function ProductContextMenu({
 export default function ProductsList({
   userId,
   products,
+  reservationsByProductId = {},
   selectedIds,
   onSelectionChange,
   highlightedIds,
@@ -852,23 +873,33 @@ export default function ProductsList({
             />
           </td>
         );
-      case "stock_quantity":
+      case "reserved_quantity": {
+        const reservationEntries = reservationsByProductId[product.id] ?? [];
         return (
-          <td
-            className={semiboldCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
-            onContextMenu={(event) => event.stopPropagation()}
-          >
-            <EditableProductCell
-              productId={product.id}
-              field="stock_quantity"
-              value={String(product.stock_quantity)}
-              displayValue={String(product.stock_quantity)}
-              inputType="number"
-              {...cellFocusProps(product.id, "stock_quantity")}
-            />
+          <td className={`${standardCellClass} align-top`}>
+            <div className="tabular-nums font-medium">
+              {product.reserved_quantity ?? 0}
+            </div>
+            <ProductReservationList entries={reservationEntries} compact />
           </td>
         );
+      }
+      case "stock_quantity": {
+        const available = availableProductStock(product);
+        return (
+          <td className={semiboldCellClass}>
+            <span
+              className={`tabular-nums ${
+                available < 0
+                  ? "font-semibold text-red-600 dark:text-red-400"
+                  : ""
+              }`}
+            >
+              {available}
+            </span>
+          </td>
+        );
+      }
       case "sale_price":
         return (
           <td
@@ -1140,6 +1171,7 @@ export default function ProductsList({
       {selectedProduct ? (
         <ProductDetailModal
           product={selectedProduct}
+          reservationEntries={reservationsByProductId[selectedProduct.id] ?? []}
           onClose={() => setSelectedProduct(null)}
         />
       ) : null}
