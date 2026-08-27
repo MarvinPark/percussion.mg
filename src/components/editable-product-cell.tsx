@@ -10,7 +10,7 @@ import { tableFocusRingClass } from "@/lib/product-table-navigation";
 import { formatKRW, parsePriceInput } from "@/lib/sales-calculator";
 
 const inputClass =
-  "w-full min-w-0 rounded border border-blue-400 bg-white px-1 py-0.5 text-sm font-normal text-zinc-900 outline-none focus:ring-1 focus:ring-blue-500 dark:border-blue-500 dark:bg-zinc-800 dark:text-zinc-100";
+  "w-full min-w-0 rounded border border-blue-400 bg-white px-1 py-0.5 text-sm font-normal text-zinc-900 outline-none focus:ring-1 focus:ring-blue-500 max-md:text-base max-md:leading-normal dark:border-blue-500 dark:bg-zinc-800 dark:text-zinc-100";
 
 type EditableProductCellProps = {
   productId: string;
@@ -184,7 +184,7 @@ export default function EditableProductCell({
             })();
           }
         }}
-        className={`${inputClass} ${className}`}
+        className={`${inputClass} touch-manipulation ${className}`}
       />
     );
   }
@@ -205,7 +205,7 @@ export default function EditableProductCell({
           onNavigate(event.shiftKey ? "backward" : "forward");
         }
       }}
-      className={`block truncate rounded ${error ? "text-red-600" : ""} ${
+      className={`block truncate touch-manipulation rounded ${error ? "text-red-600" : ""} ${
         isFocused ? tableFocusRingClass : ""
       } ${className}`}
     >
