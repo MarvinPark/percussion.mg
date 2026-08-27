@@ -9,7 +9,11 @@ import {
   type ColumnMapping,
   type ProductFieldKey,
 } from "@/lib/excel-field-keys";
-import { EXCEL_EXPORT_ID_HEADER } from "@/lib/excel-products";
+import {
+  EXCEL_EXPORT_ID_HEADER,
+  hasLocationStockColumns,
+  parseExcelStockFields,
+} from "@/lib/excel-products";
 import {
   buildUpdatePayload,
   describeMissingChanges,
@@ -67,7 +71,10 @@ function isProductListExportFormat(headers: string[]) {
   );
   const hasStockColumn =
     Boolean(findHeader(headers, "합계")) ||
-    Boolean(findHeader(headers, "현재고"));
+    Boolean(findHeader(headers, "실재고합계")) ||
+    Boolean(findHeader(headers, "실재고 합계")) ||
+    Boolean(findHeader(headers, "현재고")) ||
+    Boolean(findHeader(headers, "3층"));
 
   return hasCoreColumns && hasStockColumn;
 }
@@ -101,7 +108,10 @@ function mapProductListExportColumns(headers: string[]): ColumnMapping | null {
     }
   }
 
-  const totalHeader = findHeader(headers, "합계");
+  const totalHeader =
+    findHeader(headers, "합계") ??
+    findHeader(headers, "실재고합계") ??
+    findHeader(headers, "실재고 합계");
   const stockHeader = findHeader(headers, "현재고");
   if (totalHeader) {
     mapping.stock_quantity = totalHeader;
@@ -230,6 +240,14 @@ export async function parseAndMatchProductUpdates(
     if (!hasIdentifier) {
       errors.push(`${rowNumber}행: 제품을 찾을 SKU/모델명/제품명 정보가 없습니다.`);
       return;
+    }
+
+    if (hasLocationStockColumns(rawRow)) {
+      const { error: stockError } = parseExcelStockFields(rawRow, rowNumber);
+      if (stockError) {
+        errors.push(stockError);
+        return;
+      }
     }
 
     const product = findMatchingProduct(parsedRow, products, productId || undefined);

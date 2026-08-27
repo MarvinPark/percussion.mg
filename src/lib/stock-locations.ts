@@ -52,8 +52,37 @@ export function getLocationStock(
   }
 }
 
-export function sumLocationStock(product: LocationStockProduct): number {
+export function sumLocationStock(
+  product: Pick<
+    LocationStockProduct,
+    "stock_floor3" | "stock_b1" | "stock_display"
+  >,
+): number {
   return product.stock_floor3 + product.stock_b1 + product.stock_display;
+}
+
+/** 위치별 재고 중 수량이 가장 많은 곳을 등록 위치로 사용합니다. */
+export function inferPrimaryStockLocation(
+  product: Pick<
+    LocationStockProduct,
+    "stock_floor3" | "stock_b1" | "stock_display"
+  >,
+): StockLocation {
+  let best: StockLocation = "3층";
+  let bestQty = -1;
+
+  for (const location of STOCK_LOCATIONS) {
+    const qty = getLocationStock(
+      { ...product, stock_location: "3층", stock_quantity: 0 },
+      location,
+    );
+    if (qty > bestQty) {
+      bestQty = qty;
+      best = location;
+    }
+  }
+
+  return best;
 }
 
 export function locationStockRecord(

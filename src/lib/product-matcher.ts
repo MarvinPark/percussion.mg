@@ -4,7 +4,15 @@ import {
   type ParsedUpdateRow,
   type ProductFieldKey,
 } from "@/lib/excel-field-keys";
+import {
+  hasLocationStockColumns,
+  parseExcelStockFields,
+} from "@/lib/excel-products";
 import { normalizePurchasePrice } from "@/lib/product-duplicate";
+import {
+  inferPrimaryStockLocation,
+  normalizeStockLocation,
+} from "@/lib/stock-locations";
 import type { Product } from "@/types/product";
 
 const TEXT_FIELDS: ProductFieldKey[] = [
@@ -38,7 +46,7 @@ const DIRECT_HEADER_LABELS: Partial<Record<ProductFieldKey, string[]>> = {
   size: ["사이즈"],
   purchase_price: ["매입가"],
   sale_price: ["소비자가", "판매가"],
-  stock_quantity: ["합계", "현재고"],
+  stock_quantity: ["합계", "실재고합계", "실재고 합계", "현재고"],
   min_stock_quantity: ["최소알림"],
 };
 
@@ -257,6 +265,8 @@ export function buildUpdatePayload(
 ): Partial<Product> | null {
   const values = extractRowValues(row, options?.rawRow, options?.mapping);
   const payload: Partial<Product> = {};
+  const hasLocationColumns =
+    options?.rawRow && hasLocationStockColumns(options.rawRow);
 
   for (const field of TEXT_FIELDS) {
     const value = values[field];
@@ -268,10 +278,32 @@ export function buildUpdatePayload(
   }
 
   for (const field of NUMERIC_FIELDS) {
+    if (hasLocationColumns && field === "stock_quantity") continue;
     const value = values[field];
     if (typeof value !== "number" || Number.isNaN(value)) continue;
     if (!fieldValuesEqual(field, value, product[field])) {
       (payload as Record<string, number>)[field] = value;
+    }
+  }
+
+  if (hasLocationColumns && options?.rawRow) {
+    const { stock } = parseExcelStockFields(options.rawRow, row.rowNumber);
+    const locationFields = [
+      "stock_floor3",
+      "stock_b1",
+      "stock_display",
+      "stock_quantity",
+    ] as const;
+
+    for (const field of locationFields) {
+      if (stock[field] !== product[field]) {
+        payload[field] = stock[field];
+      }
+    }
+
+    const stockLocation = inferPrimaryStockLocation(stock);
+    if (stockLocation !== normalizeStockLocation(product.stock_location)) {
+      payload.stock_location = stockLocation;
     }
   }
 

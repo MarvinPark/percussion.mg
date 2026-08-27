@@ -1,5 +1,11 @@
 import * as XLSX from "xlsx";
+import {
+  inferPrimaryStockLocation,
+  sumLocationStock,
+} from "@/lib/stock-locations";
 import type { Product } from "@/types/product";
+
+const TOTAL_STOCK_HEADERS = ["합계", "실재고합계", "실재고 합계"] as const;
 
 export const EXCEL_HEADERS = [
   "공급처",
@@ -94,12 +100,27 @@ function isEmptyRow(row: ExcelProductRow) {
   );
 }
 
-function usesLegacyStockColumn(row: Record<string, unknown>) {
-  const hasNewStockColumn =
+function findTotalStockCell(row: Record<string, unknown>) {
+  for (const header of TOTAL_STOCK_HEADERS) {
+    if (hasCellValue(row[header])) {
+      return { header, value: cellNumber(row[header]) };
+    }
+  }
+
+  return null;
+}
+
+export function hasLocationStockColumns(row: Record<string, unknown>) {
+  return (
     hasCellValue(row["3층"]) ||
     hasCellValue(row["B1"]) ||
-    hasCellValue(row["의왕"]) ||
-    hasCellValue(row["합계"]);
+    hasCellValue(row["의왕"])
+  );
+}
+
+function usesLegacyStockColumn(row: Record<string, unknown>) {
+  const hasNewStockColumn =
+    hasLocationStockColumns(row) || Boolean(findTotalStockCell(row));
 
   return hasCellValue(row["현재고"]) && !hasNewStockColumn;
 }
@@ -125,8 +146,9 @@ export function parseExcelStockFields(
   const stock_b1 = cellNumber(row["B1"]);
   const stock_display = cellNumber(row["의왕"]);
   const locationSum = stock_floor3 + stock_b1 + stock_display;
-  const hasTotalCell = hasCellValue(row["합계"]);
-  const total = hasTotalCell ? cellNumber(row["합계"]) : locationSum;
+  const totalCell = findTotalStockCell(row);
+  const hasTotalCell = Boolean(totalCell);
+  const total = hasTotalCell ? totalCell!.value : locationSum;
 
   if (hasTotalCell && locationSum > 0 && total !== locationSum) {
     const prefix = rowNumber ? `${rowNumber}행: ` : "";
@@ -322,6 +344,12 @@ export function validateExcelProductRow(row: ExcelProductRow, rowNumber: number)
 }
 
 export function excelRowToPayload(row: ExcelProductRow) {
+  const locationStocks = {
+    stock_floor3: row.stock_floor3,
+    stock_b1: row.stock_b1,
+    stock_display: row.stock_display,
+  };
+
   return {
     supplier: row.supplier,
     category: row.category || null,
@@ -335,12 +363,10 @@ export function excelRowToPayload(row: ExcelProductRow) {
     keywords: row.keywords || null,
     purchase_price: row.purchase_price,
     sale_price: row.sale_price,
-    stock_floor3: row.stock_floor3,
-    stock_b1: row.stock_b1,
-    stock_display: row.stock_display,
-    stock_quantity: row.stock_quantity,
+    ...locationStocks,
+    stock_quantity: sumLocationStock(locationStocks),
     min_stock_quantity: row.min_stock_quantity,
-    stock_location: "3층",
+    stock_location: inferPrimaryStockLocation(locationStocks),
     is_key_stock: false,
   };
 }
