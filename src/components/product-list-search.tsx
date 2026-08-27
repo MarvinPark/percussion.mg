@@ -46,6 +46,21 @@ export default function ProductListSearch({
     useState<DropdownPosition | null>(null);
   const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+
+  const trimmedQuery = query.trim();
+  const showDropdown = isOpen && trimmedQuery.length > 0;
+
+  function handleSelect(product: SaleProductOption) {
+    onSelectProduct(product);
+    setIsOpen(false);
+  }
+
+  function handleSelectHighlighted() {
+    const product = results[highlightIndex];
+    if (!product) return;
+    handleSelect(product);
+  }
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -107,7 +122,20 @@ export default function ProductListSearch({
       window.removeEventListener("resize", handleReposition);
       window.removeEventListener("scroll", handleReposition, true);
     };
-  }, [isOpen]);
+  }, [isOpen, compact]);
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [results, trimmedQuery]);
+
+  useEffect(() => {
+    if (!showDropdown || !dropdownRef.current || results.length === 0) return;
+
+    const option = dropdownRef.current.querySelector<HTMLElement>(
+      `[data-result-index="${highlightIndex}"]`,
+    );
+    option?.scrollIntoView({ block: "nearest" });
+  }, [highlightIndex, showDropdown, results.length]);
 
   function handleConfirm() {
     onConfirm();
@@ -115,7 +143,7 @@ export default function ProductListSearch({
   }
 
   const dropdown =
-    isOpen && query.trim() && dropdownPosition ? (
+    showDropdown && dropdownPosition ? (
       <ul
         ref={dropdownRef}
         role="listbox"
@@ -137,15 +165,15 @@ export default function ProductListSearch({
             검색 결과가 없습니다.
           </li>
         ) : (
-          results.map((product) => (
+          results.map((product, index) => (
             <ProductSearchResultRow
               key={product.id}
               product={product}
               emphasizeModelName
-              onSelect={() => {
-                onSelectProduct(product);
-                setIsOpen(false);
-              }}
+              highlighted={index === highlightIndex}
+              onHighlight={() => setHighlightIndex(index)}
+              resultIndex={index}
+              onSelect={() => handleSelect(product)}
             />
           ))
         )}
@@ -162,7 +190,7 @@ export default function ProductListSearch({
         id="product_list_search"
         type="text"
         role="combobox"
-        aria-expanded={isOpen && query.trim().length > 0}
+        aria-expanded={showDropdown}
         aria-autocomplete="list"
         placeholder={
           compact ? "제품 검색..." : "공급처, 품목, 브랜드, 제품명, 모델명, SKU, 태그 검색..."
@@ -178,9 +206,45 @@ export default function ProductListSearch({
           }
         }}
         onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            if (!showDropdown) {
+              if (trimmedQuery) {
+                setIsOpen(true);
+                updateDropdownPosition();
+              }
+              return;
+            }
+            event.preventDefault();
+            if (results.length > 0) {
+              setHighlightIndex((prev) => (prev + 1) % results.length);
+            }
+            return;
+          }
+
+          if (event.key === "ArrowUp") {
+            if (!showDropdown) return;
+            event.preventDefault();
+            if (results.length > 0) {
+              setHighlightIndex(
+                (prev) => (prev - 1 + results.length) % results.length,
+              );
+            }
+            return;
+          }
+
           if (event.key === "Enter") {
             event.preventDefault();
+            if (showDropdown && !isSearching && results.length > 0) {
+              handleSelectHighlighted();
+              return;
+            }
             handleConfirm();
+            return;
+          }
+
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setIsOpen(false);
           }
         }}
         className={compact ? compactInputClass : inputClass}
