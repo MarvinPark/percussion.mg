@@ -178,7 +178,9 @@ async function ensureManageProducts(
   return null;
 }
 
-export async function createProduct(formData: FormData) {
+async function insertProductFromForm(
+  formData: FormData,
+): Promise<{ error?: string; productId?: string }> {
   const data = parseProductForm(formData);
   const error = validateProduct(data);
   if (error) return { error };
@@ -196,9 +198,11 @@ export async function createProduct(formData: FormData) {
     return { error: resolved.error };
   }
 
-  const { error: dbError } = await supabase
+  const { data: inserted, error: dbError } = await supabase
     .from("products")
-    .insert({ ...productPayload(data), sku: resolved.sku });
+    .insert({ ...productPayload(data), sku: resolved.sku })
+    .select("id")
+    .single();
 
   if (dbError) {
     if (dbError.code === "23505") {
@@ -211,7 +215,20 @@ export async function createProduct(formData: FormData) {
 
   revalidatePath("/products");
   revalidatePath("/products/key-stock");
+  revalidatePath("/dashboard");
+
+  return { productId: inserted?.id as string | undefined };
+}
+
+export async function createProduct(formData: FormData) {
+  const result = await insertProductFromForm(formData);
+  if (result.error) return { error: result.error };
+
   redirect("/products");
+}
+
+export async function createProductInlineList(formData: FormData) {
+  return insertProductFromForm(formData);
 }
 
 export async function updateProduct(formData: FormData) {

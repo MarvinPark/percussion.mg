@@ -4,7 +4,7 @@ import { useState } from "react";
 import PriceInput from "@/components/price-input";
 import type { InlineCreatedProduct } from "@/lib/inline-product-create-shared";
 
-export type InlineProductCreateContext = "sale" | "quote";
+export type InlineProductCreateContext = "sale" | "quote" | "products";
 
 type InlineProductCreateModalProps = {
   context: InlineProductCreateContext;
@@ -30,6 +30,10 @@ const CONTEXT_COPY: Record<
   quote: {
     description:
       "검색되지 않은 제품을 재고에 등록한 뒤 견적에 추가할 수 있습니다.",
+    stockHint: "기본 보관 위치(3층) 재고로 등록됩니다.",
+  },
+  products: {
+    description: "제품 목록에 바로 등록합니다.",
     stockHint: "기본 보관 위치(3층) 재고로 등록됩니다.",
   },
 };
@@ -63,7 +67,7 @@ export default function InlineProductCreateModal({
   const [isPending, setIsPending] = useState(false);
 
   const copy = CONTEXT_COPY[context];
-  const showStockQuantity = context === "quote";
+  const showStockQuantity = context === "quote" || context === "products";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

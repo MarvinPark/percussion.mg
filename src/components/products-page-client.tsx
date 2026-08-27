@@ -264,6 +264,24 @@ export default function ProductsPageClient({
     [loadView, pageSize, sort],
   );
 
+  const handleProductRegistered = useCallback(
+    (productId: string) => {
+      loadView(currentPage, searchQuery, pageSize, sort);
+      setHighlightedIds(new Set([productId]));
+
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`product-row-${productId}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+
+      window.setTimeout(() => {
+        setHighlightedIds(new Set());
+      }, 2500);
+    },
+    [currentPage, loadView, pageSize, searchQuery, sort],
+  );
+
   const pageSizeSelectClass =
     "h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200";
 
@@ -285,6 +303,7 @@ export default function ProductsPageClient({
               ? "검색 조건에 맞는 제품이 없습니다."
               : undefined
           }
+          onProductRegistered={handleProductRegistered}
           searchSlot={
             <div className="flex flex-wrap items-center gap-2">
               <ProductListSearch

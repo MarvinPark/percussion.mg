@@ -41,6 +41,7 @@ type ProductsWorkspaceProps = {
   sort: ProductListSort;
   onSortColumn: (column: ProductSortColumn) => void;
   emptyMessage?: string;
+  onProductRegistered?: (productId: string) => void;
 };
 
 export default function ProductsWorkspace({
@@ -55,6 +56,7 @@ export default function ProductsWorkspace({
   sort,
   onSortColumn,
   emptyMessage,
+  onProductRegistered,
 }: ProductsWorkspaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -310,6 +312,7 @@ export default function ProductsWorkspace({
         onRequestDelete={handleRequestDelete}
         isDuplicating={isDuplicating}
         emptyMessage={emptyMessage}
+        onProductRegistered={onProductRegistered}
       />
     </>
   );

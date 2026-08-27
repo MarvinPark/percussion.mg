@@ -6,11 +6,11 @@ import {
   MIN_TABLE_ROW_FONT_SIZE,
 } from "@/lib/table-row-preferences";
 
-const fontControlBoxClass =
+export const fontControlBoxClass =
   "inline-flex h-[26px] shrink-0 items-center overflow-hidden rounded border border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900";
 
-const fontControlButtonClass =
-  "inline-flex h-[26px] w-[26px] items-center justify-center text-[11px] leading-none text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-200 dark:hover:bg-zinc-800";
+export const fontControlButtonClass =
+  "inline-flex h-[26px] min-w-[26px] items-center justify-center px-1 text-[11px] leading-none text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
 type TableRowSizeControlProps = {
   value: number;

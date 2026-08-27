@@ -7,7 +7,12 @@ import type { ProductInlineField } from "@/app/(main)/products/actions";
 import EditableProductCell from "@/components/editable-product-cell";
 import KeyStockStarToggle from "@/components/key-stock-star-toggle";
 import ResizableHeaderCell from "@/components/resizable-header-cell";
-import TableRowSizeControl from "@/components/table-row-size-control";
+import TableRowSizeControl, {
+  fontControlBoxClass,
+  fontControlButtonClass,
+} from "@/components/table-row-size-control";
+import ProductInlineRegisterPanel from "@/components/product-inline-register-panel";
+import InlineProductCreateModal from "@/components/inline-product-create-modal";
 import { useProductColumnOrder } from "@/hooks/use-product-column-order";
 import { useProductColumnWidths } from "@/hooks/use-product-column-widths";
 import { isReorderableProductColumn } from "@/lib/product-table-column-order";
@@ -90,6 +95,7 @@ type ProductsListProps = {
   sort: ProductListSort;
   onSortColumn: (column: ProductSortColumn) => void;
   emptyMessage?: string;
+  onProductRegistered?: (productId: string) => void;
 };
 
 type ContextMenuState = {
@@ -397,8 +403,11 @@ export default function ProductsList({
   sort,
   onSortColumn,
   emptyMessage,
+  onProductRegistered,
 }: ProductsListProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showInlineRegister, setShowInlineRegister] = useState(false);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [focusTarget, setFocusTarget] = useState<TableFocusState | null>(null);
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
@@ -1092,9 +1101,36 @@ export default function ProductsList({
     <>
       <div className="max-w-full min-w-0 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
         <div className="sticky top-[var(--app-header-height)] z-20 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
-          <div className="flex items-center justify-end border-b border-zinc-200 px-3 py-1 dark:border-zinc-700">
+          <div className="flex items-center justify-end gap-1 border-b border-zinc-200 px-3 py-1 dark:border-zinc-700">
+            {!readOnly ? (
+              <div className={fontControlBoxClass}>
+                <button
+                  type="button"
+                  aria-label="제품 등록"
+                  aria-pressed={showInlineRegister}
+                  onClick={() => setShowInlineRegister((current) => !current)}
+                  className={`${fontControlButtonClass} border-r border-zinc-300 px-2 dark:border-zinc-600 ${
+                    showInlineRegister
+                      ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      : ""
+                  }`}
+                >
+                  제품등록
+                </button>
+              </div>
+            ) : null}
             <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
           </div>
+          {showInlineRegister && !readOnly ? (
+            <ProductInlineRegisterPanel
+              onClose={() => setShowInlineRegister(false)}
+              onOpenPopup={() => setRegisterModalOpen(true)}
+              onRegistered={(productId) => {
+                onProductRegistered?.(productId);
+                setShowInlineRegister(false);
+              }}
+            />
+          ) : null}
           <div
             ref={headerScrollRef}
             onScroll={syncBodyScroll}
@@ -1173,6 +1209,19 @@ export default function ProductsList({
           product={selectedProduct}
           reservationEntries={reservationsByProductId[selectedProduct.id] ?? []}
           onClose={() => setSelectedProduct(null)}
+        />
+      ) : null}
+
+      {registerModalOpen ? (
+        <InlineProductCreateModal
+          context="products"
+          initialModelName=""
+          onClose={() => setRegisterModalOpen(false)}
+          onCreated={(product) => {
+            setRegisterModalOpen(false);
+            setShowInlineRegister(false);
+            onProductRegistered?.(product.id);
+          }}
         />
       ) : null}
     </>
