@@ -133,30 +133,6 @@ export default function ProductForm({ product }: ProductFormProps) {
             </p>
           </div>
 
-          <div>
-            <label htmlFor="stock_location" className={labelClass}>
-              재고 위치 <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="stock_location"
-              name="stock_location"
-              required
-              defaultValue={product?.stock_location ?? "3층"}
-              className={inputClass}
-            >
-              {STOCK_LOCATIONS.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs font-medium text-zinc-700 dark:text-zinc-400">
-              {isEdit
-                ? "입고·출고 시 기본으로 적용되는 위치입니다."
-                : "등록하는 재고가 들어갈 위치입니다."}
-            </p>
-          </div>
-
           <div className="sm:col-span-2">
             <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               <input
@@ -267,6 +243,29 @@ export default function ProductForm({ product }: ProductFormProps) {
               defaultValue={product?.sale_price ?? 0}
               className={inputClass}
             />
+          </div>
+          <div className="sm:col-start-2">
+            <label htmlFor="stock_location" className={labelClass}>
+              재고 위치 <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="stock_location"
+              name="stock_location"
+              required
+              defaultValue={product?.stock_location ?? "3층"}
+              className={inputClass}
+            >
+              {STOCK_LOCATIONS.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs font-medium text-zinc-700 dark:text-zinc-400">
+              {isEdit
+                ? "입고·출고 시 기본으로 적용되는 위치입니다."
+                : "등록하는 재고가 들어갈 위치입니다."}
+            </p>
           </div>
           <div>
             <label htmlFor="stock_quantity" className={labelClass}>

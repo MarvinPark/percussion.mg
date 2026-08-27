@@ -46,21 +46,7 @@ export default function ProductListSearch({
     useState<DropdownPosition | null>(null);
   const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(0);
-
-  const trimmedQuery = query.trim();
-  const showDropdown = isOpen && trimmedQuery.length > 0;
-
-  function handleSelect(product: SaleProductOption) {
-    onSelectProduct(product);
-    setIsOpen(false);
-  }
-
-  function handleSelectHighlighted() {
-    const product = results[highlightIndex];
-    if (!product) return;
-    handleSelect(product);
-  }
+  const [highlightIndex, setHighlightIndex] = useState(-1);
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -94,6 +80,19 @@ export default function ProductListSearch({
   }, [query]);
 
   useEffect(() => {
+    setHighlightIndex(-1);
+  }, [query, results]);
+
+  useEffect(() => {
+    if (!isOpen || highlightIndex < 0 || !dropdownRef.current) return;
+
+    const option = dropdownRef.current.querySelector<HTMLElement>(
+      `[data-result-index="${highlightIndex}"]`,
+    );
+    option?.scrollIntoView({ block: "nearest" });
+  }, [highlightIndex, isOpen, results.length]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
     updateDropdownPosition();
@@ -122,25 +121,22 @@ export default function ProductListSearch({
       window.removeEventListener("resize", handleReposition);
       window.removeEventListener("scroll", handleReposition, true);
     };
-  }, [isOpen, compact]);
-
-  useEffect(() => {
-    setHighlightIndex(0);
-  }, [results, trimmedQuery]);
-
-  useEffect(() => {
-    if (!showDropdown || !dropdownRef.current || results.length === 0) return;
-
-    const option = dropdownRef.current.querySelector<HTMLElement>(
-      `[data-result-index="${highlightIndex}"]`,
-    );
-    option?.scrollIntoView({ block: "nearest" });
-  }, [highlightIndex, showDropdown, results.length]);
+  }, [isOpen]);
 
   function handleConfirm() {
     onConfirm();
     setIsOpen(false);
+    setHighlightIndex(-1);
   }
+
+  function handleSelectProduct(product: SaleProductOption) {
+    onSelectProduct(product);
+    setIsOpen(false);
+    setHighlightIndex(-1);
+  }
+
+  const trimmedQuery = query.trim();
+  const showDropdown = isOpen && trimmedQuery.length > 0;
 
   const dropdown =
     showDropdown && dropdownPosition ? (
@@ -171,9 +167,9 @@ export default function ProductListSearch({
               product={product}
               emphasizeModelName
               highlighted={index === highlightIndex}
-              onHighlight={() => setHighlightIndex(index)}
               resultIndex={index}
-              onSelect={() => handleSelect(product)}
+              onHighlight={() => setHighlightIndex(index)}
+              onSelect={() => handleSelectProduct(product)}
             />
           ))
         )}
@@ -214,28 +210,34 @@ export default function ProductListSearch({
               }
               return;
             }
+            if (results.length === 0 || isSearching) return;
             event.preventDefault();
-            if (results.length > 0) {
-              setHighlightIndex((prev) => (prev + 1) % results.length);
-            }
+            setHighlightIndex((prev) =>
+              prev < 0 ? 0 : (prev + 1) % results.length,
+            );
             return;
           }
 
           if (event.key === "ArrowUp") {
-            if (!showDropdown) return;
+            if (!showDropdown || results.length === 0 || isSearching) return;
             event.preventDefault();
-            if (results.length > 0) {
-              setHighlightIndex(
-                (prev) => (prev - 1 + results.length) % results.length,
-              );
-            }
+            setHighlightIndex((prev) =>
+              prev < 0
+                ? results.length - 1
+                : (prev - 1 + results.length) % results.length,
+            );
             return;
           }
 
           if (event.key === "Enter") {
             event.preventDefault();
-            if (showDropdown && !isSearching && results.length > 0) {
-              handleSelectHighlighted();
+            if (
+              showDropdown &&
+              !isSearching &&
+              highlightIndex >= 0 &&
+              results[highlightIndex]
+            ) {
+              handleSelectProduct(results[highlightIndex]);
               return;
             }
             handleConfirm();
@@ -245,6 +247,7 @@ export default function ProductListSearch({
           if (event.key === "Escape") {
             event.preventDefault();
             setIsOpen(false);
+            setHighlightIndex(-1);
           }
         }}
         className={compact ? compactInputClass : inputClass}
