@@ -26,6 +26,7 @@ import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
 import {
   addLocationStock,
   deductLocationStock,
+  inferPrimaryStockLocation,
   isStockLocation,
   normalizeStockLocation,
   sumLocationStock,
@@ -91,7 +92,9 @@ function parseProductForm(formData: FormData) {
     stock_display: 0,
   };
 
-  if (formData.has("stock_floor3")) {
+  const hasLocationFields = formData.has("stock_floor3");
+
+  if (hasLocationFields) {
     locationStocks.stock_floor3 = Number(formData.get("stock_floor3") ?? 0);
     locationStocks.stock_b1 = Number(formData.get("stock_b1") ?? 0);
     locationStocks.stock_display = Number(formData.get("stock_display") ?? 0);
@@ -101,6 +104,10 @@ function parseProductForm(formData: FormData) {
   } else {
     locationStocks.stock_floor3 = stock_quantity;
   }
+
+  const resolvedStockLocation = hasLocationFields
+    ? inferPrimaryStockLocation(locationStocks)
+    : normalizeStockLocation(stock_location);
 
   return {
     sku: String(formData.get("sku") ?? "").trim(),
@@ -118,7 +125,7 @@ function parseProductForm(formData: FormData) {
     min_stock_quantity: Number(formData.get("min_stock_quantity") ?? 0),
     keywords: String(formData.get("keywords") ?? "").trim(),
     is_key_stock: formData.get("is_key_stock") === "on",
-    stock_location: normalizeStockLocation(stock_location),
+    stock_location: resolvedStockLocation,
     ...locationStocks,
   };
 }

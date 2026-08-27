@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition } from "react";
 import { createProductInlineList } from "@/app/(main)/products/actions";
 import PriceInput from "@/components/price-input";
-import { STOCK_LOCATIONS } from "@/lib/stock-locations";
 
 const fieldClass =
   "h-[26px] w-full min-w-0 rounded border border-zinc-300 bg-white px-2 text-[11px] leading-none text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100";
@@ -35,7 +34,6 @@ const EMPTY_FORM = {
   stock_floor3: 0,
   stock_b1: 0,
   stock_display: 0,
-  stock_location: "3층",
 };
 
 export default function ProductInlineRegisterPanel({
@@ -68,7 +66,6 @@ export default function ProductInlineRegisterPanel({
     formData.set("sku", form.sku);
     formData.set("purchase_price", String(form.purchase_price));
     formData.set("sale_price", String(form.sale_price));
-    formData.set("stock_location", form.stock_location);
     formData.set("stock_floor3", String(form.stock_floor3));
     formData.set("stock_b1", String(form.stock_b1));
     formData.set("stock_display", String(form.stock_display));
@@ -223,22 +220,6 @@ export default function ProductInlineRegisterPanel({
               }
               className={fieldClass}
             />
-          </div>
-          <div className="w-14">
-            <label className={labelClass}>위치</label>
-            <select
-              value={form.stock_location}
-              onChange={(event) =>
-                updateField("stock_location", event.target.value)
-              }
-              className={fieldClass}
-            >
-              {STOCK_LOCATIONS.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
           </div>
           <div className="flex shrink-0 items-end gap-1">
             <button
