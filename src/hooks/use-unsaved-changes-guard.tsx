@@ -109,9 +109,13 @@ export function useUnsavedChangesGuard(enabled: boolean) {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [enabled, requestLeave]);
 
+  const allowNavigation = useCallback(() => {
+    allowNavigationRef.current = true;
+  }, []);
+
   const dialog = dialogOpen ? (
     <LeaveConfirmDialog onConfirm={confirmLeave} onCancel={cancelLeave} />
   ) : null;
 
-  return { dialog };
+  return { dialog, allowNavigation };
 }

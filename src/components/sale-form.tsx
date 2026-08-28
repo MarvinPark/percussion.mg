@@ -257,8 +257,8 @@ export default function SaleForm({
     ],
   );
 
-  const { dialog: leaveDialog } = useUnsavedChangesGuard(
-    isDirty && !(isPending || isCheckingStock),
+  const { dialog: leaveDialog, allowNavigation } = useUnsavedChangesGuard(
+    isDirty && !(isPending || isCheckingStock) && !state?.success,
   );
 
   function submitSaleForm(purchaseQuantitiesJsonValue = "[]") {
@@ -313,9 +313,9 @@ export default function SaleForm({
 
   useEffect(() => {
     if (!state?.success) return;
-    router.push("/sales");
-    router.refresh();
-  }, [state?.success, router]);
+    allowNavigation();
+    router.replace("/sales");
+  }, [allowNavigation, state?.success, router]);
 
   useEffect(() => {
     const message = state?.error;
