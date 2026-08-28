@@ -28,7 +28,7 @@ export default function ProductReservationList({
       {entries.map((entry) => (
         <li
           key={`${entry.quoteId}-${entry.quantity}`}
-          className="truncate"
+          className="truncate rounded bg-emerald-100/60 px-1 dark:bg-emerald-950/30"
           title={`${entry.customerName} · ${entry.quoteDate} · ${entry.quantity}개`}
         >
           {entry.customerName} · {entry.quoteDate} · {entry.quantity}

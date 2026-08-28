@@ -285,6 +285,7 @@ export type ProductInlineField =
   | "stock_floor3"
   | "stock_b1"
   | "stock_display"
+  | "reserved_quantity"
   | "stock_quantity"
   | "sale_price"
   | "purchase_price";
@@ -402,6 +403,14 @@ export async function updateProductField(
           return { error: movementResult.error };
         }
       }
+      break;
+    }
+    case "reserved_quantity": {
+      const reserved_quantity = Math.round(Number(rawValue));
+      if (Number.isNaN(reserved_quantity) || reserved_quantity < 0) {
+        return { error: "예약 수량은 0 이상 숫자여야 합니다." };
+      }
+      updateData.reserved_quantity = reserved_quantity;
       break;
     }
     case "stock_quantity": {

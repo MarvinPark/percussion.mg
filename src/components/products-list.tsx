@@ -581,6 +581,7 @@ export default function ProductsList({
   const rowClass = (product: Product) => {
     const isSelected = selectedIds.has(product.id);
     const isKeyStock = product.is_key_stock ?? false;
+    const hasReservation = (product.reserved_quantity ?? 0) > 0;
 
     const base =
       "cursor-pointer border-b border-zinc-100 transition last:border-0 dark:border-zinc-800";
@@ -594,35 +595,36 @@ export default function ProductsList({
       return `${base} bg-red-50/80 hover:bg-red-100/70 dark:bg-red-950/25 dark:hover:bg-red-950/40 ${highlight}`;
     }
 
+    if (hasReservation) {
+      return `${base} bg-emerald-50/35 hover:bg-emerald-50/55 dark:bg-emerald-950/15 dark:hover:bg-emerald-950/25 ${highlight}`;
+    }
+
     return `${base} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${highlight}`;
   };
 
-  function stickyCheckboxCellClass(product: Product) {
+  function stickyRowBackground(product: Product) {
     const selected = selectedIds.has(product.id);
     const isKeyStock = product.is_key_stock ?? false;
+    const hasReservation = (product.reserved_quantity ?? 0) > 0;
 
-    let bg = "max-md:bg-white dark:max-md:bg-zinc-900";
     if (selected) {
-      bg = "max-md:bg-yellow-100 dark:max-md:bg-yellow-950/50";
-    } else if (isKeyStock) {
-      bg = "max-md:bg-red-50/80 dark:max-md:bg-red-950/25";
+      return "max-md:bg-yellow-100 dark:max-md:bg-yellow-950/50";
     }
+    if (isKeyStock) {
+      return "max-md:bg-red-50/80 dark:max-md:bg-red-950/25";
+    }
+    if (hasReservation) {
+      return "max-md:bg-emerald-50/35 dark:max-md:bg-emerald-950/15";
+    }
+    return "max-md:bg-white dark:max-md:bg-zinc-900";
+  }
 
-    return `px-2 ${rowPaddingClass} max-md:sticky max-md:left-0 max-md:z-10 ${bg}`;
+  function stickyCheckboxCellClass(product: Product) {
+    return `px-2 ${rowPaddingClass} max-md:sticky max-md:left-0 max-md:z-10 ${stickyRowBackground(product)}`;
   }
 
   function stickyKeyStockCellClass(product: Product) {
-    const selected = selectedIds.has(product.id);
-    const isKeyStock = product.is_key_stock ?? false;
-
-    let bg = "max-md:bg-white dark:max-md:bg-zinc-900";
-    if (selected) {
-      bg = "max-md:bg-yellow-100 dark:max-md:bg-yellow-950/50";
-    } else if (isKeyStock) {
-      bg = "max-md:bg-red-50/80 dark:max-md:bg-red-950/25";
-    }
-
-    return `px-1 ${rowPaddingClass} max-md:sticky max-md:left-[44px] max-md:z-10 ${bg}`;
+    return `px-1 ${rowPaddingClass} max-md:sticky max-md:left-[44px] max-md:z-10 ${stickyRowBackground(product)}`;
   }
 
   const narrowScrollCellClass =
@@ -885,10 +887,19 @@ export default function ProductsList({
       case "reserved_quantity": {
         const reservationEntries = reservationsByProductId[product.id] ?? [];
         return (
-          <td className={`${standardCellClass} align-top`}>
-            <div className="tabular-nums font-medium">
-              {product.reserved_quantity ?? 0}
-            </div>
+          <td
+            className={`${standardCellClass} align-top`}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onContextMenu={(event) => event.stopPropagation()}
+          >
+            <EditableProductCell
+              productId={product.id}
+              field="reserved_quantity"
+              value={String(product.reserved_quantity ?? 0)}
+              inputType="number"
+              className="tabular-nums font-medium"
+              {...cellFocusProps(product.id, "reserved_quantity")}
+            />
             <ProductReservationList entries={reservationEntries} compact />
           </td>
         );
