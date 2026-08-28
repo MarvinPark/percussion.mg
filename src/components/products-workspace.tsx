@@ -163,6 +163,10 @@ export default function ProductsWorkspace({
   }, [handleRequestDelete, products, selectedIds]);
 
   useEffect(() => {
+    setSelectedIds(new Set());
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (!pendingHighlightRef.current.length) return;
 
     const ids = pendingHighlightRef.current;
