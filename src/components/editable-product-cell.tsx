@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   updateProductField,
   type ProductInlineField,
@@ -25,6 +24,7 @@ type EditableProductCellProps = {
   onRequestEdit?: () => void;
   onNavigate?: (direction: "forward" | "backward") => void;
   onFinishEdit?: () => void;
+  onFieldSaved?: (value: string) => void;
   readOnly?: boolean;
 };
 
@@ -41,6 +41,7 @@ export default function EditableProductCell({
   onRequestEdit,
   onNavigate,
   onFinishEdit,
+  onFieldSaved,
   readOnly = false,
 }: EditableProductCellProps) {
   if (readOnly) {
@@ -48,7 +49,6 @@ export default function EditableProductCell({
       <span className={className}>{(displayValue ?? value) || "-"}</span>
     );
   }
-  const router = useRouter();
   const [internalEditing, setInternalEditing] = useState(false);
   const isControlled = onRequestEdit !== undefined;
   const editing = isControlled ? controlledEditing : internalEditing;
@@ -116,7 +116,7 @@ export default function EditableProductCell({
     }
 
     setError(null);
-    router.refresh();
+    onFieldSaved?.(normalizedDraft);
     return true;
   }
 

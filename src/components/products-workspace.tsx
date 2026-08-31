@@ -5,6 +5,7 @@ import {
   applyKeyStockToProducts,
   deleteProductsByIds,
   duplicateProducts,
+  type ProductInlineField,
 } from "@/app/(main)/products/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import ExcelProductActions from "@/components/excel-product-actions";
@@ -42,6 +43,11 @@ type ProductsWorkspaceProps = {
   emptyMessage?: string;
   onProductRegistered?: (productId: string) => void;
   onReloadList?: () => void;
+  onProductFieldSaved?: (
+    productId: string,
+    field: ProductInlineField,
+    value: string,
+  ) => void;
 };
 
 export default function ProductsWorkspace({
@@ -58,6 +64,7 @@ export default function ProductsWorkspace({
   emptyMessage,
   onProductRegistered,
   onReloadList,
+  onProductFieldSaved,
 }: ProductsWorkspaceProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
@@ -317,6 +324,7 @@ export default function ProductsWorkspace({
         isDuplicating={isDuplicating}
         emptyMessage={emptyMessage}
         onProductRegistered={onProductRegistered}
+        onProductFieldSaved={onProductFieldSaved}
       />
     </>
   );

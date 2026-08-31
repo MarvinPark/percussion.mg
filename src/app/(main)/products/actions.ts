@@ -1611,7 +1611,10 @@ export async function loadProductsListView(input: {
   return {
     products: pageData.products,
     reservationsByProductId,
-    listStats,
+    listStats: {
+      totalCount: pageData.totalCount,
+      totalStockQuantity: listStats.totalStockQuantity,
+    },
     currentPage,
     totalPages,
     searchQuery,

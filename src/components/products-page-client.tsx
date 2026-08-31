@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { loadProductsListView } from "@/app/(main)/products/actions";
+import type { ProductInlineField } from "@/app/(main)/products/actions";
 import ProductListSearch from "@/components/product-list-search";
 import ProductsWorkspace from "@/components/products-workspace";
 import type {
@@ -9,7 +10,6 @@ import type {
   ProductPageSize,
 } from "@/lib/product-list-loader";
 import {
-  loadSavedProductPageSize,
   PRODUCT_PAGE_SIZE,
   PRODUCT_PAGE_SIZE_OPTIONS,
   saveProductPageSize,
@@ -20,6 +20,7 @@ import {
   type ProductListSort,
   type ProductSortColumn,
 } from "@/lib/product-list-sort";
+import { applyProductInlineFieldUpdate } from "@/lib/product-inline-update";
 import type { ProductReservationsByProductId } from "@/lib/product-reservations";
 import type { Product } from "@/types/product";
 import type { SaleProductOption } from "@/types/sale";
@@ -81,7 +82,8 @@ export default function ProductsPageClient({
   sort: initialSort,
   readOnly = false,
 }: ProductsPageClientProps) {
-  const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
+  const loadRequestRef = useRef(0);
   const [products, setProducts] = useState(initialProducts);
   const [reservationsByProductId, setReservationsByProductId] = useState(
     initialReservationsByProductId,
@@ -103,30 +105,6 @@ export default function ProductsPageClient({
   const isSearchActive = searchQuery.length > 0;
 
   useEffect(() => {
-    setProducts(initialProducts);
-    setReservationsByProductId(initialReservationsByProductId);
-    setListStats(initialListStats);
-    setCurrentPage(initialCurrentPage);
-    setTotalPages(initialTotalPages);
-    setSearchQuery(initialSearchQuery);
-    setPageSize(initialPageSize);
-    setSort(initialSort);
-    setDraftQuery(initialSearchQuery);
-    if (!initialSearchQuery) {
-      setHighlightedIds(new Set());
-    }
-  }, [
-    initialProducts,
-    initialReservationsByProductId,
-    initialListStats,
-    initialCurrentPage,
-    initialTotalPages,
-    initialSearchQuery,
-    initialPageSize,
-    initialSort,
-  ]);
-
-  useEffect(() => {
     setPageWindowStart(clampPageWindowStart(currentPage, totalPages));
   }, [currentPage, totalPages]);
 
@@ -141,8 +119,8 @@ export default function ProductsPageClient({
     visiblePageStart + VISIBLE_PAGE_COUNT - 1 < totalPages;
 
   const listSummary = isSearchActive
-    ? `검색 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개`
-    : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개`;
+    ? `검색 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`
+    : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`;
 
   const loadView = useCallback(
     (
@@ -151,50 +129,58 @@ export default function ProductsPageClient({
       nextPageSize: ProductPageSize = pageSize,
       nextSort: ProductListSort = sort,
     ) => {
-    startTransition(async () => {
-      try {
-        const result = await loadProductsListView({
-          page,
-          searchQuery: query,
-          pageSize: nextPageSize,
-          sort: nextSort,
+      const requestId = ++loadRequestRef.current;
+      setIsLoading(true);
+      setLoadError(null);
+
+      void loadProductsListView({
+        page,
+        searchQuery: query,
+        pageSize: nextPageSize,
+        sort: nextSort,
+      })
+        .then((result) => {
+          if (requestId !== loadRequestRef.current) return;
+
+          if ("error" in result && result.error) {
+            setLoadError(result.error);
+            return;
+          }
+
+          if (!result.products || !result.listStats) {
+            setLoadError("제품 목록을 불러오지 못했습니다.");
+            return;
+          }
+
+          const resolvedPageSize = (result.pageSize ?? nextPageSize) as ProductPageSize;
+
+          setProducts(result.products);
+          setReservationsByProductId(result.reservationsByProductId ?? {});
+          setListStats(result.listStats);
+          setCurrentPage(result.currentPage);
+          setTotalPages(result.totalPages);
+          setSearchQuery(result.searchQuery);
+          setPageSize(resolvedPageSize);
+          setSort(nextSort);
+          setDraftQuery(result.searchQuery);
+          saveProductPageSize(userId, resolvedPageSize);
+          syncProductsUrl(
+            result.currentPage,
+            result.searchQuery,
+            resolvedPageSize,
+            nextSort,
+          );
+        })
+        .catch(() => {
+          if (requestId !== loadRequestRef.current) return;
+          setLoadError("제품 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        })
+        .finally(() => {
+          if (requestId === loadRequestRef.current) {
+            setIsLoading(false);
+          }
         });
-
-        if ("error" in result && result.error) {
-          setLoadError(result.error);
-          return;
-        }
-
-        if (!result.products || !result.listStats) {
-          setLoadError("제품 목록을 불러오지 못했습니다.");
-          return;
-        }
-
-        setLoadError(null);
-
-        const resolvedPageSize = (result.pageSize ?? nextPageSize) as ProductPageSize;
-
-        setProducts(result.products);
-        setReservationsByProductId(result.reservationsByProductId ?? {});
-        setListStats(result.listStats);
-        setCurrentPage(result.currentPage);
-        setTotalPages(result.totalPages);
-        setSearchQuery(result.searchQuery);
-        setPageSize(resolvedPageSize);
-        setSort(nextSort);
-        setDraftQuery(result.searchQuery);
-        saveProductPageSize(userId, resolvedPageSize);
-        syncProductsUrl(
-          result.currentPage,
-          result.searchQuery,
-          resolvedPageSize,
-          nextSort,
-        );
-      } catch {
-        setLoadError("제품 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
-      }
-    });
-  },
+    },
     [pageSize, sort, userId],
   );
 
@@ -206,14 +192,7 @@ export default function ProductsPageClient({
     if (hasAppliedSavedPageSize.current) return;
     hasAppliedSavedPageSize.current = true;
 
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("limit")) return;
-
-    const savedPageSize = loadSavedProductPageSize(userId);
-    if (savedPageSize && savedPageSize !== initialPageSize) {
-      loadView(1, initialSearchQuery, savedPageSize, initialSort);
-      return;
-    }
+    saveProductPageSize(userId, initialPageSize);
 
     if (initialPageSize !== PRODUCT_PAGE_SIZE) {
       syncProductsUrl(
@@ -228,7 +207,6 @@ export default function ProductsPageClient({
     initialPageSize,
     initialSearchQuery,
     initialSort,
-    loadView,
     userId,
   ]);
 
@@ -295,12 +273,25 @@ export default function ProductsPageClient({
     loadView(currentPage, searchQuery, pageSize, sort);
   }, [currentPage, loadView, pageSize, searchQuery, sort]);
 
+  const handleProductFieldSaved = useCallback(
+    (productId: string, field: ProductInlineField, value: string) => {
+      setProducts((prev) =>
+        prev.map((product) =>
+          product.id === productId
+            ? applyProductInlineFieldUpdate(product, field, value)
+            : product,
+        ),
+      );
+    },
+    [],
+  );
+
   const pageSizeSelectClass =
     "h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200";
 
   return (
     <>
-      <div className={isPending ? "opacity-60 transition-opacity" : ""}>
+      <div>
         <ProductsWorkspace
           userId={userId}
           products={products}
@@ -318,6 +309,7 @@ export default function ProductsPageClient({
           }
           onProductRegistered={handleProductRegistered}
           onReloadList={reloadList}
+          onProductFieldSaved={handleProductFieldSaved}
           searchSlot={
             <div className="flex flex-wrap items-center gap-2">
               <ProductListSearch
@@ -332,7 +324,6 @@ export default function ProductsPageClient({
                 <span className="shrink-0">표시</span>
                 <select
                   value={pageSize}
-                  disabled={isPending}
                   onChange={(event) =>
                     handlePageSizeChange(
                       Number(event.target.value) as ProductPageSize,
@@ -367,7 +358,7 @@ export default function ProductsPageClient({
             <button
               type="button"
               aria-label="이전 페이지 묶음"
-              disabled={!canShiftPageWindowLeft || isPending}
+              disabled={!canShiftPageWindowLeft}
               onClick={() =>
                 setPageWindowStart((prev) =>
                   clampPageWindowStart(prev - VISIBLE_PAGE_COUNT, totalPages),
@@ -390,7 +381,6 @@ export default function ProductsPageClient({
                   key={page}
                   type="button"
                   aria-current={isActive ? "page" : undefined}
-                  disabled={isPending}
                   onClick={() => loadView(page, searchQuery, pageSize, sort)}
                   className={`${pageButtonClass} ${
                     isActive
@@ -408,7 +398,7 @@ export default function ProductsPageClient({
             <button
               type="button"
               aria-label="다음 페이지 묶음"
-              disabled={!canShiftPageWindowRight || isPending}
+              disabled={!canShiftPageWindowRight}
               onClick={() =>
                 setPageWindowStart((prev) =>
                   clampPageWindowStart(prev + VISIBLE_PAGE_COUNT, totalPages),

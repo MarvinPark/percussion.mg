@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toggleKeyStock } from "@/app/(main)/products/actions";
 
@@ -17,7 +16,6 @@ export default function KeyStockStarToggle({
   isKeyStock: initialKeyStock,
   readOnly = false,
 }: KeyStockStarToggleProps) {
-  const router = useRouter();
   const [isKeyStock, setIsKeyStock] = useState(initialKeyStock);
   const [isPending, startTransition] = useTransition();
 
@@ -33,7 +31,6 @@ export default function KeyStockStarToggle({
       if (typeof result.is_key_stock === "boolean") {
         setIsKeyStock(result.is_key_stock);
       }
-      router.refresh();
     });
   }
 

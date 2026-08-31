@@ -96,6 +96,11 @@ type ProductsListProps = {
   onSortColumn: (column: ProductSortColumn) => void;
   emptyMessage?: string;
   onProductRegistered?: (productId: string) => void;
+  onProductFieldSaved?: (
+    productId: string,
+    field: ProductInlineField,
+    value: string,
+  ) => void;
 };
 
 type ContextMenuState = {
@@ -404,6 +409,7 @@ export default function ProductsList({
   onSortColumn,
   emptyMessage,
   onProductRegistered,
+  onProductFieldSaved,
 }: ProductsListProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showInlineRegister, setShowInlineRegister] = useState(false);
@@ -529,6 +535,9 @@ export default function ProductsList({
         ),
       onNavigate: (direction: "forward" | "backward") =>
         navigateFocus({ kind: "field", productId, field }, direction),
+      onFieldSaved: onProductFieldSaved
+        ? (value: string) => onProductFieldSaved(productId, field, value)
+        : undefined,
       ...(readOnly ? { readOnly: true as const } : {}),
     };
   }
