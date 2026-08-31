@@ -97,6 +97,7 @@ export default function ProductsPageClient({
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [loadError, setLoadError] = useState<string | null>(null);
   const hasAppliedSavedPageSize = useRef(false);
 
   const isSearchActive = searchQuery.length > 0;
@@ -151,39 +152,47 @@ export default function ProductsPageClient({
       nextSort: ProductListSort = sort,
     ) => {
     startTransition(async () => {
-      const result = await loadProductsListView({
-        page,
-        searchQuery: query,
-        pageSize: nextPageSize,
-        sort: nextSort,
-      });
+      try {
+        const result = await loadProductsListView({
+          page,
+          searchQuery: query,
+          pageSize: nextPageSize,
+          sort: nextSort,
+        });
 
-      if ("error" in result && result.error) {
-        return;
+        if ("error" in result && result.error) {
+          setLoadError(result.error);
+          return;
+        }
+
+        if (!result.products || !result.listStats) {
+          setLoadError("제품 목록을 불러오지 못했습니다.");
+          return;
+        }
+
+        setLoadError(null);
+
+        const resolvedPageSize = (result.pageSize ?? nextPageSize) as ProductPageSize;
+
+        setProducts(result.products);
+        setReservationsByProductId(result.reservationsByProductId ?? {});
+        setListStats(result.listStats);
+        setCurrentPage(result.currentPage);
+        setTotalPages(result.totalPages);
+        setSearchQuery(result.searchQuery);
+        setPageSize(resolvedPageSize);
+        setSort(nextSort);
+        setDraftQuery(result.searchQuery);
+        saveProductPageSize(userId, resolvedPageSize);
+        syncProductsUrl(
+          result.currentPage,
+          result.searchQuery,
+          resolvedPageSize,
+          nextSort,
+        );
+      } catch {
+        setLoadError("제품 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
       }
-
-      if (!result.products || !result.listStats) {
-        return;
-      }
-
-      const resolvedPageSize = (result.pageSize ?? nextPageSize) as ProductPageSize;
-
-      setProducts(result.products);
-      setReservationsByProductId(result.reservationsByProductId ?? {});
-      setListStats(result.listStats);
-      setCurrentPage(result.currentPage);
-      setTotalPages(result.totalPages);
-      setSearchQuery(result.searchQuery);
-      setPageSize(resolvedPageSize);
-      setSort(nextSort);
-      setDraftQuery(result.searchQuery);
-      saveProductPageSize(userId, resolvedPageSize);
-      syncProductsUrl(
-        result.currentPage,
-        result.searchQuery,
-        resolvedPageSize,
-        nextSort,
-      );
     });
   },
     [pageSize, sort, userId],
@@ -308,6 +317,7 @@ export default function ProductsPageClient({
             <div className="flex flex-wrap items-center gap-2">
               <ProductListSearch
                 compact
+                liveSuggestions={false}
                 query={draftQuery}
                 onQueryChange={setDraftQuery}
                 onConfirm={applySearch}
@@ -336,6 +346,11 @@ export default function ProductsPageClient({
             </div>
           }
         />
+        {loadError ? (
+          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            {loadError}
+          </p>
+        ) : null}
       </div>
 
       {totalPages > 1 ? (

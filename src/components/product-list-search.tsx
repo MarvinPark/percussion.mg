@@ -29,6 +29,8 @@ type ProductListSearchProps = {
   onConfirm: () => void;
   onSelectProduct: (product: SaleProductOption) => void;
   compact?: boolean;
+  /** false면 입력 중 드롭다운 API 호출 없이 확인(Enter) 시에만 목록 검색 */
+  liveSuggestions?: boolean;
 };
 
 export default function ProductListSearch({
@@ -37,6 +39,7 @@ export default function ProductListSearch({
   onConfirm,
   onSelectProduct,
   compact = false,
+  liveSuggestions = true,
 }: ProductListSearchProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +50,7 @@ export default function ProductListSearch({
   const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const searchRequestRef = useRef(0);
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -62,22 +66,32 @@ export default function ProductListSearch({
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) {
+    if (!liveSuggestions || !trimmed) {
       setResults([]);
       setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
+    const requestId = ++searchRequestRef.current;
     const timer = window.setTimeout(() => {
-      void searchProductsForSaleDropdown(trimmed).then((response) => {
-        setResults((response.products as SaleProductOption[]).slice(0, MAX_RESULTS));
-        setIsSearching(false);
-      });
-    }, 250);
+      void searchProductsForSaleDropdown(trimmed)
+        .then((response) => {
+          if (requestId !== searchRequestRef.current) return;
+          setResults(
+            (response.products as SaleProductOption[]).slice(0, MAX_RESULTS),
+          );
+          setIsSearching(false);
+        })
+        .catch(() => {
+          if (requestId !== searchRequestRef.current) return;
+          setResults([]);
+          setIsSearching(false);
+        });
+    }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [query]);
+  }, [liveSuggestions, query]);
 
   useEffect(() => {
     setHighlightIndex(-1);
@@ -136,7 +150,8 @@ export default function ProductListSearch({
   }
 
   const trimmedQuery = query.trim();
-  const showDropdown = isOpen && trimmedQuery.length > 0;
+  const showDropdown =
+    liveSuggestions && isOpen && trimmedQuery.length > 0;
 
   const dropdown =
     showDropdown && dropdownPosition ? (
@@ -195,6 +210,10 @@ export default function ProductListSearch({
         onChange={(event) => {
           const value = event.target.value;
           onQueryChange(value);
+          if (!liveSuggestions) {
+            setIsOpen(false);
+            return;
+          }
           const hasQuery = value.trim().length > 0;
           setIsOpen(hasQuery);
           if (hasQuery) {
@@ -264,7 +283,7 @@ export default function ProductListSearch({
           </button>
         </>
       ) : null}
-      {!compact && query.trim() ? (
+      {!compact && liveSuggestions && query.trim() ? (
         <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
           {isSearching
             ? "검색 중..."

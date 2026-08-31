@@ -70,6 +70,7 @@ export default function ProductSearchSelect({
   const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const searchRequestRef = useRef(0);
 
   useEffect(() => {
     setQuery(
@@ -110,12 +111,22 @@ export default function ProductSearchSelect({
     }
 
     setIsSearching(true);
+    const requestId = ++searchRequestRef.current;
     const timer = window.setTimeout(() => {
-      void searchProductsForSaleDropdown(trimmed).then((response) => {
-        setResults((response.products as SaleProductOption[]).slice(0, MAX_RESULTS));
-        setIsSearching(false);
-      });
-    }, 250);
+      void searchProductsForSaleDropdown(trimmed)
+        .then((response) => {
+          if (requestId !== searchRequestRef.current) return;
+          setResults(
+            (response.products as SaleProductOption[]).slice(0, MAX_RESULTS),
+          );
+          setIsSearching(false);
+        })
+        .catch(() => {
+          if (requestId !== searchRequestRef.current) return;
+          setResults([]);
+          setIsSearching(false);
+        });
+    }, 350);
 
     return () => window.clearTimeout(timer);
   }, [query, selectedProduct, emphasizeModelName, modelNameOnly]);

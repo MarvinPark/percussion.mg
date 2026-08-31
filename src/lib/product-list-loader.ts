@@ -4,6 +4,10 @@ import {
   DEFAULT_PRODUCT_LIST_SORT,
   type ProductListSort,
 } from "@/lib/product-list-sort";
+import {
+  buildProductSearchOrFilter,
+  toPostgrestIlikePattern,
+} from "@/lib/postgrest-search-filter";
 import type { Product } from "@/types/product";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
@@ -89,28 +93,14 @@ export type ProductPageResult = {
   error: string | null;
 };
 
-function escapeIlike(value: string) {
-  return value.replace(/[%_\\]/g, "\\$&");
-}
-
 export function applyProductSearchFilter<T extends { or: (filters: string) => T }>(
   query: T,
   searchQuery: string,
 ) {
-  const pattern = `%${escapeIlike(searchQuery.trim())}%`;
-
-  return query.or(
-    [
-      `supplier.ilike.${pattern}`,
-      `category.ilike.${pattern}`,
-      `brand.ilike.${pattern}`,
-      `product_name.ilike.${pattern}`,
-      `model_name.ilike.${pattern}`,
-      `sku.ilike.${pattern}`,
-      `keywords.ilike.${pattern}`,
-    ].join(","),
-  );
+  return query.or(buildProductSearchOrFilter(searchQuery));
 }
+
+export { toPostgrestIlikePattern };
 
 async function fetchStatsViaRpc(
   supabase: SupabaseClient,
