@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import {
   applyKeyStockToProducts,
   deleteProductsByIds,
@@ -42,6 +41,7 @@ type ProductsWorkspaceProps = {
   onSortColumn: (column: ProductSortColumn) => void;
   emptyMessage?: string;
   onProductRegistered?: (productId: string) => void;
+  onReloadList?: () => void;
 };
 
 export default function ProductsWorkspace({
@@ -57,8 +57,8 @@ export default function ProductsWorkspace({
   onSortColumn,
   emptyMessage,
   onProductRegistered,
+  onReloadList,
 }: ProductsWorkspaceProps) {
-  const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
@@ -103,13 +103,13 @@ export default function ProductsWorkspace({
           pendingHighlightRef.current = result.ids;
           setSelectedIds(new Set());
           showToast(`복제 ${result.ids.length}건`);
-          router.refresh();
+          onReloadList?.();
         }
       } finally {
         setIsDuplicating(false);
       }
     },
-    [isDuplicating, router, showToast],
+    [isDuplicating, onReloadList, showToast],
   );
 
   const handleDuplicateSelected = useCallback(() => {
@@ -138,9 +138,9 @@ export default function ProductsWorkspace({
         return next;
       });
       showToast(`삭제 ${targets.length}건`);
-      router.refresh();
+      onReloadList?.();
     },
-    [router, showToast],
+    [onReloadList, showToast],
   );
 
   const handleRequestDelete = useCallback((targets: Product[]) => {
@@ -202,7 +202,7 @@ export default function ProductsWorkspace({
   function handleBulkEditSaved() {
     setSelectedIds(new Set());
     showToast("일괄 수정 완료");
-    router.refresh();
+    onReloadList?.();
   }
 
   const handleApplyKeyStock = useCallback(async () => {
@@ -219,11 +219,11 @@ export default function ProductsWorkspace({
 
       setSelectedIds(new Set());
       showToast(`주요 재고 ${result.updatedCount ?? ids.length}건 적용`);
-      router.refresh();
+      onReloadList?.();
     } finally {
       setIsApplyingKeyStock(false);
     }
-  }, [isApplyingKeyStock, router, selectedIds, showToast]);
+  }, [isApplyingKeyStock, onReloadList, selectedIds, showToast]);
 
   return (
     <>

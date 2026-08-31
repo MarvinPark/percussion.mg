@@ -47,6 +47,25 @@ export async function createRegistrationSkuContext(
   };
 }
 
+/** 복제 전용: SKU 충돌만 확인하면 되므로 sku 컬럼만 조회합니다. */
+export async function createDuplicateSkuContext(
+  supabase: SupabaseClient,
+): Promise<RegistrationSkuContext> {
+  const { data } = await supabase.from("products").select("sku");
+
+  const reservedSkus = new Set<string>();
+  for (const row of data ?? []) {
+    const sku = normalizeProductSku(row.sku);
+    if (sku) reservedSkus.add(sku);
+  }
+
+  return {
+    variants: [],
+    reservedSkus,
+    batchCounters: new Map(),
+  };
+}
+
 export function previewRegistrationSku(
   input: { sku: string; purchase_price: number },
   context: RegistrationSkuContext,

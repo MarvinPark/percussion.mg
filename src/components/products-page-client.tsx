@@ -291,6 +291,10 @@ export default function ProductsPageClient({
     [currentPage, loadView, pageSize, searchQuery, sort],
   );
 
+  const reloadList = useCallback(() => {
+    loadView(currentPage, searchQuery, pageSize, sort);
+  }, [currentPage, loadView, pageSize, searchQuery, sort]);
+
   const pageSizeSelectClass =
     "h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200";
 
@@ -313,6 +317,7 @@ export default function ProductsPageClient({
               : undefined
           }
           onProductRegistered={handleProductRegistered}
+          onReloadList={reloadList}
           searchSlot={
             <div className="flex flex-wrap items-center gap-2">
               <ProductListSearch

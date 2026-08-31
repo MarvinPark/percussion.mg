@@ -12,6 +12,7 @@ import type { ProductListSort } from "@/lib/product-list-sort";
 import { createInlineProduct } from "@/lib/inline-product-create";
 import { toSaleProductOption } from "@/lib/inline-product-create-shared";
 import {
+  createDuplicateSkuContext,
   createRegistrationSkuContext,
   DUPLICATE_SKU_MESSAGE,
   findProductBySku,
@@ -1355,7 +1356,7 @@ export async function duplicateProducts(
     return { error: "복제할 제품을 찾을 수 없습니다." };
   }
 
-  const registrationContext = await createRegistrationSkuContext(supabase);
+  const registrationContext = await createDuplicateSkuContext(supabase);
   const newIds: string[] = [];
 
   for (const product of products) {

@@ -13,6 +13,22 @@ export function belongsToSkuFamily(baseSku: string, sku: string) {
   return /^-\d+$/.test(suffix);
 }
 
+function maxVariantSuffix(key: string, reservedSkus: Set<string>) {
+  const prefix = `${key}-`;
+  let max = 0;
+
+  for (const sku of reservedSkus) {
+    if (!sku.startsWith(prefix)) continue;
+
+    const suffix = sku.slice(prefix.length);
+    if (/^\d+$/.test(suffix)) {
+      max = Math.max(max, Number(suffix));
+    }
+  }
+
+  return max;
+}
+
 /** 원본 SKU 뒤에 -1, -2… 접미사를 붙입니다. (예: FGDP-30 → FGDP-30-1) */
 export function nextVariantSku(
   sourceSku: string,
@@ -20,7 +36,11 @@ export function nextVariantSku(
   batchCounters?: Map<string, number>,
 ) {
   const key = sourceSku.trim();
-  let n = batchCounters?.get(key) ?? 1;
+  let n = batchCounters?.get(key);
+
+  if (n === undefined) {
+    n = maxVariantSuffix(key, reservedSkus) + 1;
+  }
 
   while (reservedSkus.has(`${key}-${n}`)) {
     n += 1;
