@@ -397,7 +397,7 @@ export default function QuotesList({
           isConverted
             ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
             : quote.is_reserved
-              ? "border-orange-200 bg-orange-50/40 hover:border-orange-300 hover:bg-orange-50/60 dark:border-orange-800/70 dark:bg-orange-950/20 dark:hover:border-orange-700 dark:hover:bg-orange-950/30"
+              ? "border-lime-200 bg-lime-50/50 hover:border-lime-300 hover:bg-lime-50/70 dark:border-lime-800/70 dark:bg-lime-950/20 dark:hover:border-lime-700 dark:hover:bg-lime-950/30"
               : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
         }`}
       >
@@ -420,8 +420,8 @@ export default function QuotesList({
                 }}
                 className={`${reserveButtonClass} disabled:opacity-60 ${
                   quote.is_reserved
-                    ? "border-orange-400 bg-orange-100 text-orange-800 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900"
-                    : "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900"
+                    ? "border-lime-500 bg-lime-100 text-lime-900 hover:bg-lime-200 dark:border-lime-600 dark:bg-lime-950 dark:text-lime-300 dark:hover:bg-lime-900"
+                    : "border-lime-400 bg-lime-50 text-lime-800 hover:bg-lime-100 dark:border-lime-700 dark:bg-lime-950 dark:text-lime-300 dark:hover:bg-lime-900"
                 }`}
               >
                 {quote.is_reserved ? "예약됨" : "예약"}
