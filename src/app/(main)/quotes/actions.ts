@@ -53,7 +53,6 @@ import {
   applyQuoteReservations,
   getReservableQuoteItems,
   releaseQuoteReservations,
-  syncProductReservedQuantity,
 } from "@/lib/quote-reservations";
 
 function parseQuoteItems(raw: string): QuoteItemInput[] | { error: string } {
@@ -963,6 +962,7 @@ export async function reserveQuote(quoteId: string) {
   revalidatePath("/quotes");
   revalidatePath("/products");
   revalidatePath("/products/stock/list");
+  revalidatePath("/products/history");
   revalidatePath("/dashboard");
 
   return { success: true as const };
@@ -983,6 +983,7 @@ export async function releaseQuote(quoteId: string) {
   revalidatePath("/quotes");
   revalidatePath("/products");
   revalidatePath("/products/stock/list");
+  revalidatePath("/products/history");
   revalidatePath("/dashboard");
 
   return { success: true as const };
@@ -1053,27 +1054,17 @@ export async function deleteQuote(formData: FormData) {
   const auth = await requirePermission("manageQuotes");
   if ("error" in auth) return;
 
-  const { data: reservations } = await supabase
-    .from("quote_reservations")
-    .select("product_id")
-    .eq("quote_id", quoteId);
-
-  const productIds = [
-    ...new Set(
-      (reservations ?? [])
-        .map((row) => row.product_id)
-        .filter((id): id is string => typeof id === "string" && id.length > 0),
-    ),
-  ];
+  const releaseResult = await releaseQuoteReservations(supabase, quoteId);
+  if ("error" in releaseResult && releaseResult.error) {
+    console.error("deleteQuote release error:", releaseResult.error);
+    return;
+  }
 
   await supabase.from("quotes").delete().eq("id", quoteId);
-
-  for (const productId of productIds) {
-    await syncProductReservedQuantity(supabase, productId);
-  }
 
   revalidatePath("/quotes");
   revalidatePath("/products");
   revalidatePath("/products/stock/list");
+  revalidatePath("/products/history");
   revalidatePath("/dashboard");
 }

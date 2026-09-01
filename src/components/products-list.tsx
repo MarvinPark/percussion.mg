@@ -24,6 +24,7 @@ import {
   type ProductSortColumn,
 } from "@/lib/product-list-sort";
 import { isLowStockProduct } from "@/lib/product-stock";
+import ProductReservationHover from "@/components/product-reservation-hover";
 import ProductReservationList from "@/components/product-reservation-list";
 import { availableProductStock } from "@/lib/product-stock-display";
 import type { ProductReservationsByProductId } from "@/lib/product-reservations";
@@ -605,7 +606,7 @@ export default function ProductsList({
     }
 
     if (hasReservation) {
-      return `${base} bg-emerald-50/35 hover:bg-emerald-50/55 dark:bg-emerald-950/15 dark:hover:bg-emerald-950/25 ${highlight}`;
+      return `${base} bg-orange-50/40 hover:bg-orange-50/60 dark:bg-orange-950/15 dark:hover:bg-orange-950/25 ${highlight}`;
     }
 
     return `${base} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${highlight}`;
@@ -623,7 +624,7 @@ export default function ProductsList({
       return "max-md:bg-red-50/80 dark:max-md:bg-red-950/25";
     }
     if (hasReservation) {
-      return "max-md:bg-emerald-50/35 dark:max-md:bg-emerald-950/15";
+      return "max-md:bg-orange-50/40 dark:max-md:bg-orange-950/15";
     }
     return "max-md:bg-white dark:max-md:bg-zinc-900";
   }
@@ -895,19 +896,16 @@ export default function ProductsList({
         );
       case "reserved_quantity": {
         const reservationEntries = reservationsByProductId[product.id] ?? [];
+        const reservedQty = product.reserved_quantity ?? 0;
         return (
           <td
             className={`${standardCellClass} align-top`}
             onDoubleClick={(event) => handleCellDoubleClick(event, product)}
             onContextMenu={(event) => event.stopPropagation()}
           >
-            <EditableProductCell
-              productId={product.id}
-              field="reserved_quantity"
-              value={String(product.reserved_quantity ?? 0)}
-              inputType="number"
-              className="tabular-nums font-medium"
-              {...cellFocusProps(product.id, "reserved_quantity")}
+            <ProductReservationHover
+              quantity={reservedQty}
+              entries={reservationEntries}
             />
             <ProductReservationList entries={reservationEntries} compact />
           </td>

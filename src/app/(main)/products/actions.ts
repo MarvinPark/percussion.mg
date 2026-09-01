@@ -406,14 +406,10 @@ export async function updateProductField(
       }
       break;
     }
-    case "reserved_quantity": {
-      const reserved_quantity = Math.round(Number(rawValue));
-      if (Number.isNaN(reserved_quantity) || reserved_quantity < 0) {
-        return { error: "예약 수량은 0 이상 숫자여야 합니다." };
-      }
-      updateData.reserved_quantity = reserved_quantity;
-      break;
-    }
+    case "reserved_quantity":
+      return {
+        error: "예약 수량은 견적 목록의 예약 버튼으로만 관리합니다.",
+      };
     case "stock_quantity": {
       const stock_quantity = Number(rawValue);
       if (Number.isNaN(stock_quantity) || stock_quantity < 0) {

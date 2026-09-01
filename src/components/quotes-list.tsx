@@ -397,7 +397,7 @@ export default function QuotesList({
           isConverted
             ? "border-zinc-200 bg-zinc-100 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:hover:bg-zinc-800/80"
             : quote.is_reserved
-              ? "border-emerald-200 bg-emerald-50/35 hover:border-emerald-300 hover:bg-emerald-50/55 dark:border-emerald-800/70 dark:bg-emerald-950/15 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/25"
+              ? "border-orange-200 bg-orange-50/40 hover:border-orange-300 hover:bg-orange-50/60 dark:border-orange-800/70 dark:bg-orange-950/20 dark:hover:border-orange-700 dark:hover:bg-orange-950/30"
               : "border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
         }`}
       >
@@ -420,8 +420,8 @@ export default function QuotesList({
                 }}
                 className={`${reserveButtonClass} disabled:opacity-60 ${
                   quote.is_reserved
-                    ? "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-                    : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    ? "border-orange-400 bg-orange-100 text-orange-800 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900"
+                    : "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900"
                 }`}
               >
                 {quote.is_reserved ? "예약됨" : "예약"}
@@ -709,6 +709,7 @@ export default function QuotesList({
                   paymentMethods[0]?.id ??
                   "",
                 items: editingQuote.quote_items.map(dbQuoteItemToInput),
+                is_reserved: Boolean(editingQuote.is_reserved),
               }}
               paymentMethods={paymentMethods}
               saleCategories={saleCategories}

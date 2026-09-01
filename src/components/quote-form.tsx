@@ -6,6 +6,7 @@ import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/q
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
 } from "@/components/model-name-autocomplete";
+import ConfirmDialog from "@/components/confirm-dialog";
 import InlineProductCreateModal from "@/components/inline-product-create-modal";
 import { toQuoteProductOption } from "@/lib/inline-product-create-shared";
 import QuoteItemsTable from "@/components/quote-items-table";
@@ -61,6 +62,7 @@ type QuoteEditInitial = {
   manager_name: string;
   payment_method_id: string;
   items: QuoteItemInput[];
+  is_reserved?: boolean;
 };
 
 type QuoteFormProps = {
@@ -199,6 +201,9 @@ export default function QuoteForm({
       getDefaultPaymentMethodId(paymentMethods),
   );
   const modelInputRef = useRef<ModelNameAutocompleteHandle>(null);
+  const submitFormRef = useRef<HTMLFormElement>(null);
+  const skipReserveConfirmRef = useRef(false);
+  const [reserveEditConfirmOpen, setReserveEditConfirmOpen] = useState(false);
 
   const initialSnapshot = useMemo(() => {
     if (!initialQuote) return null;
@@ -791,7 +796,22 @@ export default function QuoteForm({
       ) : null}
 
       <div className="flex flex-wrap gap-3">
-        <form action={formAction} className="inline">
+        <form
+          ref={submitFormRef}
+          action={formAction}
+          className="inline"
+          onSubmit={(event) => {
+            if (
+              isEditing &&
+              initialQuote?.is_reserved &&
+              isDirty &&
+              !skipReserveConfirmRef.current
+            ) {
+              event.preventDefault();
+              setReserveEditConfirmOpen(true);
+            }
+          }}
+        >
           {isEditing ? (
             <input type="hidden" name="quote_id" value={quoteId} />
           ) : null}
@@ -836,6 +856,23 @@ export default function QuoteForm({
           onCreated={(product) =>
             handleQuoteProductCreated(toQuoteProductOption(product))
           }
+        />
+      ) : null}
+
+      {reserveEditConfirmOpen ? (
+        <ConfirmDialog
+          title="예약 수량을 변경하시겠습니까?"
+          description="견적 품목·수량이 바뀌면 예약 재고도 함께 조정됩니다. (재고 부족 시 마이너스 허용)"
+          confirmLabel="변경 후 저장"
+          onConfirm={() => {
+            setReserveEditConfirmOpen(false);
+            skipReserveConfirmRef.current = true;
+            submitFormRef.current?.requestSubmit();
+            window.setTimeout(() => {
+              skipReserveConfirmRef.current = false;
+            }, 0);
+          }}
+          onCancel={() => setReserveEditConfirmOpen(false)}
         />
       ) : null}
 

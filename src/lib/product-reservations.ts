@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type ProductReservationEntry = {
   quoteId: string;
   customerName: string;
+  managerName?: string;
   quoteDate: string;
   quantity: number;
 };
@@ -38,7 +39,8 @@ export async function fetchProductReservationsByProductIds(
       quotes (
         id,
         customer_name,
-        quote_date
+        quote_date,
+        manager_name
       )
     `,
     )
@@ -62,12 +64,14 @@ export async function fetchProductReservationsByProductIds(
           id?: string;
           customer_name?: string | null;
           quote_date?: string | null;
+          manager_name?: string | null;
         }
       | null
       | Array<{
           id?: string;
           customer_name?: string | null;
           quote_date?: string | null;
+          manager_name?: string | null;
         }>;
 
     const quoteRow = Array.isArray(quote) ? quote[0] : quote;
@@ -79,6 +83,7 @@ export async function fetchProductReservationsByProductIds(
     const entry: ProductReservationEntry = {
       quoteId,
       customerName: quoteRow?.customer_name?.trim() || "고객 미입력",
+      managerName: quoteRow?.manager_name?.trim() || undefined,
       quoteDate: quoteRow?.quote_date
         ? formatQuoteDate(quoteRow.quote_date)
         : "-",

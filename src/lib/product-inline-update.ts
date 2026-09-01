@@ -48,7 +48,6 @@ export function applyProductInlineFieldUpdate(
       break;
     }
     case "reserved_quantity":
-      next.reserved_quantity = Number(rawValue) || 0;
       break;
     case "stock_quantity":
       next.stock_quantity = Number(rawValue.replace(/,/g, "")) || 0;

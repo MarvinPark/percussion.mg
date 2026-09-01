@@ -20,7 +20,7 @@ export function grossProductStock(product: ProductStockFields): number {
   return Number(product.stock_quantity) || 0;
 }
 
-/** 가용재고 = 실재고 − 예약 (마이너스 허용) */
+/** 가용재고 = 위치별 실재고 (예약 시 이미 위치에서 차감됨) */
 export function availableProductStock(product: ProductStockFields): number {
-  return grossProductStock(product) - (Number(product.reserved_quantity) || 0);
+  return grossProductStock(product);
 }

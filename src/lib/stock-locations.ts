@@ -101,6 +101,74 @@ export function formatLocationStockSummary(product: LocationStockProduct): strin
   ).join(" · ");
 }
 
+export type LocationStockPatch = Pick<
+  LocationStockProduct,
+  "stock_floor3" | "stock_b1" | "stock_display"
+>;
+
+/** 예약/출고 시 3층 → B1 → 의왕 순으로 차감 (마이너스 허용) */
+export function deductLocationStockFixedOrder(
+  product: LocationStockProduct,
+  quantity: number,
+  allowNegative = true,
+): { next: LocationStockPatch; taken: LocationStockPatch } | null {
+  if (quantity <= 0) {
+    return {
+      next: {
+        stock_floor3: product.stock_floor3,
+        stock_b1: product.stock_b1,
+        stock_display: product.stock_display,
+      },
+      taken: { stock_floor3: 0, stock_b1: 0, stock_display: 0 },
+    };
+  }
+
+  let remaining = quantity;
+  const stocks = locationStockRecord(product);
+  const taken: Record<StockLocation, number> = { "3층": 0, B1: 0, 의왕: 0 };
+
+  for (const location of STOCK_LOCATIONS) {
+    if (remaining <= 0) break;
+    const available = stocks[location];
+    const take = Math.min(available, remaining);
+    stocks[location] -= take;
+    taken[location] += take;
+    remaining -= take;
+  }
+
+  if (remaining > 0) {
+    if (!allowNegative) return null;
+    const sink: StockLocation = "3층";
+    stocks[sink] -= remaining;
+    taken[sink] += remaining;
+  }
+
+  return {
+    next: {
+      stock_floor3: stocks["3층"],
+      stock_b1: stocks.B1,
+      stock_display: stocks.의왕,
+    },
+    taken: {
+      stock_floor3: taken["3층"],
+      stock_b1: taken.B1,
+      stock_display: taken.의왕,
+    },
+  };
+}
+
+/** 예약 해제 시 기록된 위치별 수량을 되돌립니다. */
+export function restoreLocationStockFromTaken(
+  product: LocationStockProduct,
+  taken: LocationStockPatch,
+): LocationStockPatch {
+  return {
+    stock_floor3: product.stock_floor3 + (taken.stock_floor3 || 0),
+    stock_b1: product.stock_b1 + (taken.stock_b1 || 0),
+    stock_display: product.stock_display + (taken.stock_display || 0),
+  };
+}
+
 /** 출고 시 위치별 재고에서 차감 (등록 위치 우선, 이후 3층 → B1 → 의왕). allowNegative이면 부족분을 등록 위치에서 마이너스 처리 */
 export function deductLocationStock(
   product: LocationStockProduct,

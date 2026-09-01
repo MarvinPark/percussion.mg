@@ -12,7 +12,6 @@ export const TABLE_FIELD_ORDER: ProductInlineField[] = [
   "stock_floor3",
   "stock_b1",
   "stock_display",
-  "reserved_quantity",
   "stock_quantity",
 ];
 
