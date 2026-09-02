@@ -16,6 +16,10 @@ type BusinessPartnerAutocompleteProps = {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  /** false면 포커스만으로 드롭다운을 열지 않습니다 */
+  openOnFocus?: boolean;
+  /** 입력 글자 수가 이 값 이상일 때만 드롭다운을 표시합니다 */
+  minCharsToOpen?: number;
 };
 
 export default function BusinessPartnerAutocomplete({
@@ -29,6 +33,8 @@ export default function BusinessPartnerAutocomplete({
   placeholder,
   className = "",
   disabled = false,
+  openOnFocus = true,
+  minCharsToOpen = 0,
 }: BusinessPartnerAutocompleteProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -36,8 +42,11 @@ export default function BusinessPartnerAutocomplete({
   const [matches, setMatches] = useState<BusinessPartnerSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  const trimmedValue = value.trim();
+  const hasEnoughChars = trimmedValue.length >= minCharsToOpen;
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || !hasEnoughChars) return;
 
     setIsSearching(true);
     const timer = window.setTimeout(() => {
@@ -48,7 +57,13 @@ export default function BusinessPartnerAutocomplete({
     }, value.trim() ? 250 : 0);
 
     return () => window.clearTimeout(timer);
-  }, [open, value]);
+  }, [hasEnoughChars, open, value]);
+
+  useEffect(() => {
+    if (!hasEnoughChars) {
+      setOpen(false);
+    }
+  }, [hasEnoughChars]);
 
   useEffect(() => {
     setHighlightIndex(0);
@@ -78,10 +93,14 @@ export default function BusinessPartnerAutocomplete({
   function handleInputChange(nextValue: string) {
     onPartnerIdChange("");
     onChange(nextValue);
-    setOpen(true);
+    if (nextValue.trim().length >= minCharsToOpen) {
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
   }
 
-  const showDropdown = open;
+  const showDropdown = open && hasEnoughChars;
 
   return (
     <div ref={containerRef} className="relative">
@@ -96,7 +115,11 @@ export default function BusinessPartnerAutocomplete({
           autoComplete="off"
           disabled={disabled}
           onChange={(event) => handleInputChange(event.target.value)}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (openOnFocus && hasEnoughChars) {
+              setOpen(true);
+            }
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -127,7 +150,10 @@ export default function BusinessPartnerAutocomplete({
           tabIndex={-1}
           disabled={disabled}
           aria-label="거래처 목록 열기"
-          onClick={() => setOpen((current) => !current)}
+          onClick={() => {
+            if (!hasEnoughChars) return;
+            setOpen((current) => !current);
+          }}
           className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-zinc-500 hover:text-zinc-700 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">

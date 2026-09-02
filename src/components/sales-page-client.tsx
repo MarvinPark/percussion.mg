@@ -7,10 +7,10 @@ import SalesTable from "@/components/sales-table";
 import TablePagination from "@/components/table-pagination";
 import TableRowSizeControl from "@/components/table-row-size-control";
 import {
-  loadSalesPageSize,
-  saveSalesPageSize,
-} from "@/lib/sales-list-preferences";
-import { groupSalesByCategorySection } from "@/lib/sales-category-sections";
+  filterOtherSectionSalesByCategory,
+  getOtherSectionCategoryOptions,
+  groupSalesByCategorySection,
+} from "@/lib/sales-category-sections";
 import {
   loadSalesSectionOrder,
   saveSalesSectionOrder,
@@ -73,11 +73,10 @@ export default function SalesPageClient({
   const [sellerFilter, setSellerFilter] = useState(currentUserName);
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
+  const [otherCategoryFilter, setOtherCategoryFilter] = useState("");
   const [currentPageBySection, setCurrentPageBySection] = useState<
     Record<string, number>
   >({ ...INITIAL_SECTION_PAGES });
-  const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<
@@ -92,18 +91,11 @@ export default function SalesPageClient({
   const [sectionOrderLoaded, setSectionOrderLoaded] = useState(false);
 
   useEffect(() => {
-    setPageSize(loadSalesPageSize(userId));
     setRowFontSize(loadTableRowFontSize("sales", userId));
     setSectionOrder(loadSalesSectionOrder(userId));
-    setPageSizeLoaded(true);
     setPreferencesLoaded(true);
     setSectionOrderLoaded(true);
   }, [userId]);
-
-  useEffect(() => {
-    if (!pageSizeLoaded) return;
-    saveSalesPageSize(userId, pageSize);
-  }, [pageSizeLoaded, pageSize, userId]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
@@ -117,7 +109,15 @@ export default function SalesPageClient({
 
   useEffect(() => {
     setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
+    setOtherCategoryFilter("");
   }, [sellerFilter, appliedQuery]);
+
+  useEffect(() => {
+    setCurrentPageBySection((current) => ({
+      ...current,
+      other: 1,
+    }));
+  }, [otherCategoryFilter]);
 
   const sellerOptions = useMemo(() => getUniqueSellerNames(sales), [sales]);
 
@@ -144,22 +144,43 @@ export default function SalesPageClient({
     [filteredSales, sectionOrder],
   );
 
+  const otherCategoryOptions = useMemo(() => {
+    const otherSection = salesSections.find((section) => section.id === "other");
+    if (!otherSection) return [];
+    return getOtherSectionCategoryOptions(otherSection.sales);
+  }, [salesSections]);
+
   const paginatedSections = useMemo(
     () =>
       salesSections.map((section) => {
-        const sectionPageSize = pageSizeBySection[section.id] ?? pageSize;
+        const sectionPageSize =
+          pageSizeBySection[section.id] ?? TABLE_PAGE_SIZE;
         const sectionCurrentPage = currentPageBySection[section.id] ?? 1;
+        const sectionSales =
+          section.id === "other"
+            ? filterOtherSectionSalesByCategory(
+                section.sales,
+                otherCategoryFilter,
+              )
+            : section.sales;
+
         return {
           ...section,
+          sales: sectionSales,
           pageSize: sectionPageSize,
           pagination: paginateItems(
-            section.sales,
+            sectionSales,
             sectionCurrentPage,
             sectionPageSize,
           ),
         };
       }),
-    [salesSections, currentPageBySection, pageSize, pageSizeBySection],
+    [
+      salesSections,
+      currentPageBySection,
+      pageSizeBySection,
+      otherCategoryFilter,
+    ],
   );
 
   const applySearch = useCallback(() => {
@@ -186,6 +207,7 @@ export default function SalesPageClient({
     setSellerFilter("");
     setDraftQuery("");
     setAppliedQuery("");
+    setOtherCategoryFilter("");
     setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, []);
 
@@ -221,7 +243,7 @@ export default function SalesPageClient({
   }, []);
 
   const hasActiveFilter = Boolean(
-    sellerFilter.trim() || appliedQuery.trim(),
+    sellerFilter.trim() || appliedQuery.trim() || otherCategoryFilter.trim(),
   );
 
   const emptyMessage =
@@ -296,6 +318,15 @@ export default function SalesPageClient({
                 handlePageSizeChange(section.id, nextPageSize)
               }
               emptyMessage={emptyMessage}
+              sectionCategoryFilter={
+                section.id === "other" && otherCategoryOptions.length > 0
+                  ? {
+                      value: otherCategoryFilter,
+                      options: otherCategoryOptions,
+                      onChange: setOtherCategoryFilter,
+                    }
+                  : undefined
+              }
             />
             <TablePagination
               currentPage={section.pagination.currentPage}

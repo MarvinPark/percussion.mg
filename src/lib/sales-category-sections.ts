@@ -12,6 +12,38 @@ export type SalesCategorySection = {
   sales: SaleWithProduct[];
 };
 
+export function isPrimarySalesSectionCategory(category: string | null | undefined) {
+  const normalized = category?.trim() ?? "";
+  return (
+    normalized === SALES_SECTION_ONLINE || normalized === SALES_SECTION_WHOLESALE
+  );
+}
+
+/** 그외 섹션에서 선택 가능한 구분 목록 */
+export function getOtherSectionCategoryOptions(
+  sales: SaleWithProduct[],
+): string[] {
+  const categories = new Set<string>();
+
+  for (const sale of sales) {
+    const category = sale.sale_category?.trim() ?? "";
+    if (!category || isPrimarySalesSectionCategory(category)) continue;
+    categories.add(category);
+  }
+
+  return [...categories].sort((a, b) => a.localeCompare(b, "ko"));
+}
+
+export function filterOtherSectionSalesByCategory(
+  sales: SaleWithProduct[],
+  categoryFilter: string,
+) {
+  const selected = categoryFilter.trim();
+  if (!selected) return sales;
+
+  return sales.filter((sale) => (sale.sale_category?.trim() ?? "") === selected);
+}
+
 export function groupSalesByCategorySection(
   sales: SaleWithProduct[],
 ): SalesCategorySection[] {

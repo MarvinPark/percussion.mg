@@ -535,6 +535,8 @@ export default function QuoteForm({
                 partnerId={partnerId}
                 onChange={setBusinessPartner}
                 onPartnerIdChange={setPartnerId}
+                openOnFocus={false}
+                minCharsToOpen={2}
                 onSelectPartner={(partner) => {
                   const fields = getPartnerCustomerFields(partner);
                   if (fields.customerName) setCustomerName(fields.customerName);

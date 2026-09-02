@@ -10,6 +10,7 @@ import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
 import SaleEditModal from "@/components/sale-edit-modal";
 import SalesBulkEditModal from "@/components/sales-bulk-edit-modal";
+import SalesSellerFilter from "@/components/sales-seller-filter";
 import TaxInvoiceIssueDialog from "@/components/tax-invoice-issue-dialog";
 import TablePageSizeSelect from "@/components/table-page-size-select";
 import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
@@ -256,6 +257,11 @@ type SalesTableProps = {
   sectionSales?: SaleWithProduct[];
   sectionCollapsed?: boolean;
   onSectionToggle?: () => void;
+  sectionCategoryFilter?: {
+    value: string;
+    options: string[];
+    onChange: (value: string) => void;
+  };
   pageSize?: TablePageSize;
   onPageSizeChange?: (value: TablePageSize) => void;
   className?: string;
@@ -276,6 +282,7 @@ export default function SalesTable({
   sectionSales,
   sectionCollapsed = false,
   onSectionToggle,
+  sectionCategoryFilter,
   pageSize,
   onPageSizeChange,
   className = "",
@@ -927,6 +934,19 @@ export default function SalesTable({
                 </span>
               ) : null}
             </button>
+
+            {sectionCategoryFilter ? (
+              <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                <span className="shrink-0">구분</span>
+                <SalesSellerFilter
+                  value={sectionCategoryFilter.value}
+                  options={sectionCategoryFilter.options}
+                  onChange={sectionCategoryFilter.onChange}
+                  showAllOption
+                  allOptionLabel="전체"
+                />
+              </label>
+            ) : null}
 
             {canManageSales ? (
               <>
