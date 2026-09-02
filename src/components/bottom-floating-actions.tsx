@@ -14,22 +14,24 @@ export default function BottomFloatingActions() {
   const registerLinkClass = `${btnPrimary} !rounded-[9999px] px-6 py-3 min-h-[3rem] text-[15px] shadow-[var(--shadow-card)] backdrop-blur-md`;
 
   return (
-    <div className="fixed bottom-5 right-4 z-50 flex items-center gap-2">
-      {showSalesRegister ? (
-        <Link href="/sales/new" className={registerLinkClass}>
-          +매출등록
-        </Link>
-      ) : null}
-      {showQuoteRegister ? (
-        <Link href="/quotes/new" className={registerLinkClass}>
-          +견적서 작성
-        </Link>
-      ) : null}
-      {showProductRegister ? (
-        <Link href="/products/new" className={registerLinkClass}>
-          +제품등록
-        </Link>
-      ) : null}
+    <div className="fixed bottom-5 right-4 z-50 flex items-center gap-2 max-md:pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="flex items-center gap-2 md:hidden">
+        {showSalesRegister ? (
+          <Link href="/sales/new" className={registerLinkClass}>
+            +매출등록
+          </Link>
+        ) : null}
+        {showQuoteRegister ? (
+          <Link href="/quotes/new" className={registerLinkClass}>
+            +견적서 작성
+          </Link>
+        ) : null}
+        {showProductRegister ? (
+          <Link href="/products/new" className={registerLinkClass}>
+            +제품등록
+          </Link>
+        ) : null}
+      </div>
       <ThemeToggleButton />
     </div>
   );

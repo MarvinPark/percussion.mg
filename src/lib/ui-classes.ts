@@ -2,6 +2,9 @@
 
 export const pageMain = "mx-auto max-w-app px-4 py-8 sm:py-10";
 
+/** 매출·견적·재고 등 모바일 FAB(+등록)가 있는 목록 페이지 */
+export const pageMainWithMobileFab = `${pageMain} max-md:pb-24`;
+
 export const pageTitle =
   "text-2xl font-bold tracking-tight text-[color:var(--text-heading)]";
 

@@ -5,7 +5,7 @@ import {
   btnPrimary,
   btnSecondary,
   cardDashed,
-  pageMain,
+  pageMainWithMobileFab,
   pageSubtitle,
   pageTitle,
 } from "@/lib/ui-classes";
@@ -82,7 +82,7 @@ export default async function QuotesPage() {
   ];
 
   return (
-      <main className={pageMain}>
+      <main className={pageMainWithMobileFab}>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className={pageTitle}>견적</h2>
