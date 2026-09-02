@@ -15,9 +15,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import ProductsPageClient from "@/components/products-page-client";
 import {
-  fetchProductListStats,
-  fetchProductsPage,
+  fetchProductsListView,
   getProductPageSizeStorageKey,
+  normalizeProductSearchQuery,
   parseProductPageSize,
   PRODUCT_PAGE_SIZE,
   readProductPageSizeCookie,
@@ -43,7 +43,9 @@ export const metadata = createPageMetadata("재고");
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const params = await searchParams;
-  const searchQuery = params.q?.trim() ?? "";
+  const normalizedSearch = normalizeProductSearchQuery(params.q ?? "");
+  const searchQuery = normalizedSearch.searchQuery;
+  const searchValidationError = normalizedSearch.error ?? null;
   const requestedPage = Math.max(1, Number(params.page) || 1);
 
   const supabase = await createClient();
@@ -65,15 +67,25 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const permissionMap = await getRolePermissionMap();
   const canManageProducts = hasPermission(role, "manageProducts", permissionMap);
 
-  const [listStats, pageData] = await Promise.all([
-    fetchProductListStats(supabase, searchQuery || undefined),
-    fetchProductsPage(supabase, {
+  let listStats = { totalCount: 0, totalStockQuantity: 0 };
+  let products: Awaited<ReturnType<typeof fetchProductsListView>>["products"] = [];
+  let pageError: string | null = searchValidationError;
+
+  if (!searchValidationError) {
+    const view = await fetchProductsListView(supabase, {
       page: requestedPage,
       pageSize,
       searchQuery,
       sort,
-    }),
-  ]);
+    });
+
+    if (view.error) {
+      pageError = view.error;
+    } else {
+      listStats = view.listStats;
+      products = view.products;
+    }
+  }
 
   const totalPages = Math.max(
     1,
@@ -81,7 +93,12 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   );
   const currentPage = Math.min(requestedPage, totalPages);
 
-  if (requestedPage !== currentPage && listStats.totalCount > 0) {
+  if (
+    !searchValidationError &&
+    !pageError &&
+    requestedPage !== currentPage &&
+    listStats.totalCount > 0
+  ) {
     const nextParams = new URLSearchParams();
     if (searchQuery) nextParams.set("q", searchQuery);
     if (currentPage > 1) nextParams.set("page", String(currentPage));
@@ -96,7 +113,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     redirect(suffix ? `/products?${suffix}` : "/products");
   }
 
-  const { products, error } = pageData;
+  const dbError = pageError && !searchValidationError ? pageError : null;
   const reservationsByProductId =
     products.length > 0
       ? await fetchProductReservationsByProductIds(
@@ -105,7 +122,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         ).catch(() => ({}))
       : {};
   const showProductListView =
-    !error && (listStats.totalCount > 0 || searchQuery.length > 0);
+    searchValidationError !== null ||
+    (!pageError && (listStats.totalCount > 0 || searchQuery.length > 0));
 
   return (
       <main className={pageMain}>
@@ -191,10 +209,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             pageSize={pageSize}
             sort={sort}
             readOnly={!canManageProducts}
+            initialLoadError={searchValidationError}
           />
         ) : null}
 
-        {error ? (
+        {dbError ? (
           <div className={alertError}>
             <p className="font-medium">제품 목록을 불러오지 못했습니다.</p>
             <p className="mt-2">

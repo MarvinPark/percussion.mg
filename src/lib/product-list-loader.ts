@@ -6,7 +6,13 @@ import {
 } from "@/lib/product-list-sort";
 import {
   buildProductSearchOrFilter,
+  normalizeProductSearchQuery,
   toPostgrestIlikePattern,
+} from "@/lib/postgrest-search-filter";
+
+export {
+  PRODUCT_SEARCH_MIN_LENGTH,
+  normalizeProductSearchQuery,
 } from "@/lib/postgrest-search-filter";
 import type { Product } from "@/types/product";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
@@ -93,6 +99,13 @@ export type ProductPageResult = {
   error: string | null;
 };
 
+export type ProductsListViewResult = {
+  products: Product[];
+  listStats: ProductListStats;
+  error: string | null;
+  searchError?: string | null;
+};
+
 export function applyProductSearchFilter<T extends { or: (filters: string) => T }>(
   query: T,
   searchQuery: string,
@@ -155,6 +168,8 @@ export async function fetchProductsPage(
     pageSize?: number;
     searchQuery?: string;
     sort?: ProductListSort;
+    /** false면 count 집계 생략 (통계 RPC와 중복 조회 방지) */
+    includeCount?: boolean;
   },
 ): Promise<ProductPageResult> {
   const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
@@ -163,10 +178,11 @@ export async function fetchProductsPage(
   const to = from + pageSize - 1;
   const searchQuery = options.searchQuery?.trim() ?? "";
   const sort = options.sort ?? DEFAULT_PRODUCT_LIST_SORT;
+  const includeCount = options.includeCount ?? true;
 
-  let builder = supabase
-    .from("products")
-    .select(PRODUCT_LIST_SELECT, { count: "exact" });
+  let builder = includeCount
+    ? supabase.from("products").select(PRODUCT_LIST_SELECT, { count: "exact" })
+    : supabase.from("products").select(PRODUCT_LIST_SELECT);
 
   if (sort.column) {
     builder = builder
@@ -189,6 +205,57 @@ export async function fetchProductsPage(
   return {
     products: (data as Product[]) ?? [],
     totalCount: count ?? 0,
+    error: null,
+  };
+}
+
+/** 통계 1회 + 목록(count 생략) 병렬 조회 */
+export async function fetchProductsListView(
+  supabase: SupabaseClient,
+  options: {
+    page: number;
+    pageSize?: number;
+    searchQuery?: string;
+    sort?: ProductListSort;
+  },
+): Promise<ProductsListViewResult> {
+  const normalized = normalizeProductSearchQuery(options.searchQuery ?? "");
+
+  if (normalized.error) {
+    return {
+      products: [],
+      listStats: { totalCount: 0, totalStockQuantity: 0 },
+      error: null,
+      searchError: normalized.error,
+    };
+  }
+
+  const searchQuery = normalized.searchQuery;
+  const page = Math.max(1, options.page);
+  const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
+
+  const [listStats, pageData] = await Promise.all([
+    fetchProductListStats(supabase, searchQuery || undefined),
+    fetchProductsPage(supabase, {
+      page,
+      pageSize,
+      searchQuery,
+      sort: options.sort,
+      includeCount: false,
+    }),
+  ]);
+
+  if (pageData.error) {
+    return {
+      products: [],
+      listStats: { totalCount: 0, totalStockQuantity: 0 },
+      error: pageData.error,
+    };
+  }
+
+  return {
+    products: pageData.products,
+    listStats,
     error: null,
   };
 }
@@ -277,7 +344,9 @@ export async function searchProductsForDropdown(
   searchQuery: string,
   limit = 40,
 ): Promise<Product[]> {
-  const query = searchQuery.trim();
+  const normalized = normalizeProductSearchQuery(searchQuery);
+  if (normalized.error) return [];
+  const query = normalized.searchQuery;
   if (!query) return [];
 
   let builder = supabase
@@ -297,7 +366,9 @@ export async function searchSaleProductsForDropdown(
   searchQuery: string,
   limit = 40,
 ) {
-  const query = searchQuery.trim();
+  const normalized = normalizeProductSearchQuery(searchQuery);
+  if (normalized.error) return [];
+  const query = normalized.searchQuery;
   if (!query) return [];
 
   let builder = supabase

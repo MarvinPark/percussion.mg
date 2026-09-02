@@ -2,13 +2,13 @@
 
 import { getCurrentUserProfile, getModifierInfo, requirePermission } from "@/lib/profile";
 import {
-  fetchProductListStats,
-  fetchProductsPage,
+  fetchProductsListView,
   PRODUCT_PAGE_SIZE,
   searchProductsForDropdown,
   searchSaleProductsForDropdown,
 } from "@/lib/product-list-loader";
 import type { ProductListSort } from "@/lib/product-list-sort";
+import { normalizeProductSearchQuery } from "@/lib/postgrest-search-filter";
 import { createInlineProduct } from "@/lib/inline-product-create";
 import { toSaleProductOption } from "@/lib/inline-product-create-shared";
 import {
@@ -1573,47 +1573,46 @@ export async function loadProductsListView(input: {
     return { error: "로그인이 필요합니다." as const };
   }
 
-  const searchQuery = input.searchQuery?.trim() ?? "";
+  const normalized = normalizeProductSearchQuery(input.searchQuery ?? "");
   const requestedPage = Math.max(1, input.page);
   const pageSize = input.pageSize ?? PRODUCT_PAGE_SIZE;
 
-  const [listStats, pageData] = await Promise.all([
-    fetchProductListStats(supabase, searchQuery || undefined),
-    fetchProductsPage(supabase, {
-      page: requestedPage,
-      pageSize,
-      searchQuery,
-      sort: input.sort,
-    }),
-  ]);
+  const view = await fetchProductsListView(supabase, {
+    page: requestedPage,
+    pageSize,
+    searchQuery: normalized.searchQuery,
+    sort: input.sort,
+  });
 
-  if (pageData.error) {
-    return { error: pageData.error };
+  if (view.searchError) {
+    return { error: view.searchError };
   }
 
+  if (view.error) {
+    return { error: view.error };
+  }
+
+  const { listStats } = view;
   const totalPages = Math.max(
     1,
     Math.ceil(listStats.totalCount / pageSize),
   );
   const currentPage = Math.min(requestedPage, totalPages);
   const reservationsByProductId =
-    pageData.products.length > 0
+    view.products.length > 0
       ? await fetchProductReservationsByProductIds(
           supabase,
-          pageData.products.map((product) => product.id),
+          view.products.map((product) => product.id),
         ).catch(() => ({} as ProductReservationsByProductId))
       : {};
 
   return {
-    products: pageData.products,
+    products: view.products,
     reservationsByProductId,
-    listStats: {
-      totalCount: pageData.totalCount,
-      totalStockQuantity: listStats.totalStockQuantity,
-    },
+    listStats,
     currentPage,
     totalPages,
-    searchQuery,
+    searchQuery: normalized.searchQuery,
     pageSize,
     error: null,
   };

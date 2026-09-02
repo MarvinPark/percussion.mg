@@ -12,6 +12,7 @@ import type {
 import {
   PRODUCT_PAGE_SIZE,
   PRODUCT_PAGE_SIZE_OPTIONS,
+  PRODUCT_SEARCH_MIN_LENGTH,
   saveProductPageSize,
 } from "@/lib/product-list-loader";
 import {
@@ -68,6 +69,7 @@ type ProductsPageClientProps = {
   pageSize: ProductPageSize;
   sort: ProductListSort;
   readOnly?: boolean;
+  initialLoadError?: string | null;
 };
 
 export default function ProductsPageClient({
@@ -81,6 +83,7 @@ export default function ProductsPageClient({
   pageSize: initialPageSize,
   sort: initialSort,
   readOnly = false,
+  initialLoadError = null,
 }: ProductsPageClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const loadRequestRef = useRef(0);
@@ -99,7 +102,7 @@ export default function ProductsPageClient({
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(initialLoadError);
   const hasAppliedSavedPageSize = useRef(false);
 
   const isSearchActive = searchQuery.length > 0;
@@ -211,6 +214,11 @@ export default function ProductsPageClient({
   ]);
 
   const applySearch = useCallback(() => {
+    const trimmed = draftQuery.trim();
+    if (trimmed.length > 0 && trimmed.length < PRODUCT_SEARCH_MIN_LENGTH) {
+      setLoadError(`검색어는 ${PRODUCT_SEARCH_MIN_LENGTH}자 이상 입력해 주세요.`);
+      return;
+    }
     loadView(1, draftQuery, pageSize, sort);
   }, [draftQuery, loadView, pageSize, sort]);
 

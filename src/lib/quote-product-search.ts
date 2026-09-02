@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { applyProductSearchFilter } from "@/lib/product-list-loader";
+import {
+  applyProductSearchFilter,
+  normalizeProductSearchQuery,
+} from "@/lib/product-list-loader";
 import type { QuoteProductOption } from "@/types/quote";
 
 export const QUOTE_PRODUCT_SELECT =
@@ -10,7 +13,9 @@ export async function searchQuoteProducts(
   searchQuery: string,
   limit = 20,
 ): Promise<QuoteProductOption[]> {
-  const query = searchQuery.trim();
+  const normalized = normalizeProductSearchQuery(searchQuery);
+  if (normalized.error) return [];
+  const query = normalized.searchQuery;
   if (!query) return [];
 
   let builder = supabase
