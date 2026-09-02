@@ -48,6 +48,10 @@ export function toSaleProductOption(
     sale_price: product.sale_price,
     purchase_price: product.purchase_price,
     stock_quantity: product.stock_quantity,
+    stock_floor3: 0,
+    stock_b1: 0,
+    stock_display: 0,
+    reserved_quantity: 0,
   };
 }
 
@@ -67,5 +71,10 @@ export function toQuoteProductOption(
     size: product.size,
     sale_price: product.sale_price,
     purchase_price: product.purchase_price,
+    stock_quantity: product.stock_quantity,
+    stock_floor3: 0,
+    stock_b1: 0,
+    stock_display: 0,
+    reserved_quantity: 0,
   };
 }

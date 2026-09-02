@@ -6,7 +6,7 @@ import {
 import type { QuoteProductOption } from "@/types/quote";
 
 export const QUOTE_PRODUCT_SELECT =
-  "id, product_name, model_name, sku, supplier, category, brand, color, product_option, size, sale_price, purchase_price";
+  "id, product_name, model_name, sku, supplier, category, brand, color, product_option, size, sale_price, purchase_price, stock_quantity, stock_floor3, stock_b1, stock_display, reserved_quantity";
 
 export async function searchQuoteProducts(
   supabase: SupabaseClient,

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { searchProductsForSaleDropdown } from "@/app/(main)/products/actions";
 import ProductSearchResultRow from "@/components/product-search-result-row";
+import { formatProductStockSummaryText } from "@/lib/product-stock-display";
 import type { SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -368,7 +369,7 @@ export default function ProductSearchSelect({
                 {selectedProduct.product_name} / {selectedProduct.model_name}
               </>
             )}{" "}
-            · 재고 {selectedProduct.stock_quantity}개
+            · {formatProductStockSummaryText(selectedProduct)}
           </p>
         ) : (
           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">

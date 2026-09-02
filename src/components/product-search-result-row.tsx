@@ -1,6 +1,11 @@
 "use client";
 
 import { formatKRW } from "@/lib/sales-calculator";
+import {
+  availableProductStock,
+  hasProductStockSummaryData,
+  type ProductStockFields,
+} from "@/lib/product-stock-display";
 
 export type ProductSearchResultItem = {
   supplier?: string | null;
@@ -11,10 +16,54 @@ export type ProductSearchResultItem = {
   sku?: string | null;
   sale_price?: number;
   purchase_price?: number;
-};
+} & ProductStockFields;
 
 function displayText(value: string | null | undefined) {
   return value?.trim() ? value : "-";
+}
+
+function ProductSearchStockSummary({ product }: { product: ProductStockFields }) {
+  if (!hasProductStockSummaryData(product)) return null;
+
+  const floor3 = Number(product.stock_floor3) || 0;
+  const b1 = Number(product.stock_b1) || 0;
+  const uiwang = Number(product.stock_display) || 0;
+  const reserved = Number(product.reserved_quantity) || 0;
+  const available = availableProductStock(product);
+
+  const itemClass =
+    "inline-flex items-center gap-0.5 rounded bg-zinc-100/90 px-1.5 py-0.5 dark:bg-zinc-800/80";
+  const labelClass = "text-zinc-500 dark:text-zinc-400";
+  const valueClass = "font-semibold text-zinc-800 dark:text-zinc-100";
+
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] leading-none tabular-nums">
+      <span className={itemClass}>
+        <span className={labelClass}>3층</span>
+        <span className={valueClass}>{floor3}</span>
+      </span>
+      <span className={itemClass}>
+        <span className={labelClass}>B1</span>
+        <span className={valueClass}>{b1}</span>
+      </span>
+      <span className={itemClass}>
+        <span className={labelClass}>의왕</span>
+        <span className={valueClass}>{uiwang}</span>
+      </span>
+      <span className={`${itemClass} bg-lime-100/80 dark:bg-lime-950/35`}>
+        <span className="text-lime-700 dark:text-lime-400">예약</span>
+        <span className="font-semibold text-lime-800 dark:text-lime-300">
+          {reserved}
+        </span>
+      </span>
+      <span className={`${itemClass} bg-green-100/80 dark:bg-green-950/35`}>
+        <span className="text-green-700 dark:text-green-400">가용</span>
+        <span className="font-semibold text-green-800 dark:text-green-300">
+          {available}
+        </span>
+      </span>
+    </div>
+  );
 }
 
 type ProductSearchResultRowProps = {
@@ -105,6 +154,7 @@ export default function ProductSearchResultRow({
               </span>
             </span>
           </div>
+          <ProductSearchStockSummary product={product} />
         </button>
       </li>
     );
@@ -161,6 +211,7 @@ export default function ProductSearchResultRow({
             </span>
           </span>
         </div>
+        <ProductSearchStockSummary product={product} />
       </button>
     </li>
   );

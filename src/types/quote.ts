@@ -80,6 +80,11 @@ export type QuoteProductOption = {
   size: string | null;
   sale_price: number;
   purchase_price: number;
+  stock_quantity?: number;
+  stock_floor3?: number;
+  stock_b1?: number;
+  stock_display?: number;
+  reserved_quantity?: number;
 };
 
 export const QUOTE_MAX_ITEMS = 50;
