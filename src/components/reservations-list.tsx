@@ -6,7 +6,7 @@ import {
   filterQuoteReservations,
   type QuoteReservationRow,
 } from "@/lib/quote-reservation-list";
-import { cardDashed } from "@/lib/ui-classes";
+import { cardDashed, reservationLabel, reservationRowBg } from "@/lib/ui-classes";
 
 type ReservationsListProps = {
   rows: QuoteReservationRow[];
@@ -77,7 +77,7 @@ export default function ReservationsList({ rows }: ReservationsListProps) {
                 filteredRows.map((row) => (
                   <tr
                     key={row.id}
-                    className={`${rowClass} hover:bg-emerald-50/40 dark:hover:bg-emerald-950/10`}
+                    className={`${rowClass} ${reservationRowBg}`}
                   >
                     <td className="px-3 py-2.5 whitespace-nowrap text-zinc-700 dark:text-zinc-300">
                       {row.quoteDate}
@@ -97,7 +97,7 @@ export default function ReservationsList({ rows }: ReservationsListProps) {
                     <td className="px-3 py-2.5 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                       {row.sku}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                    <td className={`px-3 py-2.5 text-right font-semibold tabular-nums ${reservationLabel}`}>
                       {row.quantity}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-zinc-500 dark:text-zinc-400">

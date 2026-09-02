@@ -58,3 +58,38 @@ export const sectionAccent =
 
 export const sectionMuted =
   "rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-700 dark:bg-zinc-900/80";
+
+/** 예약 상태 — 행·패널 (연두, 견적 예약 버튼과 동일) */
+export const reservationRowBg =
+  "bg-lime-50/40 hover:bg-lime-50/60 dark:bg-lime-950/15 dark:hover:bg-lime-950/25";
+
+export const reservationRowStickyBg =
+  "max-md:bg-lime-50/40 dark:max-md:bg-lime-950/15";
+
+export const reservationPanel =
+  "rounded-lg border border-lime-200 bg-lime-50/40 px-3 py-2 dark:border-lime-800/70 dark:bg-lime-950/20";
+
+export const reservationLabel =
+  "text-lime-800 dark:text-lime-300";
+
+export const reservationQtyText =
+  "text-lime-700 underline decoration-lime-300 decoration-dotted underline-offset-2 dark:text-lime-300 dark:decoration-lime-700";
+
+export const reservationTooltipShell =
+  "pointer-events-none absolute bottom-full left-0 z-50 mb-1 hidden min-w-[12rem] max-w-xs rounded-lg border border-lime-200 bg-white px-2.5 py-2 text-left shadow-lg group-hover/reservation:block dark:border-lime-800 dark:bg-zinc-900";
+
+export const reservationTooltipBody =
+  "space-y-0.5 text-[11px] leading-snug text-lime-900 dark:text-lime-200";
+
+export const reservationEntryChip =
+  "truncate rounded bg-lime-100/70 px-1 dark:bg-lime-950/35";
+
+/** 매출취소 등 경고 액션 (주황) */
+export const btnSalesCancel =
+  "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900";
+
+/** 마진·이익 숫자 (초록) */
+export const marginText =
+  "text-green-700 dark:text-green-300";
+
+export const marginTextLg = "font-bold text-green-700 dark:text-green-300";

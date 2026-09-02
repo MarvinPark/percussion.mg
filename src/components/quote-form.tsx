@@ -1,6 +1,6 @@
 "use client";
 
-import { btnPrimary, sectionAccent, sectionMuted } from "@/lib/ui-classes";
+import { btnPrimary, marginTextLg, marginText, sectionAccent, sectionMuted } from "@/lib/ui-classes";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
@@ -633,19 +633,19 @@ export default function QuoteForm({
             </p>
           </div>
           <div>
-            <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
+            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
               카드결제 +4%
             </p>
-            <p className="mt-1 text-xl font-bold text-orange-700 dark:text-orange-300">
+            <p className="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100">
               {formatKRW(totals.cardAmount)}원
             </p>
             {paymentFeeMargin && selectedPaymentMethod ? (
-              <div className="mt-3 border-t border-orange-200 pt-3 dark:border-orange-800">
-                <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+              <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                <p className={`text-sm font-semibold ${marginText}`}>
                   최종마진 ({selectedPaymentMethod.name}{" "}
                   {selectedPaymentMethod.fee_rate}% 수수료 반영)
                 </p>
-                <p className="mt-1 text-xl font-bold text-blue-700 dark:text-blue-300">
+                <p className={`mt-1 text-xl ${marginTextLg}`}>
                   {formatKRW(paymentFeeMargin.finalMargin)}원
                 </p>
               </div>

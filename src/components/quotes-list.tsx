@@ -21,6 +21,7 @@ import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
 import type { TablePageSize } from "@/lib/table-page-size";
 import type { PaymentMethod } from "@/types/sale";
+import { btnSalesCancel } from "@/lib/ui-classes";
 
 const QuoteDocumentPreview = dynamic(
   () => import("@/components/quote-document-preview"),
@@ -526,7 +527,7 @@ export default function QuotesList({
                   setActionError(null);
                   setCancellingQuote(quote);
                 }}
-                className={`${actionButtonClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900`}
+                className={`${actionButtonClass} ${btnSalesCancel}`}
               >
                 매출취소
               </button>

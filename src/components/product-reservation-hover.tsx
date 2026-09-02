@@ -1,6 +1,12 @@
 "use client";
 
 import type { ProductReservationEntry } from "@/lib/product-reservations";
+import {
+  reservationLabel,
+  reservationQtyText,
+  reservationTooltipBody,
+  reservationTooltipShell,
+} from "@/lib/ui-classes";
 
 type ProductReservationHoverProps = {
   quantity: number;
@@ -27,7 +33,7 @@ export default function ProductReservationHover({
       <span
         className={`tabular-nums font-medium ${
           quantity > 0
-            ? "cursor-help text-orange-700 underline decoration-orange-300 decoration-dotted underline-offset-2 dark:text-orange-300 dark:decoration-orange-700"
+            ? `cursor-help ${reservationQtyText}`
             : "text-zinc-700 dark:text-zinc-300"
         }`}
       >
@@ -35,14 +41,11 @@ export default function ProductReservationHover({
       </span>
 
       {hasEntries ? (
-        <div
-          role="tooltip"
-          className="pointer-events-none absolute bottom-full left-0 z-50 mb-1 hidden min-w-[12rem] max-w-xs rounded-lg border border-orange-200 bg-white px-2.5 py-2 text-left shadow-lg group-hover/reservation:block dark:border-orange-800 dark:bg-zinc-900"
-        >
-          <p className="mb-1 text-[10px] font-semibold text-orange-800 dark:text-orange-300">
+        <div role="tooltip" className={reservationTooltipShell}>
+          <p className={`mb-1 text-[10px] font-semibold ${reservationLabel}`}>
             견적 예약
           </p>
-          <ul className="space-y-0.5 text-[11px] leading-snug text-orange-900 dark:text-orange-200">
+          <ul className={reservationTooltipBody}>
             {entries.map((entry) => (
               <li key={`${entry.quoteId}-${entry.quantity}`}>
                 {formatEntryLabel(entry)}

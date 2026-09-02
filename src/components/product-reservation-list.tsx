@@ -1,4 +1,5 @@
 import type { ProductReservationEntry } from "@/lib/product-reservations";
+import { reservationEntryChip, reservationLabel } from "@/lib/ui-classes";
 
 type ProductReservationListProps = {
   entries: ProductReservationEntry[];
@@ -27,15 +28,15 @@ export default function ProductReservationList({
   }
 
   const textClass = compact
-    ? "text-[10px] leading-tight text-orange-800 dark:text-orange-300"
-    : "text-xs leading-snug text-orange-800 dark:text-orange-300";
+    ? `text-[10px] leading-tight ${reservationLabel}`
+    : `text-xs leading-snug ${reservationLabel}`;
 
   return (
     <ul className={`space-y-0.5 ${textClass} ${className}`}>
       {entries.map((entry) => (
         <li
           key={`${entry.quoteId}-${entry.quantity}`}
-          className="truncate rounded bg-orange-100/70 px-1 dark:bg-orange-950/35"
+          className={reservationEntryChip}
           title={formatEntryLabel(entry)}
         >
           {formatEntryLabel(entry)}

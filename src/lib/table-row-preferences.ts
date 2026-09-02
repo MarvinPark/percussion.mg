@@ -53,6 +53,11 @@ export function getTableHeaderPaddingClass(fontSize: number) {
   return "py-2";
 }
 
+/** 컬럼 헤더는 본문보다 2px 작게 (좁은 열 라벨 잘림 방지) */
+export function getTableHeaderFontSize(rowFontSize: number) {
+  return clampTableRowFontSize(rowFontSize - 2);
+}
+
 /** 거래처 목록 행 높이 (매출 대비 약 1.5배) */
 export function getPartnersTableRowPaddingClass(fontSize: number) {
   if (fontSize <= 10) return "py-1.5";

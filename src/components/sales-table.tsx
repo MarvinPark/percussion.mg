@@ -639,7 +639,7 @@ export default function SalesTable({
         );
       case "fee":
         return (
-          <td className={`${cellClass} text-orange-700 dark:text-orange-300`}>
+          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
             -{formatKRW(getDisplayFee(displaySale))}원
           </td>
         );

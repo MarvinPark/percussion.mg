@@ -10,6 +10,7 @@ import SalesSellerFilter from "@/components/sales-seller-filter";
 import { resolveQuoteConvertPricing } from "@/lib/quote-card-pricing";
 import { parseFulfillmentLocation, defaultQuoteConvertPurchaseQuantity } from "@/lib/quote-fulfillment";
 import { formatKRW } from "@/lib/sales-calculator";
+import { marginText } from "@/lib/ui-classes";
 
 export type QuoteConvertLineItem = {
   id: string;
@@ -274,7 +275,7 @@ export default function QuoteConvertDialog({
               <dt className="text-zinc-600 dark:text-zinc-400">
                 차액 (마지막 제품 반영)
               </dt>
-              <dd className="font-semibold text-orange-700 dark:text-orange-300">
+              <dd className="font-semibold text-zinc-700 dark:text-zinc-300">
                 {pricingPreview.delta > 0 ? "+" : ""}
                 {formatKRW(pricingPreview.delta)}원
               </dd>
@@ -295,7 +296,7 @@ export default function QuoteConvertDialog({
               <dt className="text-zinc-600 dark:text-zinc-400">
                 수수료 차익 (+{cardFeePercent}% − {formatFeeRate(actualFeeRate)}%)
               </dt>
-              <dd className="font-semibold text-emerald-700 dark:text-emerald-300">
+              <dd className={`font-semibold ${marginText}`}>
                 +{formatKRW(feePreview.feeSpreadAmount)}원
               </dd>
             </div>

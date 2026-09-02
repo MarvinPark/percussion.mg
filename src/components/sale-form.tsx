@@ -1072,7 +1072,7 @@ export default function SaleForm({
           </div>
           <div>
             <dt className="text-zinc-600 dark:text-zinc-400">결제 수수료</dt>
-            <dd className="font-bold text-orange-700 dark:text-orange-300">
+            <dd className="font-bold text-zinc-700 dark:text-zinc-300">
               -{formatKRW(totals.paymentFeeAmount)}원
             </dd>
           </div>

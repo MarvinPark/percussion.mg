@@ -45,6 +45,10 @@ import {
   alertAccentInline,
   btnPrimarySm,
   btnSecondarySm,
+  reservationPanel,
+  reservationLabel,
+  reservationRowBg,
+  reservationRowStickyBg,
 } from "@/lib/ui-classes";
 import type { Product } from "@/types/product";
 import { formatKRW } from "@/lib/sales-calculator";
@@ -232,8 +236,8 @@ function ProductDetailModal({
         </dl>
 
         {reservationEntries.length > 0 ? (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/40 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/20">
-            <p className="mb-1 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+          <div className={`mt-4 ${reservationPanel}`}>
+            <p className={`mb-1 text-xs font-semibold ${reservationLabel}`}>
               예약 견적
             </p>
             <ProductReservationList entries={reservationEntries} />
@@ -606,7 +610,7 @@ export default function ProductsList({
     }
 
     if (hasReservation) {
-      return `${base} bg-orange-50/40 hover:bg-orange-50/60 dark:bg-orange-950/15 dark:hover:bg-orange-950/25 ${highlight}`;
+      return `${base} ${reservationRowBg} ${highlight}`;
     }
 
     return `${base} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${highlight}`;
@@ -624,7 +628,7 @@ export default function ProductsList({
       return "max-md:bg-red-50/80 dark:max-md:bg-red-950/25";
     }
     if (hasReservation) {
-      return "max-md:bg-orange-50/40 dark:max-md:bg-orange-950/15";
+      return reservationRowStickyBg;
     }
     return "max-md:bg-white dark:max-md:bg-zinc-900";
   }

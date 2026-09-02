@@ -35,6 +35,7 @@ import {
 } from "@/lib/key-stock-table-columns";
 import {
   DEFAULT_TABLE_ROW_FONT_SIZE,
+  getTableHeaderFontSize,
   getTableHeaderPaddingClass,
   getTableRowPaddingClass,
   loadTableRowFontSize,
@@ -345,6 +346,7 @@ export default function KeyStockWorkspace({
     KEY_STOCK_TABLE_COLUMNS,
   );
 
+  const headerFontSize = getTableHeaderFontSize(rowFontSize);
   const headerClass = `overflow-hidden text-ellipsis whitespace-nowrap px-2 ${getTableHeaderPaddingClass(rowFontSize)} font-semibold text-zinc-600 dark:text-zinc-400`;
   const cellClass = `overflow-hidden text-ellipsis whitespace-nowrap px-2 ${getTableRowPaddingClass(rowFontSize)} text-zinc-800 dark:text-zinc-200`;
   const sectionWidthPx = getKeyStockSectionWidth(orderedColumns);
@@ -576,7 +578,10 @@ export default function KeyStockWorkspace({
                     </Fragment>
                   ))}
                 </tr>
-                <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
+                <tr
+                  className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80"
+                  style={{ fontSize: `${headerFontSize}px` }}
+                >
                   {Array.from({ length: sectionCount }, (_, sectionIndex) => (
                     <Fragment key={`header-section-${sectionIndex}`}>
                       {sectionIndex > 0 ? (
