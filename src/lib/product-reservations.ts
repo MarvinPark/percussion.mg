@@ -13,6 +13,13 @@ export type ProductReservationsByProductId = Record<
   ProductReservationEntry[]
 >;
 
+/** 예약 말풍선·목록 공통: `1 : 전인철 / 이장원` */
+export function formatProductReservationLine(entry: ProductReservationEntry): string {
+  const manager = entry.managerName?.trim() || "-";
+  const customer = entry.customerName?.trim() || "고객 미입력";
+  return `${entry.quantity} : ${manager} / ${customer}`;
+}
+
 function formatQuoteDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
     month: "2-digit",

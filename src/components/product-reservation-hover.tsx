@@ -1,25 +1,16 @@
 "use client";
 
-import type { ProductReservationEntry } from "@/lib/product-reservations";
 import {
-  reservationLabel,
-  reservationQtyText,
-  reservationTooltipBody,
-  reservationTooltipShell,
-} from "@/lib/ui-classes";
+  formatProductReservationLine,
+  type ProductReservationEntry,
+} from "@/lib/product-reservations";
+import { reservationQtyText, reservationTooltipBody, reservationTooltipShell } from "@/lib/ui-classes";
 
 type ProductReservationHoverProps = {
   quantity: number;
   entries: ProductReservationEntry[];
   className?: string;
 };
-
-function formatEntryLabel(entry: ProductReservationEntry) {
-  const who = entry.managerName
-    ? `${entry.customerName} (${entry.managerName})`
-    : entry.customerName;
-  return `${who} · ${entry.quoteDate} · ${entry.quantity}개`;
-}
 
 export default function ProductReservationHover({
   quantity,
@@ -42,13 +33,10 @@ export default function ProductReservationHover({
 
       {hasEntries ? (
         <div role="tooltip" className={reservationTooltipShell}>
-          <p className={`mb-1 text-[10px] font-semibold ${reservationLabel}`}>
-            견적 예약
-          </p>
           <ul className={reservationTooltipBody}>
-            {entries.map((entry) => (
-              <li key={`${entry.quoteId}-${entry.quantity}`}>
-                {formatEntryLabel(entry)}
+            {entries.map((entry, index) => (
+              <li key={`${entry.quoteId}-${entry.quantity}-${index}`}>
+                {formatProductReservationLine(entry)}
               </li>
             ))}
           </ul>

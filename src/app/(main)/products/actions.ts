@@ -1368,12 +1368,6 @@ export async function duplicateProducts(
       return { error: resolved.error };
     }
 
-    const stock_floor3 = Number(product.stock_floor3) || 0;
-    const stock_b1 = Number(product.stock_b1) || 0;
-    const stock_display = Number(product.stock_display) || 0;
-    const stock_quantity =
-      Number(product.stock_quantity) || stock_floor3 + stock_b1 + stock_display;
-
     const { data, error: dbError } = await supabase
       .from("products")
       .insert({
@@ -1388,13 +1382,13 @@ export async function duplicateProducts(
         size: product.size || null,
         purchase_price: Number(product.purchase_price) || 0,
         sale_price: Number(product.sale_price) || 0,
-        stock_quantity,
+        stock_quantity: 0,
         min_stock_quantity: Number(product.min_stock_quantity) || 0,
         is_key_stock: product.is_key_stock ?? false,
         stock_location: product.stock_location ?? "3층",
-        stock_floor3,
-        stock_b1,
-        stock_display,
+        stock_floor3: 0,
+        stock_b1: 0,
+        stock_display: 0,
         reserved_quantity: 0,
         keywords: product.keywords || null,
       })
