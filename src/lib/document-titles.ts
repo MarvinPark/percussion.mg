@@ -19,7 +19,7 @@ const EXACT_PAGE_TITLES: Record<string, string> = {
   "/products/reservations": "예약목록",
   "/products/history": "변동이력",
   "/products/key-stock": "주요재고",
-  "/settings/users": "관리자",
+  "/settings/users": "설정",
   "/my-page": "마이페이지",
   "/login": "로그인",
   "/signup": "회원가입",

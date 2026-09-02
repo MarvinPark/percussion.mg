@@ -16,7 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/profile";
 import { redirect } from "next/navigation";
 
-export const metadata = createPageMetadata("관리자");
+export const metadata = createPageMetadata("설정");
 
 const sectionClass =
   "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900";
@@ -53,7 +53,7 @@ export default async function AdminSettingsPage() {
   return (
     <main className="mx-auto max-w-app px-4 py-8 pb-24">
       <h2 className="mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-        관리자
+        설정
       </h2>
       <p className="mb-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         사용자, 역할별 접근 권한, 결제 수단, 견적 구분을 관리합니다.

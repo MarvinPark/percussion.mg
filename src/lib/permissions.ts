@@ -73,6 +73,13 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   employee: "직원",
 };
 
+/** 상단 네비 역할 뱃지 — 설정 메뉴「관리자」와 구분 */
+export const ROLE_BADGE_LABELS: Record<UserRole, string> = {
+  admin: "관리자 권한",
+  manager: "매니저 권한",
+  employee: "직원 권한",
+};
+
 export type RolePermissionMap = Record<UserRole, Permission[]>;
 
 export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMap = {
@@ -198,7 +205,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
     permission: "viewProducts",
   },
   { href: "/partners", label: "거래처", permission: "viewPartners" },
-  { href: "/settings/users", label: "관리자", permission: "manageUsers" },
+  { href: "/settings/users", label: "설정", permission: "manageUsers" },
   { href: "/my-page", label: "마이페이지" },
 ];
 

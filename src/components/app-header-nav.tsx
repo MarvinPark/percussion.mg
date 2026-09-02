@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/login/actions";
-import { ROLE_LABELS } from "@/lib/permissions";
+import { ROLE_BADGE_LABELS } from "@/lib/permissions";
 import type { NavItem } from "@/lib/permissions";
 import type { UserRole } from "@/types/profile";
 
@@ -78,7 +78,7 @@ export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
           ))}
         </nav>
         <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
-          {ROLE_LABELS[role]}
+          {ROLE_BADGE_LABELS[role]}
         </span>
         <form action={logout}>
           <button
@@ -92,7 +92,7 @@ export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
 
       <div className="flex items-center gap-2 md:hidden">
         <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
-          {ROLE_LABELS[role]}
+          {ROLE_BADGE_LABELS[role]}
         </span>
         <button
           type="button"
