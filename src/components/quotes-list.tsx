@@ -19,6 +19,7 @@ import { buildQuoteOrderCopyText } from "@/lib/quote-order-copy";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { formatKRW } from "@/lib/sales-calculator";
+import { formatQuoteListMemoPreview, stripManagerHonorific } from "@/lib/quote-list-display";
 import type { TablePageSize } from "@/lib/table-page-size";
 import type { PaymentMethod } from "@/types/sale";
 import { btnSalesCancel } from "@/lib/ui-classes";
@@ -454,32 +455,50 @@ export default function QuotesList({
                 }`}
                 style={{ fontSize: `${rowFontSize}px` }}
               >
-                {quote.manager_name ? (
-                  <>
-                    <span
-                      className={
-                        isConverted
-                          ? "font-medium text-zinc-500 dark:text-zinc-400"
-                          : "font-medium text-black dark:text-zinc-100"
-                      }
-                    >
-                      {quote.manager_name}
-                    </span>
-                    <span className="mx-1.5 font-normal text-zinc-400 dark:text-zinc-500">
-                      ·
-                    </span>
-                  </>
-                ) : null}
-                {quote.customer_name}
-                <span
-                  className={`ml-2 font-bold ${
-                    isConverted
-                      ? "text-zinc-500 dark:text-zinc-400"
-                      : "text-zinc-800 dark:text-zinc-200"
-                  }`}
-                >
-                  {formatKRW(quote.total_amount)}원
-                </span>
+                {(() => {
+                  const segments: string[] = [];
+                  const managerShort = stripManagerHonorific(quote.manager_name);
+                  if (managerShort) segments.push(managerShort);
+                  if (quote.customer_name?.trim()) {
+                    segments.push(quote.customer_name.trim());
+                  }
+                  const memoPreview = formatQuoteListMemoPreview(quote.memo);
+                  if (memoPreview) segments.push(memoPreview);
+
+                  return (
+                    <>
+                      {segments.map((segment, index) => (
+                        <span key={`${quote.id}-segment-${index}`}>
+                          {index > 0 ? (
+                            <span className="mx-1.5 font-normal text-zinc-400 dark:text-zinc-500">
+                              ·
+                            </span>
+                          ) : null}
+                          <span
+                            className={
+                              index === 0 && managerShort
+                                ? isConverted
+                                  ? "font-medium text-zinc-500 dark:text-zinc-400"
+                                  : "font-medium text-black dark:text-zinc-100"
+                                : undefined
+                            }
+                          >
+                            {segment}
+                          </span>
+                        </span>
+                      ))}
+                      <span
+                        className={`ml-2 font-bold ${
+                          isConverted
+                            ? "text-zinc-500 dark:text-zinc-400"
+                            : "text-zinc-800 dark:text-zinc-200"
+                        }`}
+                      >
+                        {formatKRW(quote.total_amount)}원
+                      </span>
+                    </>
+                  );
+                })()}
               </p>
               <p
                 className="truncate text-zinc-500 dark:text-zinc-400"

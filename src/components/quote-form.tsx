@@ -1,6 +1,6 @@
 "use client";
 
-import { btnPrimary, marginTextLg, marginText, sectionAccent, sectionMuted } from "@/lib/ui-classes";
+import { btnPrimary, btnSecondary, marginTextLg, marginText, sectionAccent, sectionMuted } from "@/lib/ui-classes";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
@@ -212,6 +212,8 @@ export default function QuoteForm({
   );
   const modelInputRef = useRef<ModelNameAutocompleteHandle>(null);
   const submitFormRef = useRef<HTMLFormElement>(null);
+  const saveModeRef = useRef<"update" | "create">("update");
+  const lastSaveModeRef = useRef<"update" | "create">("update");
   const skipReserveConfirmRef = useRef(false);
   const [reserveEditConfirmOpen, setReserveEditConfirmOpen] = useState(false);
 
@@ -242,13 +244,16 @@ export default function QuoteForm({
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
-      if (isEditing) {
+      if (isEditing && saveModeRef.current === "update") {
         const result = await updateQuote(formData);
         if (result?.success) {
+          lastSaveModeRef.current = "update";
           onSaved?.();
         }
         return result ?? null;
       }
+
+      lastSaveModeRef.current = "create";
       return (await createQuote(formData)) ?? null;
     },
     null,
@@ -823,7 +828,9 @@ export default function QuoteForm({
       ) : null}
       {state && "success" in state && state.success ? (
         <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
-          견적이 수정되었습니다.
+          {lastSaveModeRef.current === "create"
+            ? "새 견적이 저장되었습니다."
+            : "견적이 수정되었습니다."}
         </p>
       ) : null}
 
@@ -831,9 +838,10 @@ export default function QuoteForm({
         <form
           ref={submitFormRef}
           action={formAction}
-          className="inline"
+          className="flex flex-wrap gap-3"
           onSubmit={(event) => {
             if (
+              saveModeRef.current === "update" &&
               isEditing &&
               initialQuote?.is_reserved &&
               isDirty &&
@@ -869,14 +877,33 @@ export default function QuoteForm({
             disabled={
               isPending || items.length === 0 || livePaymentMethods.length === 0
             }
+            onClick={() => {
+              saveModeRef.current = "update";
+            }}
             className={`${btnPrimary} px-4 py-2.5`}
           >
-            {isPending
+            {isPending && saveModeRef.current === "update"
               ? "저장 중..."
               : isEditing
                 ? "견적 수정"
                 : "견적 저장"}
           </button>
+          {isEditing ? (
+            <button
+              type="submit"
+              disabled={
+                isPending || items.length === 0 || livePaymentMethods.length === 0
+              }
+              onClick={() => {
+                saveModeRef.current = "create";
+              }}
+              className={`${btnSecondary} px-4 py-2.5`}
+            >
+              {isPending && saveModeRef.current === "create"
+                ? "저장 중..."
+                : "새로 저장"}
+            </button>
+          ) : null}
         </form>
       </div>
 
