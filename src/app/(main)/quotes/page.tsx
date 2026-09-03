@@ -13,6 +13,7 @@ import QuotesPageClient from "@/components/quotes-page-client";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
+import { fetchQuoteFavoriteIds } from "@/lib/quote-favorites";
 import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +35,7 @@ export default async function QuotesPage() {
     { data: salesContacts },
     { data: staffProfiles },
     { names: saleCategories },
+    initialFavoriteQuoteIds,
   ] = await Promise.all([
     supabase
       .from("quotes")
@@ -60,6 +62,7 @@ export default async function QuotesPage() {
       .not("full_name", "is", null)
       .order("full_name"),
     fetchSaleCategoryOptions(supabase),
+    fetchQuoteFavoriteIds(supabase, user.id).catch(() => [] as string[]),
   ]);
 
   const paymentMethods = paymentMethodsResult;
@@ -133,6 +136,7 @@ export default async function QuotesPage() {
             paymentMethods={paymentMethods}
             saleCategories={saleCategories}
             convertedQuoteIds={convertedQuoteIds}
+            initialFavoriteQuoteIds={initialFavoriteQuoteIds}
             contactSuggestions={contactSuggestions}
             managerName={formatManagerDisplayName(
               profile?.full_name,

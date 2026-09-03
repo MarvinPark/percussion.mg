@@ -1068,3 +1068,111 @@ export async function deleteQuote(formData: FormData) {
   revalidatePath("/products/history");
   revalidatePath("/dashboard");
 }
+
+export async function toggleQuoteFavorite(
+  quoteId: string,
+): Promise<{ favorited?: boolean; error?: string }> {
+  if (!quoteId) {
+    return { error: "견적을 찾을 수 없습니다." };
+  }
+
+  const supabase = await createClient();
+  const auth = await requirePermission("viewQuotes");
+  if ("error" in auth) return { error: auth.error };
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("quote_favorites")
+    .select("quote_id")
+    .eq("user_id", auth.userId)
+    .eq("quote_id", quoteId)
+    .maybeSingle();
+
+  if (fetchError) {
+    if (fetchError.message.includes("quote_favorites")) {
+      return {
+        error:
+          "즐겨찾기 테이블이 없습니다. Supabase에서 supabase/schema-quote-favorites.sql을 실행해 주세요.",
+      };
+    }
+    return { error: "즐겨찾기 상태를 확인하지 못했습니다." };
+  }
+
+  if (existing) {
+    const { error } = await supabase
+      .from("quote_favorites")
+      .delete()
+      .eq("user_id", auth.userId)
+      .eq("quote_id", quoteId);
+
+    if (error) {
+      return { error: "즐겨찾기 해제에 실패했습니다." };
+    }
+
+    return { favorited: false };
+  }
+
+  const { error: insertError } = await supabase.from("quote_favorites").insert({
+    user_id: auth.userId,
+    quote_id: quoteId,
+  });
+
+  if (insertError) {
+    return { error: "즐겨찾기 등록에 실패했습니다." };
+  }
+
+  return { favorited: true };
+}
+
+export async function migrateQuoteFavorites(
+  quoteIds: string[],
+): Promise<{ error?: string }> {
+  const uniqueIds = [...new Set(quoteIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return {};
+
+  const supabase = await createClient();
+  const auth = await requirePermission("viewQuotes");
+  if ("error" in auth) return { error: auth.error };
+
+  const { error } = await supabase.from("quote_favorites").upsert(
+    uniqueIds.map((quoteId) => ({
+      user_id: auth.userId,
+      quote_id: quoteId,
+    })),
+    { onConflict: "user_id,quote_id", ignoreDuplicates: true },
+  );
+
+  if (error) {
+    if (error.message.includes("quote_favorites")) {
+      return {};
+    }
+    return { error: "즐겨찾기 이전에 실패했습니다." };
+  }
+
+  return {};
+}
+
+export async function removeQuoteFavorites(
+  quoteIds: string[],
+): Promise<{ error?: string }> {
+  const uniqueIds = [...new Set(quoteIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return {};
+
+  const supabase = await createClient();
+  const auth = await requirePermission("viewQuotes");
+  if ("error" in auth) return { error: auth.error };
+
+  const { error } = await supabase
+    .from("quote_favorites")
+    .delete()
+    .eq("user_id", auth.userId)
+    .in("quote_id", uniqueIds);
+
+  if (error) {
+    if (error.message.includes("quote_favorites")) {
+      return {};
+    }
+    return { error: "즐겨찾기 정리에 실패했습니다." };
+  }
+
+  return {};
+}

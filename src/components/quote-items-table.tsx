@@ -30,6 +30,8 @@ type QuoteItemsTableProps = {
   onItemDragEnd: () => void;
   onItemDragOver: (event: React.DragEvent, index: number) => void;
   onItemDrop: (index: number) => void;
+  onMoveItemUp: (index: number) => void;
+  onMoveItemDown: (index: number) => void;
   onFulfillmentChange: (index: number, location: FulfillmentLocation) => void;
   onPurchaseSourceChange: (index: number, value: string) => void;
   onQuantityChange: (index: number, quantity: number) => void;
@@ -50,6 +52,8 @@ export default function QuoteItemsTable({
   onItemDragEnd,
   onItemDragOver,
   onItemDrop,
+  onMoveItemUp,
+  onMoveItemDown,
   onFulfillmentChange,
   onPurchaseSourceChange,
   onQuantityChange,
@@ -106,16 +110,38 @@ export default function QuoteItemsTable({
       case "reorder":
         return (
           <td className="px-1 py-2 text-center">
-            <span
-              draggable
-              onDragStart={() => onItemDragStart(index)}
-              onDragEnd={onItemDragEnd}
-              className="inline-flex cursor-grab select-none px-1 text-zinc-400 active:cursor-grabbing dark:text-zinc-500"
-              title="드래그하여 순서 변경"
-              aria-label="순서 변경"
-            >
-              ⋮⋮
-            </span>
+            <div className="flex items-center justify-center gap-0.5">
+              <div className="flex flex-col md:hidden">
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  onClick={() => onMoveItemUp(index)}
+                  aria-label="위로 이동"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded border border-zinc-300 text-[10px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  disabled={index === items.length - 1}
+                  onClick={() => onMoveItemDown(index)}
+                  aria-label="아래로 이동"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded border border-zinc-300 text-[10px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
+                >
+                  ↓
+                </button>
+              </div>
+              <span
+                draggable
+                onDragStart={() => onItemDragStart(index)}
+                onDragEnd={onItemDragEnd}
+                className="hidden cursor-grab select-none px-1 text-zinc-400 active:cursor-grabbing md:inline-flex dark:text-zinc-500"
+                title="드래그하여 순서 변경"
+                aria-label="순서 변경"
+              >
+                ⋮⋮
+              </span>
+            </div>
           </td>
         );
       case "fulfillment":

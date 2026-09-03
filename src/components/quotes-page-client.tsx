@@ -6,6 +6,11 @@ import QuotesList, { type QuoteListItem } from "@/components/quotes-list";
 import QuotesListSearch from "@/components/quotes-list-search";
 import SalesSellerFilter from "@/components/sales-seller-filter";
 import {
+  migrateQuoteFavorites,
+  removeQuoteFavorites,
+  toggleQuoteFavorite,
+} from "@/app/(main)/quotes/actions";
+import {
   loadQuoteFavoriteIds,
   loadQuotesPageSize,
   saveQuoteFavoriteIds,
@@ -65,6 +70,7 @@ type QuotesPageClientProps = {
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   convertedQuoteIds: string[];
+  initialFavoriteQuoteIds: string[];
   contactSuggestions: SaleContactSuggestions;
   managerName: string;
   managerPhone: string;
@@ -79,6 +85,7 @@ export default function QuotesPageClient({
   paymentMethods,
   saleCategories,
   convertedQuoteIds,
+  initialFavoriteQuoteIds,
   contactSuggestions,
   managerName,
   managerPhone,
@@ -100,7 +107,7 @@ export default function QuotesPageClient({
   const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
   const [favoritesLoaded, setFavoritesLoaded] = useState(false);
   const [favoriteQuoteIds, setFavoriteQuoteIds] = useState<Set<string>>(
-    () => new Set(),
+    () => new Set(initialFavoriteQuoteIds),
   );
   const [highlightedQuoteIds, setHighlightedQuoteIds] = useState<Set<string>>(
     () => new Set(),
@@ -111,10 +118,26 @@ export default function QuotesPageClient({
 
   useEffect(() => {
     setPageSize(loadQuotesPageSize(userId));
-    setFavoriteQuoteIds(loadQuoteFavoriteIds(userId));
     setPageSizeLoaded(true);
     setFavoritesLoaded(true);
   }, [userId]);
+
+  useEffect(() => {
+    if (!favoritesLoaded) return;
+
+    const localIds = loadQuoteFavoriteIds(userId);
+    if (localIds.size === 0) return;
+
+    void migrateQuoteFavorites([...localIds]).then((result) => {
+      if (result.error) return;
+
+      saveQuoteFavoriteIds(userId, new Set());
+      setFavoriteQuoteIds((prev) => {
+        const next = new Set([...prev, ...localIds]);
+        return next.size === prev.size ? prev : next;
+      });
+    });
+  }, [favoritesLoaded, userId]);
 
   useEffect(() => {
     if (!favoritesLoaded) return;
@@ -122,30 +145,29 @@ export default function QuotesPageClient({
     setFavoriteQuoteIds((prev) => {
       const next = new Set([...prev].filter((id) => quoteIdSet.has(id)));
       if (next.size === prev.size) return prev;
-      saveQuoteFavoriteIds(userId, next);
       return next;
     });
-  }, [favoritesLoaded, quotes, userId]);
+  }, [favoritesLoaded, quotes]);
 
   useEffect(() => {
     if (!favoritesLoaded || convertedQuoteIds.length === 0) return;
 
     const convertedSet = new Set(convertedQuoteIds);
     setFavoriteQuoteIds((prev) => {
+      const removed: string[] = [];
       const next = new Set(prev);
-      let changed = false;
 
       for (const quoteId of convertedSet) {
         if (next.delete(quoteId)) {
-          changed = true;
+          removed.push(quoteId);
         }
       }
 
-      if (!changed) return prev;
-      saveQuoteFavoriteIds(userId, next);
+      if (removed.length === 0) return prev;
+      void removeQuoteFavorites(removed);
       return next;
     });
-  }, [convertedQuoteIds, favoritesLoaded, userId]);
+  }, [convertedQuoteIds, favoritesLoaded]);
 
   useEffect(() => {
     if (!pageSizeLoaded) return;
@@ -295,21 +317,45 @@ export default function QuotesPageClient({
     setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
   }, []);
 
-  const handleToggleFavorite = useCallback(
-    (quoteId: string) => {
-      setFavoriteQuoteIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(quoteId)) {
-          next.delete(quoteId);
-        } else {
-          next.add(quoteId);
-        }
-        saveQuoteFavoriteIds(userId, next);
-        return next;
-      });
-    },
-    [userId],
-  );
+  const handleToggleFavorite = useCallback((quoteId: string) => {
+    setFavoriteQuoteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(quoteId)) {
+        next.delete(quoteId);
+      } else {
+        next.add(quoteId);
+      }
+      return next;
+    });
+
+    void toggleQuoteFavorite(quoteId).then((result) => {
+      if (result.error) {
+        showToast(result.error);
+        setFavoriteQuoteIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(quoteId)) {
+            next.delete(quoteId);
+          } else {
+            next.add(quoteId);
+          }
+          return next;
+        });
+        return;
+      }
+
+      if (typeof result.favorited === "boolean") {
+        setFavoriteQuoteIds((prev) => {
+          const next = new Set(prev);
+          if (result.favorited) {
+            next.add(quoteId);
+          } else {
+            next.delete(quoteId);
+          }
+          return next;
+        });
+      }
+    });
+  }, [showToast]);
 
   const handlePageSizeChange = useCallback(
     (sectionKey: QuoteSectionKey, nextPageSize: TablePageSize) => {

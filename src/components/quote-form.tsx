@@ -476,6 +476,18 @@ export default function QuoteForm({
     handleItemDragEnd();
   }
 
+  function moveItemUp(index: number) {
+    if (index > 0) {
+      reorderItems(index, index - 1);
+    }
+  }
+
+  function moveItemDown(index: number) {
+    if (index < items.length - 1) {
+      reorderItems(index, index + 1);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className={sectionMuted}>
@@ -746,6 +758,8 @@ export default function QuoteForm({
         onItemDragEnd={handleItemDragEnd}
         onItemDragOver={handleItemDragOver}
         onItemDrop={handleItemDrop}
+        onMoveItemUp={moveItemUp}
+        onMoveItemDown={moveItemDown}
         onFulfillmentChange={updateItemFulfillmentLocation}
         onPurchaseSourceChange={updateItemPurchaseSource}
         onQuantityChange={updateItemQuantity}
