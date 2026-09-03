@@ -191,7 +191,7 @@ export default function LoginPageClient({
                 id="register_phone"
                 name="phone"
                 required
-                placeholder="010-1234-5678"
+                placeholder="01012345678"
                 className={`w-full ${inputBase} py-2.5`}
               />
             </div>

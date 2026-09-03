@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEventHandler } from "react";
 import type { SaleCustomerSuggestion } from "@/lib/sale-contact-suggestions";
 
 const MIN_QUERY_LENGTH = 2;
@@ -12,6 +12,7 @@ type SaleCustomerAutocompleteProps = {
   onChange: (value: string) => void;
   suggestions: SaleCustomerSuggestion[];
   onSelectCustomer: (customer: SaleCustomerSuggestion) => void;
+  onPaste?: ClipboardEventHandler<HTMLInputElement>;
   placeholder?: string;
   className?: string;
 };
@@ -23,6 +24,7 @@ export default function SaleCustomerAutocomplete({
   onChange,
   suggestions,
   onSelectCustomer,
+  onPaste,
   placeholder,
   className = "",
 }: SaleCustomerAutocompleteProps) {
@@ -78,6 +80,7 @@ export default function SaleCustomerAutocomplete({
           onChange(nextValue);
           setOpen(nextValue.trim().length >= MIN_QUERY_LENGTH);
         }}
+        onPaste={onPaste}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();

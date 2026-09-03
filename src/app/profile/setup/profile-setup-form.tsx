@@ -125,7 +125,7 @@ export default function ProfileSetupForm({
               name="phone"
               required
               defaultValue={defaultPhone}
-              placeholder="010-1234-5678"
+              placeholder="01012345678"
               className={inputClass}
             />
           </div>

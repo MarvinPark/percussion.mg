@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { FORMATTED_PHONE_MAX_LENGTH, formatPhoneNumber } from "@/lib/phone-format";
+import { useState, type ChangeEvent, type ClipboardEventHandler } from "react";
+import { extractPhoneDigits } from "@/lib/phone-format";
 
 type PhoneInputProps = {
   id?: string;
@@ -9,6 +9,7 @@ type PhoneInputProps = {
   defaultValue?: string;
   value?: string;
   onChange?: (value: string) => void;
+  onPaste?: ClipboardEventHandler<HTMLInputElement>;
   className?: string;
   placeholder?: string;
   required?: boolean;
@@ -20,21 +21,22 @@ export default function PhoneInput({
   defaultValue = "",
   value,
   onChange,
+  onPaste,
   className,
-  placeholder = "010, 02, 031, 070 등",
+  placeholder = "숫자만 입력",
   required = false,
 }: PhoneInputProps) {
   const isControlled = value !== undefined;
   const [internalValue, setInternalValue] = useState(() =>
-    formatPhoneNumber(defaultValue),
+    extractPhoneDigits(defaultValue),
   );
 
   const displayValue = isControlled
-    ? formatPhoneNumber(value ?? "")
+    ? extractPhoneDigits(value ?? "")
     : internalValue;
 
-  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const nextValue = formatPhoneNumber(event.target.value);
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextValue = extractPhoneDigits(event.target.value);
     if (!isControlled) {
       setInternalValue(nextValue);
     }
@@ -42,20 +44,18 @@ export default function PhoneInput({
   }
 
   return (
-    <>
-      <input type="hidden" name={name} value={displayValue} />
-      <input
-        id={id}
-        type="tel"
-        inputMode="numeric"
-        autoComplete="tel"
-        value={displayValue}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className={className}
-        required={required}
-        maxLength={FORMATTED_PHONE_MAX_LENGTH}
-      />
-    </>
+    <input
+      id={id}
+      type="tel"
+      inputMode="numeric"
+      autoComplete="tel"
+      name={name}
+      value={displayValue}
+      onChange={handleChange}
+      onPaste={onPaste}
+      placeholder={placeholder}
+      className={className}
+      required={required}
+    />
   );
 }

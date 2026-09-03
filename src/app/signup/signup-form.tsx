@@ -63,7 +63,7 @@ export default function SignupForm() {
           id="phone"
           name="phone"
           required
-          placeholder="010-1234-5678"
+          placeholder="01012345678"
           className={inputClass}
         />
       </div>
