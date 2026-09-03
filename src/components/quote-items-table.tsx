@@ -42,6 +42,188 @@ type QuoteItemsTableProps = {
 
 const tableClassName = "w-full table-fixed text-xs whitespace-nowrap";
 
+const mobileFieldLabelClass =
+  "mb-1 block text-[10px] font-semibold text-zinc-500 dark:text-zinc-400";
+
+type QuoteItemsTableBodyProps = Omit<
+  QuoteItemsTableProps,
+  "userId" | "draggingItemIndex" | "dragOverItemIndex" | "onItemDragStart" | "onItemDragEnd" | "onItemDragOver" | "onItemDrop"
+>;
+
+function QuoteItemsMobileList({
+  items,
+  mobileInputClass,
+  onMoveItemUp,
+  onMoveItemDown,
+  onFulfillmentChange,
+  onPurchaseSourceChange,
+  onQuantityChange,
+  onSalePriceChange,
+  onPurchasePriceChange,
+  onRemoveItem,
+}: QuoteItemsTableBodyProps) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 md:hidden">
+        제품을 추가해 주세요.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 md:hidden">
+      {items.map((item, index) => (
+        <article
+          key={`${item.product_id}-${index}`}
+          className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <div className="mb-3 flex items-start gap-2">
+            <div className="flex shrink-0 flex-col">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => onMoveItemUp(index)}
+                aria-label="위로 이동"
+                className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 text-[11px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={index === items.length - 1}
+                onClick={() => onMoveItemDown(index)}
+                aria-label="아래로 이동"
+                className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 text-[11px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
+              >
+                ↓
+              </button>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                {item.model_name}
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">
+                {item.product_name}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onRemoveItem(index)}
+              className="shrink-0 text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+            >
+              삭제
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className={mobileFieldLabelClass}>출고지</label>
+              <select
+                value={item.fulfillment_location}
+                onChange={(event) =>
+                  onFulfillmentChange(
+                    index,
+                    event.target.value as FulfillmentLocation,
+                  )
+                }
+                className={`${mobileInputClass} w-full`}
+              >
+                {FULFILLMENT_LOCATIONS.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>공급처</label>
+              <p className="truncate text-sm text-zinc-700 dark:text-zinc-300">
+                {item.supplier || "-"}
+              </p>
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>매입처</label>
+              <input
+                type="text"
+                value={item.purchase_source}
+                onChange={(event) =>
+                  onPurchaseSourceChange(index, event.target.value)
+                }
+                placeholder="매입처"
+                className={`${mobileInputClass} w-full`}
+              />
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>수량</label>
+              <input
+                type="number"
+                min={1}
+                value={item.quantity}
+                onChange={(event) =>
+                  onQuantityChange(index, Number(event.target.value) || 1)
+                }
+                className={`${mobileInputClass} w-full text-center tabular-nums`}
+              />
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>판매단가</label>
+              <PriceInput
+                min={0}
+                value={item.sale_unit_price}
+                onChange={(saleUnitPrice) =>
+                  onSalePriceChange(index, saleUnitPrice)
+                }
+                className={`${mobileInputClass} w-full`}
+              />
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>매입가</label>
+              <PriceInput
+                min={0}
+                value={item.purchase_price}
+                onChange={(purchasePrice) =>
+                  onPurchasePriceChange(index, purchasePrice)
+                }
+                className={`${mobileInputClass} w-full`}
+              />
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>마진</label>
+              <p className="text-sm font-semibold text-green-700 dark:text-green-300">
+                {formatKRW(item.margin)}
+              </p>
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>마진율</label>
+              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                {(item.margin_rate * 100).toFixed(1)}%
+              </p>
+            </div>
+
+            <div className="col-span-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+              <div className="flex items-center justify-between gap-2">
+                <span className={mobileFieldLabelClass}>총 판매가</span>
+                <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {formatKRW(item.line_total)}원
+                </span>
+              </div>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function QuoteItemsTable({
   userId,
   items,
@@ -277,8 +459,22 @@ export default function QuoteItemsTable({
   );
 
   return (
-    <section className="-mx-1 overflow-x-auto rounded-xl border border-zinc-200 px-1 dark:border-zinc-700 sm:mx-0 sm:px-0">
-      <table className={tableClassName} style={{ minWidth: tableMinWidth }}>
+    <>
+      <QuoteItemsMobileList
+        items={items}
+        mobileInputClass={mobileInputClass}
+        onMoveItemUp={onMoveItemUp}
+        onMoveItemDown={onMoveItemDown}
+        onFulfillmentChange={onFulfillmentChange}
+        onPurchaseSourceChange={onPurchaseSourceChange}
+        onQuantityChange={onQuantityChange}
+        onSalePriceChange={onSalePriceChange}
+        onPurchasePriceChange={onPurchasePriceChange}
+        onRemoveItem={onRemoveItem}
+      />
+
+      <section className="hidden overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700 md:block">
+        <table className={tableClassName} style={{ minWidth: tableMinWidth }}>
         {colGroup}
         <thead className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
           <tr>
@@ -343,5 +539,6 @@ export default function QuoteItemsTable({
         </tbody>
       </table>
     </section>
+    </>
   );
 }
