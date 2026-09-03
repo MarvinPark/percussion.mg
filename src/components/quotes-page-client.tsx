@@ -12,9 +12,10 @@ import {
 } from "@/app/(main)/quotes/actions";
 import {
   loadQuoteFavoriteIds,
-  loadQuotesPageSize,
+  loadQuotesSectionPageSizes,
   saveQuoteFavoriteIds,
-  saveQuotesPageSize,
+  saveQuotesSectionPageSize,
+  type QuoteListSectionId,
 } from "@/lib/quotes-list-preferences";
 import {
   buildProductSkuMap,
@@ -32,11 +33,12 @@ import type { PaymentMethod } from "@/types/sale";
 import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 
 const INITIAL_SECTION_PAGES = {
+  favorites: 1,
   quoteCompleted: 1,
   salesCompleted: 1,
 } as const;
 
-type QuoteSectionKey = keyof typeof INITIAL_SECTION_PAGES;
+type QuoteSectionKey = QuoteListSectionId;
 const buttonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
@@ -97,13 +99,16 @@ export default function QuotesPageClient({
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_ROW_FONT_SIZE);
-  const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
   const [currentPageBySection, setCurrentPageBySection] = useState<
     Record<QuoteSectionKey, number>
   >({ ...INITIAL_SECTION_PAGES });
   const [pageSizeBySection, setPageSizeBySection] = useState<
-    Partial<Record<QuoteSectionKey, TablePageSize>>
-  >({});
+    Record<QuoteSectionKey, TablePageSize>
+  >(() => ({
+    favorites: TABLE_PAGE_SIZE,
+    quoteCompleted: TABLE_PAGE_SIZE,
+    salesCompleted: TABLE_PAGE_SIZE,
+  }));
   const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
   const [favoritesLoaded, setFavoritesLoaded] = useState(false);
   const [favoriteQuoteIds, setFavoriteQuoteIds] = useState<Set<string>>(
@@ -117,7 +122,7 @@ export default function QuotesPageClient({
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setPageSize(loadQuotesPageSize(userId));
+    setPageSizeBySection(loadQuotesSectionPageSizes(userId));
     setPageSizeLoaded(true);
     setFavoritesLoaded(true);
   }, [userId]);
@@ -169,14 +174,26 @@ export default function QuotesPageClient({
     });
   }, [convertedQuoteIds, favoritesLoaded]);
 
-  useEffect(() => {
-    if (!pageSizeLoaded) return;
-    saveQuotesPageSize(userId, pageSize);
-  }, [pageSizeLoaded, pageSize, userId]);
+  const handlePageSizeChange = useCallback(
+    (sectionKey: QuoteSectionKey, nextPageSize: TablePageSize) => {
+      setPageSizeBySection((current) => ({
+        ...current,
+        [sectionKey]: nextPageSize,
+      }));
+      setCurrentPageBySection((current) => ({
+        ...current,
+        [sectionKey]: 1,
+      }));
+      if (pageSizeLoaded) {
+        saveQuotesSectionPageSize(userId, sectionKey, nextPageSize);
+      }
+    },
+    [pageSizeLoaded, userId],
+  );
 
   useEffect(() => {
     setCurrentPageBySection({ ...INITIAL_SECTION_PAGES });
-  }, [sellerFilter, appliedQuery, pageSize]);
+  }, [sellerFilter, appliedQuery]);
 
   const convertedQuoteIdSet = useMemo(
     () => new Set(convertedQuoteIds),
@@ -236,34 +253,54 @@ export default function QuotesPageClient({
       };
     }, [filteredQuotes, favoriteQuoteIds, convertedQuoteIdSet]);
 
+  const favoritesPagination = useMemo(
+    () =>
+      paginateItems(
+        favoriteQuotes,
+        currentPageBySection.favorites,
+        pageSizeBySection.favorites,
+      ),
+    [
+      favoriteQuotes,
+      currentPageBySection.favorites,
+      pageSizeBySection.favorites,
+    ],
+  );
+
   const quoteCompletedPagination = useMemo(() => {
-    const sectionPageSize =
-      pageSizeBySection.quoteCompleted ?? pageSize;
     return paginateItems(
       quoteCompletedQuotes,
       currentPageBySection.quoteCompleted,
-      sectionPageSize,
+      pageSizeBySection.quoteCompleted,
     );
   }, [
     quoteCompletedQuotes,
     currentPageBySection.quoteCompleted,
-    pageSize,
     pageSizeBySection.quoteCompleted,
   ]);
 
   const salesCompletedPagination = useMemo(() => {
-    const sectionPageSize = pageSizeBySection.salesCompleted ?? pageSize;
     return paginateItems(
       salesCompletedQuotes,
       currentPageBySection.salesCompleted,
-      sectionPageSize,
+      pageSizeBySection.salesCompleted,
     );
   }, [
     salesCompletedQuotes,
     currentPageBySection.salesCompleted,
-    pageSize,
     pageSizeBySection.salesCompleted,
   ]);
+
+  useEffect(() => {
+    if (
+      currentPageBySection.favorites !== favoritesPagination.currentPage
+    ) {
+      setCurrentPageBySection((current) => ({
+        ...current,
+        favorites: favoritesPagination.currentPage,
+      }));
+    }
+  }, [currentPageBySection.favorites, favoritesPagination.currentPage]);
 
   useEffect(() => {
     if (
@@ -357,20 +394,6 @@ export default function QuotesPageClient({
     });
   }, [showToast]);
 
-  const handlePageSizeChange = useCallback(
-    (sectionKey: QuoteSectionKey, nextPageSize: TablePageSize) => {
-      setPageSizeBySection((current) => ({
-        ...current,
-        [sectionKey]: nextPageSize,
-      }));
-      setCurrentPageBySection((current) => ({
-        ...current,
-        [sectionKey]: 1,
-      }));
-    },
-    [],
-  );
-
   const handleQuoteDuplicated = useCallback(
     (quoteId: string) => {
       showToast("견적을 복제했습니다");
@@ -456,7 +479,20 @@ export default function QuotesPageClient({
 
       <QuotesList
         userId={userId}
-        favoriteQuotes={favoriteQuotes}
+        favoritesSection={{
+          items: favoritesPagination.items,
+          totalCount: favoriteQuotes.length,
+          currentPage: favoritesPagination.currentPage,
+          totalPages: favoritesPagination.totalPages,
+          onPageChange: (page) =>
+            setCurrentPageBySection((current) => ({
+              ...current,
+              favorites: page,
+            })),
+          pageSize: pageSizeBySection.favorites,
+          onPageSizeChange: (nextPageSize) =>
+            handlePageSizeChange("favorites", nextPageSize),
+        }}
         quoteCompletedSection={{
           items: quoteCompletedPagination.items,
           totalCount: quoteCompletedQuotes.length,
@@ -467,7 +503,7 @@ export default function QuotesPageClient({
               ...current,
               quoteCompleted: page,
             })),
-          pageSize: pageSizeBySection.quoteCompleted ?? pageSize,
+          pageSize: pageSizeBySection.quoteCompleted,
           onPageSizeChange: (nextPageSize) =>
             handlePageSizeChange("quoteCompleted", nextPageSize),
         }}
@@ -481,7 +517,7 @@ export default function QuotesPageClient({
               ...current,
               salesCompleted: page,
             })),
-          pageSize: pageSizeBySection.salesCompleted ?? pageSize,
+          pageSize: pageSizeBySection.salesCompleted,
           onPageSizeChange: (nextPageSize) =>
             handlePageSizeChange("salesCompleted", nextPageSize),
         }}

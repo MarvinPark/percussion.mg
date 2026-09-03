@@ -86,7 +86,7 @@ type QuoteListSectionData = {
 
 type QuotesListProps = {
   userId: string;
-  favoriteQuotes?: QuoteListItem[];
+  favoritesSection: QuoteListSectionData;
   quoteCompletedSection: QuoteListSectionData;
   salesCompletedSection: QuoteListSectionData;
   favoriteQuoteIds: Set<string>;
@@ -194,7 +194,7 @@ function QuoteListSection({
 
 export default function QuotesList({
   userId,
-  favoriteQuotes = [],
+  favoritesSection,
   quoteCompletedSection,
   salesCompletedSection,
   favoriteQuoteIds,
@@ -589,12 +589,12 @@ export default function QuotesList({
   }
 
   const hasQuotes =
-    favoriteQuotes.length > 0 ||
+    favoritesSection.totalCount > 0 ||
     quoteCompletedSection.totalCount > 0 ||
     salesCompletedSection.totalCount > 0;
 
   function renderQuoteSection(
-    sectionKey: "quoteCompleted" | "salesCompleted",
+    sectionKey: "favorites" | "quoteCompleted" | "salesCompleted",
     title: string,
     titleClassName: string | undefined,
     section: QuoteListSectionData,
@@ -651,22 +651,12 @@ export default function QuotesList({
           </div>
         ) : null}
 
-        {favoriteQuotes.length > 0 ? (
-          <QuoteListSection
-            title="즐겨찾기"
-            titleClassName="text-base font-bold text-blue-600 dark:text-blue-400"
-            totalCount={favoriteQuotes.length}
-            collapsed={collapsedSections.favorites}
-            onToggle={() =>
-              setCollapsedSections((current) => ({
-                ...current,
-                favorites: !current.favorites,
-              }))
-            }
-          >
-            {favoriteQuotes.map((quote) => renderQuoteRow(quote))}
-          </QuoteListSection>
-        ) : null}
+        {renderQuoteSection(
+          "favorites",
+          "즐겨찾기",
+          "text-base font-bold text-blue-600 dark:text-blue-400",
+          favoritesSection,
+        )}
 
         {renderQuoteSection(
           "quoteCompleted",

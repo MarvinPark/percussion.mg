@@ -9,7 +9,7 @@ export function stripManagerHonorific(name: string | null | undefined) {
 
 export function formatQuoteListMemoPreview(
   memo: string | null | undefined,
-  maxLength = 6,
+  maxLength = 10,
 ) {
   const trimmed = memo?.trim() ?? "";
   if (!trimmed) return "";

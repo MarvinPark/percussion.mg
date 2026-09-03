@@ -4,25 +4,76 @@ import {
   type TablePageSize,
 } from "@/lib/table-page-size";
 
+export const QUOTE_LIST_SECTION_IDS = [
+  "favorites",
+  "quoteCompleted",
+  "salesCompleted",
+] as const;
+
+export type QuoteListSectionId = (typeof QUOTE_LIST_SECTION_IDS)[number];
+
+export type QuoteListSectionPageSizes = Record<
+  QuoteListSectionId,
+  TablePageSize
+>;
+
+export const DEFAULT_QUOTE_LIST_SECTION_PAGE_SIZES: QuoteListSectionPageSizes = {
+  favorites: TABLE_PAGE_SIZE,
+  quoteCompleted: TABLE_PAGE_SIZE,
+  salesCompleted: TABLE_PAGE_SIZE,
+};
+
 export function getQuotesPageSizeStorageKey(userId: string) {
   return `pc-quotes-page-size-${userId}`;
 }
 
-export function loadQuotesPageSize(userId: string): TablePageSize {
-  if (typeof window === "undefined") return TABLE_PAGE_SIZE;
-
-  try {
-    const raw = localStorage.getItem(getQuotesPageSizeStorageKey(userId));
-    if (!raw) return TABLE_PAGE_SIZE;
-    return parseTablePageSize(raw);
-  } catch {
-    return TABLE_PAGE_SIZE;
-  }
+function getQuotesSectionPageSizeStorageKey(
+  userId: string,
+  sectionId: QuoteListSectionId,
+) {
+  return `pc-quotes-page-size-${sectionId}-${userId}`;
 }
 
-export function saveQuotesPageSize(userId: string, pageSize: TablePageSize) {
+export function loadQuotesSectionPageSize(
+  userId: string,
+  sectionId: QuoteListSectionId,
+): TablePageSize {
+  if (typeof window === "undefined") {
+    return DEFAULT_QUOTE_LIST_SECTION_PAGE_SIZES[sectionId];
+  }
+
+  try {
+    const sectionRaw = localStorage.getItem(
+      getQuotesSectionPageSizeStorageKey(userId, sectionId),
+    );
+    if (sectionRaw) return parseTablePageSize(sectionRaw);
+  } catch {
+    // ignore storage errors
+  }
+
+  return DEFAULT_QUOTE_LIST_SECTION_PAGE_SIZES[sectionId];
+}
+
+export function loadQuotesSectionPageSizes(
+  userId: string,
+): QuoteListSectionPageSizes {
+  return {
+    favorites: loadQuotesSectionPageSize(userId, "favorites"),
+    quoteCompleted: loadQuotesSectionPageSize(userId, "quoteCompleted"),
+    salesCompleted: loadQuotesSectionPageSize(userId, "salesCompleted"),
+  };
+}
+
+export function saveQuotesSectionPageSize(
+  userId: string,
+  sectionId: QuoteListSectionId,
+  pageSize: TablePageSize,
+) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(getQuotesPageSizeStorageKey(userId), String(pageSize));
+  localStorage.setItem(
+    getQuotesSectionPageSizeStorageKey(userId, sectionId),
+    String(pageSize),
+  );
 }
 
 export function getQuoteFavoritesStorageKey(userId: string) {
