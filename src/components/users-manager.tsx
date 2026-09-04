@@ -154,7 +154,7 @@ export default function UsersManager({
         </p>
         <form
           action={handleInvite}
-          className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_120px_auto]"
+          className="mt-4 grid gap-3"
         >
           <div>
             <label htmlFor="invite_email" className={labelClass}>
@@ -225,8 +225,8 @@ export default function UsersManager({
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <table className="min-w-full text-sm">
+      <div className="min-w-0 overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <table className="w-full min-w-[40rem] text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">이름</th>

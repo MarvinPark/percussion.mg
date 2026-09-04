@@ -13,14 +13,9 @@ import {
   productFilterRows,
 } from "@/lib/key-stock-loader";
 import {
-  clampKeyStockSectionCount,
   createEmptyKeyStockColumnFilters,
-  DEFAULT_KEY_STOCK_SECTION_COUNT,
+  FIXED_KEY_STOCK_SECTION_COUNT,
   loadKeyStockColumnFilters,
-  loadKeyStockSectionCount,
-  MAX_KEY_STOCK_SECTION_COUNT,
-  MIN_KEY_STOCK_SECTION_COUNT,
-  resizeKeyStockColumnFilters,
   saveKeyStockColumnFilters,
   saveKeyStockSectionCount,
   type KeyStockColumnFilter,
@@ -268,13 +263,7 @@ function ProductCells({
 function matchesFilterField(value: string, filterValue: string) {
   const query = filterValue.trim();
   if (!query) return true;
-
-  const normalizedValue = value.toLowerCase();
-  const normalizedQuery = query.toLowerCase();
-  return (
-    normalizedValue === normalizedQuery ||
-    normalizedValue.includes(normalizedQuery)
-  );
+  return value.toLowerCase() === query.toLowerCase();
 }
 
 function filterProducts(
@@ -319,9 +308,9 @@ export default function KeyStockWorkspace({
     return buildKeyStockBrandOptions(filterOptionRows, categoryFilter);
   }
 
-  const [sectionCount, setSectionCount] = useState(DEFAULT_KEY_STOCK_SECTION_COUNT);
+  const [sectionCount] = useState(FIXED_KEY_STOCK_SECTION_COUNT);
   const [columnFilters, setColumnFilters] = useState<KeyStockColumnFilter[]>(() =>
-    createEmptyKeyStockColumnFilters(DEFAULT_KEY_STOCK_SECTION_COUNT),
+    createEmptyKeyStockColumnFilters(FIXED_KEY_STOCK_SECTION_COUNT),
   );
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
@@ -353,9 +342,12 @@ export default function KeyStockWorkspace({
   const columnCount = orderedColumns.length;
 
   useEffect(() => {
-    const savedSectionCount = loadKeyStockSectionCount(userId);
-    setSectionCount(savedSectionCount);
-    setColumnFilters(loadKeyStockColumnFilters(userId, savedSectionCount));
+    const savedFilters = loadKeyStockColumnFilters(
+      userId,
+      FIXED_KEY_STOCK_SECTION_COUNT,
+    );
+    setColumnFilters(savedFilters);
+    saveKeyStockSectionCount(userId, FIXED_KEY_STOCK_SECTION_COUNT);
     setRowFontSize(loadTableRowFontSize("key-stock", userId));
     setFiltersLoaded(true);
     setRowPreferencesLoaded(true);
@@ -368,8 +360,8 @@ export default function KeyStockWorkspace({
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    saveKeyStockSectionCount(userId, sectionCount);
-  }, [userId, sectionCount, filtersLoaded]);
+    saveKeyStockSectionCount(userId, FIXED_KEY_STOCK_SECTION_COUNT);
+  }, [userId, filtersLoaded]);
 
   useEffect(() => {
     if (!rowPreferencesLoaded) return;
@@ -424,16 +416,14 @@ export default function KeyStockWorkspace({
     value: string,
   ) {
     setColumnFilters((prev) =>
-      prev.map((filter, index) =>
-        index === columnIndex ? { ...filter, [field]: value } : filter,
-      ),
+      prev.map((filter, index) => {
+        if (index !== columnIndex) return filter;
+        if (field === "category") {
+          return { category: value, brand: "" };
+        }
+        return { ...filter, [field]: value };
+      }),
     );
-  }
-
-  function handleSectionCountChange(rawValue: string) {
-    const nextCount = clampKeyStockSectionCount(Number(rawValue));
-    setSectionCount(nextCount);
-    setColumnFilters((prev) => resizeKeyStockColumnFilters(prev, nextCount));
   }
 
   function saveReserved(productId: string, rawValue: string) {
@@ -483,34 +473,9 @@ export default function KeyStockWorkspace({
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              품목·브랜드 필터 단
+              품목 · 브랜드 필터 (2단)
             </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
-              <label
-                htmlFor="key-stock-section-count"
-                className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
-              >
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  단 수
-                </span>
-                <select
-                  id="key-stock-section-count"
-                  value={sectionCount}
-                  onChange={(event) => handleSectionCountChange(event.target.value)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-300 dark:focus:ring-zinc-300"
-                >
-                  {Array.from(
-                    { length: MAX_KEY_STOCK_SECTION_COUNT - MIN_KEY_STOCK_SECTION_COUNT + 1 },
-                    (_, index) => MIN_KEY_STOCK_SECTION_COUNT + index,
-                  ).map((count) => (
-                    <option key={count} value={count}>
-                      {count}단
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">

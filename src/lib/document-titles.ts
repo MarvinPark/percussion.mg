@@ -20,6 +20,7 @@ const EXACT_PAGE_TITLES: Record<string, string> = {
   "/products/history": "변동이력",
   "/products/key-stock": "주요재고",
   "/settings/users": "설정",
+  "/settings/overhead": "결산",
   "/my-page": "마이페이지",
   "/login": "로그인",
   "/signup": "회원가입",

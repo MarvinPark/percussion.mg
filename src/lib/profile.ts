@@ -313,6 +313,20 @@ export async function requirePermission(permission: Permission) {
   return modifier;
 }
 
+export async function requireAdmin() {
+  const modifier = await getModifierInfo();
+
+  if ("error" in modifier) {
+    return modifier;
+  }
+
+  if (modifier.role !== "admin") {
+    return { error: "관리자만 접근할 수 있습니다." as const };
+  }
+
+  return modifier;
+}
+
 export async function getUserRole(): Promise<UserRole> {
   const { profile } = await getCurrentUserProfile();
   return normalizeRole(profile?.role);

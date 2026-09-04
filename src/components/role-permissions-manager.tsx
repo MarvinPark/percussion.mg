@@ -98,8 +98,8 @@ export default function RolePermissionsManager({
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-        <table className="min-w-full text-sm">
+      <div className="min-w-0 overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
+        <table className="w-full min-w-[20rem] text-sm">
           <thead className="bg-zinc-100 text-left text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
               <th className="px-3 py-2 font-semibold">권한</th>

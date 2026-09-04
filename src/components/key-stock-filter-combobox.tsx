@@ -22,21 +22,28 @@ export default function KeyStockFilterCombobox({
   className = "",
 }: KeyStockFilterComboboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
 
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
   const matches = useMemo(() => {
-    const query = value.trim().toLowerCase();
-    const filtered = query
-      ? options.filter((option) => option.toLowerCase().includes(query))
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = normalizedQuery
+      ? options.filter((option) =>
+          option.toLowerCase().includes(normalizedQuery),
+        )
       : options;
 
     return filtered.slice(0, MAX_RESULTS);
-  }, [options, value]);
+  }, [options, query]);
 
   useEffect(() => {
     setHighlightIndex(0);
-  }, [matches.length, value]);
+  }, [matches.length, query]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -45,16 +52,38 @@ export default function KeyStockFilterCombobox({
         !containerRef.current.contains(event.target as Node)
       ) {
         setOpen(false);
+        setQuery(value);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [value]);
 
-  function handleSelect(nextValue: string) {
+  function commitValue(nextValue: string) {
     onChange(nextValue);
+    setQuery(nextValue);
     setOpen(false);
+  }
+
+  function handleBlur() {
+    setOpen(false);
+    const trimmed = query.trim();
+    if (!trimmed) {
+      if (value) commitValue("");
+      else setQuery("");
+      return;
+    }
+
+    const exact = options.find(
+      (option) => option.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (exact) {
+      commitValue(exact);
+      return;
+    }
+
+    setQuery(value);
   }
 
   return (
@@ -62,18 +91,19 @@ export default function KeyStockFilterCombobox({
       <input
         id={id}
         type="text"
-        value={value}
+        value={query}
         placeholder={placeholder}
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
         onChange={(event) => {
-          onChange(event.target.value);
+          setQuery(event.target.value);
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
+        onBlur={handleBlur}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
@@ -97,12 +127,13 @@ export default function KeyStockFilterCombobox({
 
           if (event.key === "Enter" && open && matches[highlightIndex]) {
             event.preventDefault();
-            handleSelect(matches[highlightIndex]);
+            commitValue(matches[highlightIndex]);
             return;
           }
 
           if (event.key === "Escape") {
             setOpen(false);
+            setQuery(value);
           }
         }}
         className={className}
@@ -110,24 +141,24 @@ export default function KeyStockFilterCombobox({
 
       {open && matches.length > 0 ? (
         <ul className="absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
-          {value.trim() ? null : (
+          {!query.trim() ? (
             <li>
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => handleSelect("")}
+                onClick={() => commitValue("")}
                 className="block w-full px-3 py-2 text-left text-xs text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
                 전체
               </button>
             </li>
-          )}
+          ) : null}
           {matches.map((option, index) => (
             <li key={option}>
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => handleSelect(option)}
+                onClick={() => commitValue(option)}
                 className={`block w-full px-3 py-2 text-left text-xs ${
                   index === highlightIndex
                     ? "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"

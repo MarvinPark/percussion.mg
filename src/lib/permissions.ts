@@ -157,6 +157,10 @@ export function canAccessPath(
     return hasPermission(role, "manageUsers", permissionMap);
   }
 
+  if (pathname.startsWith("/settings/overhead")) {
+    return role === "admin";
+  }
+
   if (pathname.startsWith("/quotes")) {
     return hasPermission(role, "viewQuotes", permissionMap);
   }
@@ -193,6 +197,7 @@ export type NavItem = {
   href: string;
   label: string;
   permission?: Permission;
+  adminOnly?: boolean;
 };
 
 export const ALL_NAV_ITEMS: NavItem[] = [
@@ -205,6 +210,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
     permission: "viewProducts",
   },
   { href: "/partners", label: "거래처", permission: "viewPartners" },
+  { href: "/settings/overhead", label: "결산", adminOnly: true },
   { href: "/settings/users", label: "설정", permission: "manageUsers" },
   { href: "/my-page", label: "마이페이지" },
 ];
@@ -213,8 +219,10 @@ export function getNavItems(
   role: UserRole,
   permissionMap: RolePermissionMap = DEFAULT_ROLE_PERMISSIONS,
 ) {
-  return ALL_NAV_ITEMS.filter(
-    (item) =>
-      !item.permission || hasPermission(role, item.permission, permissionMap),
-  );
+  return ALL_NAV_ITEMS.filter((item) => {
+    if (item.adminOnly && role !== "admin") return false;
+    return (
+      !item.permission || hasPermission(role, item.permission, permissionMap)
+    );
+  });
 }

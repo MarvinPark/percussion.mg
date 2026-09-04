@@ -263,7 +263,7 @@ export default function PaymentMethodsManager({
 
         <form
           action={handleCreate}
-          className="mt-4 grid gap-4 sm:grid-cols-[1fr_120px_auto]"
+          className="mt-4 grid gap-3"
         >
           <div>
             <label htmlFor="name" className={labelClass}>
@@ -422,7 +422,7 @@ export default function PaymentMethodsManager({
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(method.id)}
@@ -432,14 +432,14 @@ export default function PaymentMethodsManager({
                       className="h-3.5 w-3.5 shrink-0 rounded border-zinc-300"
                       aria-label={`${method.name} 선택`}
                     />
-                    <p className="min-w-0 flex-1 text-xs leading-tight text-zinc-900 dark:text-zinc-100 sm:text-sm">
+                    <p className="text-xs leading-tight text-zinc-900 dark:text-zinc-100 sm:text-sm">
                       <span className="font-semibold">{method.name}</span>
                       <span className="mx-1 text-zinc-400">·</span>
                       <span className="text-zinc-600 dark:text-zinc-400">
                         수수료 {method.fee_rate}%
                       </span>
                     </p>
-                    <div className="flex shrink-0 gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
                         onClick={() => startEdit(method)}

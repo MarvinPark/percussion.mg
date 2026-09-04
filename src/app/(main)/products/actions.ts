@@ -291,10 +291,15 @@ export type ProductInlineField =
   | "sale_price"
   | "purchase_price";
 
+export type UpdateProductFieldOptions = {
+  recordAsInbound?: boolean;
+};
+
 export async function updateProductField(
   productId: string,
   field: ProductInlineField,
   rawValue: string,
+  options?: UpdateProductFieldOptions,
 ): Promise<{ error?: string }> {
   if (!productId) {
     return { error: "수정할 제품을 찾을 수 없습니다." };
@@ -378,17 +383,19 @@ export async function updateProductField(
       const stockAfter = updateData.stock_quantity as number;
 
       if (locationDelta > 0) {
-        const movementResult = await recordStockMovement(supabase, {
-          product_id: productId,
-          movement_type: "in",
-          quantity: locationDelta,
-          stock_before: stockBefore,
-          stock_after: stockAfter,
-          note: `목록에서 ${locationLabel} 입고`,
-        });
+        if (options?.recordAsInbound) {
+          const movementResult = await recordStockMovement(supabase, {
+            product_id: productId,
+            movement_type: "in",
+            quantity: locationDelta,
+            stock_before: stockBefore,
+            stock_after: stockAfter,
+            note: `목록에서 ${locationLabel} 입고`,
+          });
 
-        if ("error" in movementResult) {
-          return { error: movementResult.error };
+          if ("error" in movementResult) {
+            return { error: movementResult.error };
+          }
         }
       } else if (locationDelta < 0) {
         const movementResult = await recordStockMovement(supabase, {

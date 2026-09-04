@@ -3,9 +3,10 @@ export type KeyStockColumnFilter = {
   brand: string;
 };
 
-export const MIN_KEY_STOCK_SECTION_COUNT = 1;
-export const MAX_KEY_STOCK_SECTION_COUNT = 6;
-export const DEFAULT_KEY_STOCK_SECTION_COUNT = 3;
+export const MIN_KEY_STOCK_SECTION_COUNT = 2;
+export const MAX_KEY_STOCK_SECTION_COUNT = 2;
+export const DEFAULT_KEY_STOCK_SECTION_COUNT = 2;
+export const FIXED_KEY_STOCK_SECTION_COUNT = 2;
 
 export const EMPTY_KEY_STOCK_COLUMN_FILTERS: KeyStockColumnFilter[] = Array.from(
   { length: DEFAULT_KEY_STOCK_SECTION_COUNT },
@@ -20,11 +21,8 @@ export function createEmptyKeyStockColumnFilters(
 }
 
 export function clampKeyStockSectionCount(value: number): number {
-  if (!Number.isFinite(value)) return DEFAULT_KEY_STOCK_SECTION_COUNT;
-  return Math.min(
-    MAX_KEY_STOCK_SECTION_COUNT,
-    Math.max(MIN_KEY_STOCK_SECTION_COUNT, Math.round(value)),
-  );
+  void value;
+  return FIXED_KEY_STOCK_SECTION_COUNT;
 }
 
 export function getKeyStockFilterStorageKey(userId: string) {

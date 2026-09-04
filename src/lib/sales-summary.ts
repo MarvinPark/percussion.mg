@@ -5,6 +5,10 @@ export type SalesPeriodSummary = {
   marginAmount: number;
 };
 
+export type SalesMonthSummary = SalesPeriodSummary & {
+  salesCount: number;
+};
+
 function getMonthDateRange(year: number, month: number) {
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd = new Date(year, month, 0).toISOString().slice(0, 10);
@@ -23,6 +27,38 @@ function sumSalesRows(
   }
 
   return { totalAmount, marginAmount };
+}
+
+export async function fetchSalesSummaryForMonth(
+  supabase: SupabaseClient,
+  month: string,
+): Promise<SalesMonthSummary> {
+  const match = month.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return { totalAmount: 0, marginAmount: 0, salesCount: 0 };
+  }
+
+  const year = Number(match[1]);
+  const monthNum = Number(match[2]);
+  const { monthStart, monthEnd } = getMonthDateRange(year, monthNum);
+
+  const [{ data }, { count }] = await Promise.all([
+    supabase
+      .from("sales")
+      .select("total_amount, margin_amount")
+      .gte("sold_at", monthStart)
+      .lte("sold_at", monthEnd),
+    supabase
+      .from("sales")
+      .select("id", { count: "exact", head: true })
+      .gte("sold_at", monthStart)
+      .lte("sold_at", monthEnd),
+  ]);
+
+  return {
+    ...sumSalesRows(data),
+    salesCount: count ?? 0,
+  };
 }
 
 export async function fetchSalesPeriodSummaries(

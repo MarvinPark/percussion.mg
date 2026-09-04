@@ -126,7 +126,7 @@ export default function SaleCategoriesManager({
       {!readOnly ? (
         <form
           action={handleCreate}
-          className="grid gap-3 sm:grid-cols-[1fr_auto]"
+          className="grid gap-3"
         >
           <div>
             <label htmlFor="sale_category_name" className={labelClass}>
@@ -196,11 +196,11 @@ export default function SaleCategoriesManager({
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {option.name}
                   </span>
-                  <div className="flex shrink-0 gap-1">
+                  <div className="flex shrink-0 items-center gap-1">
                     {!readOnly ? (
                       <>
                         <button
