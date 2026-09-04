@@ -89,17 +89,21 @@ const TaxInvoicePreview = forwardRef<HTMLDivElement, TaxInvoicePreviewProps>(
         ref={ref}
         className={`tax-invoice-preview mx-auto w-full max-w-[760px] bg-white p-4 text-zinc-900 ${className}`}
       >
-        <div className="mb-3 text-center">
-          <h3 className="text-xl font-bold tracking-[0.35em]">전 자 세 금 계 산 서</h3>
-          <div className="mt-2 flex items-center justify-center gap-6 text-sm">
-            <span>
-              ({data.purposeType === "영수" ? "✓" : " "}) 영수
-            </span>
-            <span>
-              ({data.purposeType === "청구" ? "✓" : " "}) 청구
-            </span>
+        <div className="mb-4 overflow-hidden rounded-sm border border-zinc-500">
+          <div className="border-b border-zinc-500 bg-zinc-50 px-3 py-3 text-center">
+            <h3 className="text-lg font-bold leading-none text-zinc-900">
+              전자세금계산서
+            </h3>
           </div>
-          <p className="mt-1 text-xs text-zinc-600">작성일자: {data.writeDateLabel}</p>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 text-xs leading-normal text-zinc-800">
+            <div className="flex shrink-0 items-center gap-4 whitespace-nowrap">
+              <span>({data.purposeType === "영수" ? "✓" : " "}) 영수</span>
+              <span>({data.purposeType === "청구" ? "✓" : " "}) 청구</span>
+            </div>
+            <p className="shrink-0 whitespace-nowrap text-zinc-700">
+              작성일자: {data.writeDateLabel}
+            </p>
+          </div>
         </div>
 
         <div className="mb-3 flex flex-col gap-3 md:flex-row">
