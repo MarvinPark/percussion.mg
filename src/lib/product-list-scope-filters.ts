@@ -21,9 +21,12 @@ function normalizeBrand(value: string | null | undefined) {
 export function normalizeProductListScopeFilters(
   input: ProductListScopeFilters = {},
 ): ProductListScopeFilters {
+  const category = input.category?.trim() ?? "";
+  const brand = input.brand?.trim() ?? "";
+
   return {
-    category: input.category?.trim() ?? "",
-    brand: input.brand?.trim() ?? "",
+    category: category === "품목" ? "" : category,
+    brand: brand === "브랜드" ? "" : brand,
   };
 }
 

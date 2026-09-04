@@ -261,6 +261,45 @@ export default function ProductsPageClient({
     userId,
   ]);
 
+  const applyScopeFilters = useCallback(
+    (nextCategoryFilter: string, nextBrandFilter: string) => {
+      const trimmed = draftQuery.trim();
+      if (trimmed.length > 0 && trimmed.length < PRODUCT_SEARCH_MIN_LENGTH) {
+        setDraftCategoryFilter(nextCategoryFilter);
+        setDraftBrandFilter(nextBrandFilter);
+        return;
+      }
+
+      loadView(
+        1,
+        trimmed,
+        pageSize,
+        sort,
+        nextCategoryFilter,
+        nextBrandFilter,
+        true,
+      );
+    },
+    [draftQuery, loadView, pageSize, sort],
+  );
+
+  const handleCategoryFilterChange = useCallback(
+    (value: string) => {
+      setDraftCategoryFilter(value);
+      setDraftBrandFilter("");
+      applyScopeFilters(value, "");
+    },
+    [applyScopeFilters],
+  );
+
+  const handleBrandFilterChange = useCallback(
+    (value: string) => {
+      setDraftBrandFilter(value);
+      applyScopeFilters(draftCategoryFilter, value);
+    },
+    [applyScopeFilters, draftCategoryFilter],
+  );
+
   const applySearch = useCallback(() => {
     const trimmed = draftQuery.trim();
     if (trimmed.length > 0 && trimmed.length < PRODUCT_SEARCH_MIN_LENGTH) {
@@ -388,7 +427,7 @@ export default function ProductsPageClient({
                 options={filterCategories}
                 emptyLabel="품목"
                 placeholder="품목"
-                onChange={setDraftCategoryFilter}
+                onChange={handleCategoryFilterChange}
                 className={compactFilterInputClass}
               />
               <KeyStockFilterCombobox
@@ -397,7 +436,7 @@ export default function ProductsPageClient({
                 options={draftBrandOptions}
                 emptyLabel="브랜드"
                 placeholder="브랜드"
-                onChange={setDraftBrandFilter}
+                onChange={handleBrandFilterChange}
                 className={compactFilterInputClass}
               />
               <ProductListSearch

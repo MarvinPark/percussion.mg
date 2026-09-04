@@ -59,8 +59,8 @@ export function buildKeyStockBrandOptions(
 ) {
   const normalizedCategory = categoryFilter.trim().toLowerCase();
   const filtered = normalizedCategory
-    ? rows.filter((row) =>
-        row.category.toLowerCase().includes(normalizedCategory),
+    ? rows.filter(
+        (row) => row.category.trim().toLowerCase() === normalizedCategory,
       )
     : rows;
 
