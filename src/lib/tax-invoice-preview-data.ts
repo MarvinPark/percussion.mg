@@ -1,4 +1,7 @@
-import { buildDetailListFromItemNames, splitVatInclusive } from "@/lib/popbill/taxinvoice";
+import {
+  buildDetailListFromItemNames,
+  splitVatInclusive,
+} from "@/lib/tax-invoice-calculations";
 import { isoDateToPopbillDate } from "@/lib/tax-invoice-dates";
 import type { BusinessPartner } from "@/types/business-partner";
 import type { TaxInvoiceIssue, TaxInvoicePurposeType } from "@/types/tax-invoice";

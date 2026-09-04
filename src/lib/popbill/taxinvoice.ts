@@ -10,17 +10,12 @@ import { promisifyPopbill } from "@/lib/popbill/test-connection";
 import type { BusinessPartner, BusinessPartnerType } from "@/types/business-partner";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type PopbillTaxinvoiceDetail = {
-  serialNum: number;
-  purchaseDT: string;
-  itemName: string;
-  spec?: string;
-  qty: string;
-  unitCost: string;
-  supplyCost: string;
-  tax: string;
-  remark?: string;
-};
+import {
+  buildDetailListFromItemNames,
+  detailListToStoredItems,
+  splitVatInclusive,
+  type TaxInvoiceDetailLine,
+} from "@/lib/tax-invoice-calculations";
 
 export type PopbillTaxinvoicePayload = {
   writeDate: string;
@@ -59,54 +54,16 @@ export type PopbillTaxinvoicePayload = {
   invoiceeContactTEL2?: string;
   invoiceeContactHP2?: string;
   invoiceeEmail2?: string;
-  detailList: PopbillTaxinvoiceDetail[];
+  detailList: TaxInvoiceDetailLine[];
 };
 
-export function splitVatInclusive(totalAmount: number) {
-  const total = Math.max(0, Math.round(totalAmount));
-  const supplyCost = Math.round(total / 1.1);
-  const tax = total - supplyCost;
-  return { supplyCost, tax, totalAmount: total };
-}
+export type PopbillTaxinvoiceDetail = TaxInvoiceDetailLine;
 
-export function buildDetailListFromItemNames(
-  itemNames: string[],
-  totalAmount: number,
-  purchaseDate: string,
-): PopbillTaxinvoiceDetail[] {
-  const names = itemNames.map((name) => name.trim()).filter(Boolean);
-  const resolvedNames = names.length > 0 ? names : ["악기"];
-  const { supplyCost: totalSupply, tax: totalTax } = splitVatInclusive(totalAmount);
-  const count = resolvedNames.length;
-  let supplyRemaining = totalSupply;
-  let taxRemaining = totalTax;
-
-  return resolvedNames.map((itemName, index) => {
-    const isLast = index === count - 1;
-    const supply = isLast ? supplyRemaining : Math.round(totalSupply / count);
-    const tax = isLast ? taxRemaining : Math.round(totalTax / count);
-    supplyRemaining -= supply;
-    taxRemaining -= tax;
-
-    return {
-      serialNum: index + 1,
-      purchaseDT: purchaseDate,
-      itemName,
-      qty: "1",
-      unitCost: String(supply),
-      supplyCost: String(supply),
-      tax: String(tax),
-    };
-  });
-}
-
-export function detailListToStoredItems(detailList: PopbillTaxinvoiceDetail[]) {
-  return detailList.map((item) => ({
-    name: item.itemName,
-    supply_cost: Number(item.supplyCost) || 0,
-    tax_amount: Number(item.tax) || 0,
-  }));
-}
+export {
+  buildDetailListFromItemNames,
+  detailListToStoredItems,
+  splitVatInclusive,
+} from "@/lib/tax-invoice-calculations";
 
 function mapPartnerTypeToPopbill(partnerType: BusinessPartnerType): string {
   if (partnerType === "business") return "사업자";
