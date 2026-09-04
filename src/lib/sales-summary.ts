@@ -29,19 +29,35 @@ function sumSalesRows(
   return { totalAmount, marginAmount };
 }
 
-export async function fetchSalesSummaryForMonth(
-  supabase: SupabaseClient,
-  month: string,
-): Promise<SalesMonthSummary> {
-  const match = month.match(/^(\d{4})-(\d{2})$/);
-  if (!match) {
+function parseSalesAggregateRow(
+  row: Record<string, unknown> | undefined,
+): SalesMonthSummary {
+  if (!row) {
     return { totalAmount: 0, marginAmount: 0, salesCount: 0 };
   }
 
-  const year = Number(match[1]);
-  const monthNum = Number(match[2]);
-  const { monthStart, monthEnd } = getMonthDateRange(year, monthNum);
+  const sumField = row.sum;
+  if (sumField && typeof sumField === "object") {
+    const nested = sumField as Record<string, unknown>;
+    return {
+      totalAmount: Number(nested.total_amount) || 0,
+      marginAmount: Number(nested.margin_amount) || 0,
+      salesCount: Number(row.count) || 0,
+    };
+  }
 
+  return {
+    totalAmount: Number(row.total_amount ?? row.sum) || 0,
+    marginAmount: Number(row.margin_amount) || 0,
+    salesCount: Number(row.count) || 0,
+  };
+}
+
+async function fetchSalesSummaryFallback(
+  supabase: SupabaseClient,
+  monthStart: string,
+  monthEnd: string,
+): Promise<SalesMonthSummary> {
   const [{ data }, { count }] = await Promise.all([
     supabase
       .from("sales")
@@ -61,6 +77,40 @@ export async function fetchSalesSummaryForMonth(
   };
 }
 
+async function fetchSalesSummaryAggregated(
+  supabase: SupabaseClient,
+  monthStart: string,
+  monthEnd: string,
+): Promise<SalesMonthSummary> {
+  const { data, error } = await supabase
+    .from("sales")
+    .select("total_amount.sum(), margin_amount.sum(), id.count()")
+    .gte("sold_at", monthStart)
+    .lte("sold_at", monthEnd);
+
+  if (error || !data?.length) {
+    return fetchSalesSummaryFallback(supabase, monthStart, monthEnd);
+  }
+
+  return parseSalesAggregateRow(data[0] as Record<string, unknown>);
+}
+
+export async function fetchSalesSummaryForMonth(
+  supabase: SupabaseClient,
+  month: string,
+): Promise<SalesMonthSummary> {
+  const match = month.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return { totalAmount: 0, marginAmount: 0, salesCount: 0 };
+  }
+
+  const year = Number(match[1]);
+  const monthNum = Number(match[2]);
+  const { monthStart, monthEnd } = getMonthDateRange(year, monthNum);
+
+  return fetchSalesSummaryAggregated(supabase, monthStart, monthEnd);
+}
+
 export async function fetchSalesPeriodSummaries(
   supabase: SupabaseClient,
   now = new Date(),
@@ -71,21 +121,10 @@ export async function fetchSalesPeriodSummaries(
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
 
-  const [{ data: monthRows }, { data: yearRows }] = await Promise.all([
-    supabase
-      .from("sales")
-      .select("total_amount, margin_amount")
-      .gte("sold_at", monthStart)
-      .lte("sold_at", monthEnd),
-    supabase
-      .from("sales")
-      .select("total_amount, margin_amount")
-      .gte("sold_at", yearStart)
-      .lte("sold_at", yearEnd),
+  const [monthSummary, yearSummary] = await Promise.all([
+    fetchSalesSummaryAggregated(supabase, monthStart, monthEnd),
+    fetchSalesSummaryAggregated(supabase, yearStart, yearEnd),
   ]);
-
-  const monthSummary = sumSalesRows(monthRows);
-  const yearSummary = sumSalesRows(yearRows);
 
   return {
     monthTotal: monthSummary.totalAmount,

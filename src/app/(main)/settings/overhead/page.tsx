@@ -1,4 +1,7 @@
+import { Suspense } from "react";
 import OverheadExpensesManager from "@/components/overhead-expenses-manager";
+import OverheadProfitPanel from "@/components/overhead-profit-panel";
+import { SettingsCompactSkeleton } from "@/components/settings-section-skeleton";
 import { createPageMetadata } from "@/lib/document-titles";
 import {
   currentAccrualMonthValue,
@@ -7,7 +10,6 @@ import {
   fetchOverheadExpensesForMonth,
   parseAccrualMonth,
 } from "@/lib/overhead-expenses";
-import { fetchOverheadProfitInsights } from "@/lib/overhead-profit-insights";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { normalizeRole } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
@@ -38,14 +40,14 @@ export default async function OverheadSettingsPage({
     parseAccrualMonth(monthParam)?.slice(0, 7) ?? currentAccrualMonthValue();
 
   const supabase = await createClient();
-  const [{ categories, error: categoriesError }, { expenses, error: expensesError }, profitInsights] =
+  const [{ categories, error: categoriesError }, { expenses, error: expensesError }] =
     await Promise.all([
       fetchOverheadCategories(supabase),
       fetchOverheadExpensesForMonth(supabase, month),
-      fetchOverheadProfitInsights(supabase, month),
     ]);
 
   const schemaError = categoriesError ?? expensesError;
+  const overheadTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   return (
     <main className="mx-auto max-w-app px-4 py-8 pb-24">
@@ -62,7 +64,11 @@ export default async function OverheadSettingsPage({
         initialMonth={month}
         defaultExpenseDate={currentDateString()}
         schemaError={schemaError}
-        profitInsights={profitInsights}
+        profitPanel={
+          <Suspense fallback={<SettingsCompactSkeleton />}>
+            <OverheadProfitPanel month={month} overheadTotal={overheadTotal} />
+          </Suspense>
+        }
       />
     </main>
   );

@@ -180,12 +180,28 @@ export async function fetchOverheadTotalForMonth(
 
   const { data, error } = await supabase
     .from("overhead_expenses")
+    .select("amount.sum()")
+    .eq("accrual_month", parsedMonth);
+
+  if (!error && data?.length) {
+    const row = data[0] as Record<string, unknown>;
+    const sumField = row.sum;
+    if (typeof sumField === "number") {
+      return Math.round(sumField);
+    }
+    if (typeof row.amount === "number") {
+      return Math.round(row.amount);
+    }
+  }
+
+  const fallback = await supabase
+    .from("overhead_expenses")
     .select("amount")
     .eq("accrual_month", parsedMonth);
 
-  if (error) return 0;
+  if (fallback.error) return 0;
 
-  return (data ?? []).reduce(
+  return (fallback.data ?? []).reduce(
     (sum, row) => sum + Math.round(Number(row.amount) || 0),
     0,
   );

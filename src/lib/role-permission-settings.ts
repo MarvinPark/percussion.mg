@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache, revalidateTag } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ALL_PERMISSIONS,
@@ -9,7 +10,11 @@ import {
   type RolePermissionMap,
 } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { createTTLCache } from "@/lib/ttl-cache";
 import type { UserRole } from "@/types/profile";
+
+const permissionMapCache = createTTLCache<RolePermissionMap>();
+const PERMISSION_MAP_TTL_MS = 60_000;
 
 function isMissingRolePermissionsTable(message: string | undefined) {
   if (!message) return false;
@@ -71,6 +76,24 @@ function ensureAdminSafety(map: RolePermissionMap) {
 export async function fetchRolePermissionMap(
   supabase: SupabaseClient,
 ): Promise<RolePermissionMap> {
+  const cached = permissionMapCache.get();
+  if (cached) {
+    return cached;
+  }
+
+  const map = await fetchRolePermissionMapFromDb(supabase);
+  permissionMapCache.set(map, PERMISSION_MAP_TTL_MS);
+  return map;
+}
+
+export function invalidateRolePermissionCache() {
+  permissionMapCache.invalidate();
+  revalidateTag("role-permissions", "max");
+}
+
+async function fetchRolePermissionMapFromDb(
+  supabase: SupabaseClient,
+): Promise<RolePermissionMap> {
   const { data, error } = await supabase
     .from("role_permission_grants")
     .select("role, permission");
@@ -89,9 +112,17 @@ export async function fetchRolePermissionMap(
   return buildRolePermissionMapFromRows(data);
 }
 
+const getCachedRolePermissionMap = unstable_cache(
+  async () => {
+    const supabase = await createClient();
+    return fetchRolePermissionMapFromDb(supabase);
+  },
+  ["role-permission-map"],
+  { revalidate: 60, tags: ["role-permissions"] },
+);
+
 export const getRolePermissionMap = cache(async (): Promise<RolePermissionMap> => {
-  const supabase = await createClient();
-  return fetchRolePermissionMap(supabase);
+  return getCachedRolePermissionMap();
 });
 
 export function sanitizeRolePermissionMap(
@@ -150,5 +181,6 @@ export async function saveRolePermissionMap(
     }
   }
 
+  invalidateRolePermissionCache();
   return { ok: true as const };
 }

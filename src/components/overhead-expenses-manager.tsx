@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   createOverheadExpense,
@@ -9,8 +9,8 @@ import {
 } from "@/app/(main)/settings/overhead/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
 import OverheadCategoryAutocomplete from "@/components/overhead-category-autocomplete";
+import OverheadCategoryReferenceTable from "@/components/overhead-category-reference-table";
 import OverheadGroupChart from "@/components/overhead-group-chart";
-import OverheadProfitSummary from "@/components/overhead-profit-summary";
 import PriceInput from "@/components/price-input";
 import {
   buildGroupChartData,
@@ -18,7 +18,6 @@ import {
 } from "@/lib/overhead-expenses";
 import { formatKRW } from "@/lib/sales-calculator";
 import { btnPrimary, btnSecondary } from "@/lib/ui-classes";
-import type { OverheadProfitInsights } from "@/lib/overhead-profit-insights";
 import type {
   OverheadCategory,
   OverheadExpenseWithCategory,
@@ -29,13 +28,22 @@ const inputClass =
 
 const labelClass = "mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300";
 
+const compactFilterInputClass =
+  "w-full rounded-lg border border-zinc-400 bg-white px-2.5 py-1 text-sm leading-tight text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+
+const overheadMainGridClass =
+  "grid items-start gap-3 lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_minmax(0,15rem)]";
+
+const overheadBodyGridClass =
+  "grid gap-3 lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_minmax(0,15rem)] lg:items-stretch";
+
 type OverheadExpensesManagerProps = {
   categories: OverheadCategory[];
   expenses: OverheadExpenseWithCategory[];
   initialMonth: string;
   defaultExpenseDate: string;
   schemaError?: string | null;
-  profitInsights: OverheadProfitInsights;
+  profitPanel: ReactNode;
 };
 
 type ExpenseDraft = {
@@ -72,7 +80,7 @@ export default function OverheadExpensesManager({
   initialMonth,
   defaultExpenseDate,
   schemaError,
-  profitInsights,
+  profitPanel,
 }: OverheadExpensesManagerProps) {
   const router = useRouter();
   const [month, setMonth] = useState(initialMonth);
@@ -98,7 +106,27 @@ export default function OverheadExpensesManager({
     [expenses],
   );
 
+  const [listCategoryFilterId, setListCategoryFilterId] = useState("");
+
+  const listFilterCategories = useMemo(() => {
+    const usedIds = new Set(expenses.map((expense) => expense.category_id));
+    return categories.filter((category) => usedIds.has(category.id));
+  }, [categories, expenses]);
+
+  const filteredExpenses = useMemo(() => {
+    if (!listCategoryFilterId) return expenses;
+    return expenses.filter(
+      (expense) => expense.category_id === listCategoryFilterId,
+    );
+  }, [expenses, listCategoryFilterId]);
+
+  const filteredTotalAmount = useMemo(
+    () => filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+    [filteredExpenses],
+  );
+
   function handleMonthChange(nextMonth: string) {
+    setListCategoryFilterId("");
     setMonth(nextMonth);
     setCreateDraft((current) => ({
       ...current,
@@ -125,7 +153,7 @@ export default function OverheadExpensesManager({
         </p>
       ) : null}
 
-      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_minmax(0,15rem)]">
+      <div className={overheadMainGridClass}>
         <div className="min-w-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
           <label htmlFor="overhead_month" className={labelClass}>
             귀속월
@@ -154,151 +182,180 @@ export default function OverheadExpensesManager({
         </div>
 
         <div className="min-w-0 overflow-hidden">
-          <OverheadProfitSummary
-          month={month}
-          totalSales={profitInsights.totalSales}
-          totalProfit={profitInsights.totalProfit}
-          overheadTotal={totalAmount}
-          salesCount={profitInsights.salesCount}
-          salesComparison={profitInsights.salesComparison}
-          salesCountComparison={profitInsights.salesCountComparison}
-          operatingProfitComparison={profitInsights.operatingProfitComparison}
-        />
+          {profitPanel}
         </div>
       </div>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
-          판관비 등록
-        </h3>
-        <form
-          className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"
-          action={(formData) => {
-            setMessage(null);
-            formData.set("category_id", createDraft.category_id);
-            formData.set("amount", String(createDraft.amount));
-            startCreate(async () => {
-              const result = await createOverheadExpense(formData);
-              if (result?.error) {
-                setMessage(result.error);
-                return;
-              }
-              setCreateDraft(buildDraft(defaultExpenseDate, month));
-              router.refresh();
-            });
-          }}
-        >
-          <div>
-            <label htmlFor="create_category_id" className={labelClass}>
-              항목
-            </label>
-            <OverheadCategoryAutocomplete
-              id="create_category_id"
-              categories={categories}
-              categoryId={createDraft.category_id}
-              onCategoryChange={(categoryId) =>
-                setCreateDraft((current) => ({
-                  ...current,
-                  category_id: categoryId,
-                }))
-              }
-              className={inputClass}
-              required
-            />
-            <input type="hidden" name="category_id" value={createDraft.category_id} />
-          </div>
-          <div>
-            <label htmlFor="create_expense_date" className={labelClass}>
-              발생일
-            </label>
-            <input
-              id="create_expense_date"
-              name="expense_date"
-              type="date"
-              value={createDraft.expense_date}
-              onChange={(event) =>
-                setCreateDraft((current) => ({
-                  ...current,
-                  expense_date: event.target.value,
-                }))
-              }
-              className={inputClass}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="create_accrual_month" className={labelClass}>
-              귀속월
-            </label>
-            <input
-              id="create_accrual_month"
-              name="accrual_month"
-              type="month"
-              value={createDraft.accrual_month}
-              onChange={(event) =>
-                setCreateDraft((current) => ({
-                  ...current,
-                  accrual_month: event.target.value,
-                }))
-              }
-              className={inputClass}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="create_amount" className={labelClass}>
-              금액
-            </label>
-            <PriceInput
-              id="create_amount"
-              name="amount"
-              value={createDraft.amount}
-              onChange={(amount) =>
-                setCreateDraft((current) => ({ ...current, amount }))
-              }
-              className={inputClass}
-              required
-            />
-          </div>
-          <div className="md:col-span-2 xl:col-span-1">
-            <label htmlFor="create_memo" className={labelClass}>
-              메모
-            </label>
-            <input
-              id="create_memo"
-              name="memo"
-              value={createDraft.memo}
-              onChange={(event) =>
-                setCreateDraft((current) => ({
-                  ...current,
-                  memo: event.target.value,
-                }))
-              }
-              className={inputClass}
-              placeholder="선택"
-            />
-          </div>
-          <div className="flex items-end md:col-span-2 xl:col-span-5">
-            <button
-              type="submit"
-              disabled={isCreating || categories.length === 0}
-              className={`${btnPrimary} px-4 py-2.5`}
+      <div className={overheadBodyGridClass}>
+        <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <h3 className="mb-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
+              판관비 등록
+            </h3>
+            <form
+              className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+              action={(formData) => {
+                setMessage(null);
+                formData.set("category_id", createDraft.category_id);
+                formData.set("amount", String(createDraft.amount));
+                startCreate(async () => {
+                  const result = await createOverheadExpense(formData);
+                  if (result?.error) {
+                    setMessage(result.error);
+                    return;
+                  }
+                  setCreateDraft(buildDraft(defaultExpenseDate, month));
+                  router.refresh();
+                });
+              }}
             >
-              {isCreating ? "등록 중..." : "등록"}
-            </button>
-          </div>
-        </form>
-      </section>
+              <div className="sm:col-span-2 xl:col-span-3">
+                <label htmlFor="create_category_id" className={labelClass}>
+                  항목
+                </label>
+                <OverheadCategoryAutocomplete
+                  id="create_category_id"
+                  categories={categories}
+                  categoryId={createDraft.category_id}
+                  onCategoryChange={(categoryId) =>
+                    setCreateDraft((current) => ({
+                      ...current,
+                      category_id: categoryId,
+                    }))
+                  }
+                  className={inputClass}
+                  required
+                />
+                <input type="hidden" name="category_id" value={createDraft.category_id} />
+              </div>
+              <div>
+                <label htmlFor="create_expense_date" className={labelClass}>
+                  발생일
+                </label>
+                <input
+                  id="create_expense_date"
+                  name="expense_date"
+                  type="date"
+                  value={createDraft.expense_date}
+                  onChange={(event) =>
+                    setCreateDraft((current) => ({
+                      ...current,
+                      expense_date: event.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="create_accrual_month" className={labelClass}>
+                  귀속월
+                </label>
+                <input
+                  id="create_accrual_month"
+                  name="accrual_month"
+                  type="month"
+                  value={createDraft.accrual_month}
+                  onChange={(event) =>
+                    setCreateDraft((current) => ({
+                      ...current,
+                      accrual_month: event.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="create_amount" className={labelClass}>
+                  금액
+                </label>
+                <PriceInput
+                  id="create_amount"
+                  name="amount"
+                  value={createDraft.amount}
+                  onChange={(amount) =>
+                    setCreateDraft((current) => ({ ...current, amount }))
+                  }
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2 xl:col-span-3">
+                <label htmlFor="create_memo" className={labelClass}>
+                  메모
+                </label>
+                <input
+                  id="create_memo"
+                  name="memo"
+                  value={createDraft.memo}
+                  onChange={(event) =>
+                    setCreateDraft((current) => ({
+                      ...current,
+                      memo: event.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                  placeholder="선택"
+                />
+              </div>
+              <div className="flex items-end sm:col-span-2 xl:col-span-3">
+                <button
+                  type="submit"
+                  disabled={isCreating || categories.length === 0}
+                  className={`${btnPrimary} px-4 py-2.5`}
+                >
+                  {isCreating ? "등록 중..." : "등록"}
+                </button>
+              </div>
+            </form>
+          </section>
 
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-          <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-            {formatAccrualMonthLabel(`${month}-01`)} 내역
-          </h3>
-        </div>
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h3 className="shrink-0 text-base font-bold leading-tight text-zinc-900 dark:text-zinc-100">
+                  {formatAccrualMonthLabel(`${month}-01`)} 내역
+                </h3>
+                {expenses.length > 0 ? (
+                  <>
+                    <div className="min-w-0 flex-1 sm:max-w-[14rem]">
+                      <OverheadCategoryAutocomplete
+                        id="list_category_filter"
+                        categories={listFilterCategories}
+                        categoryId={listCategoryFilterId}
+                        onCategoryChange={setListCategoryFilterId}
+                        placeholder="전체 항목"
+                        className={compactFilterInputClass}
+                      />
+                    </div>
+                    {listCategoryFilterId ? (
+                      <button
+                        type="button"
+                        onClick={() => setListCategoryFilterId("")}
+                        className={`${btnSecondary} shrink-0 px-2.5 py-1 text-xs leading-tight`}
+                      >
+                        초기화
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+              {listCategoryFilterId ? (
+                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  {filteredExpenses.length}건 · {formatKRW(filteredTotalAmount)}원
+                  <span className="mx-1 text-zinc-300 dark:text-zinc-600">/</span>
+                  전체 {expenses.length}건
+                </p>
+              ) : null}
+            </div>
         {expenses.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
             등록된 판관비가 없습니다.
+          </p>
+        ) : filteredExpenses.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+            선택한 항목의 내역이 없습니다.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -315,7 +372,7 @@ export default function OverheadExpensesManager({
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((expense) => {
+                {filteredExpenses.map((expense) => {
                   const isEditing = editingId === expense.id && editDraft;
 
                   if (isEditing) {
@@ -482,7 +539,29 @@ export default function OverheadExpensesManager({
             </table>
           </div>
         )}
-      </section>
+          </section>
+        </div>
+
+        <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <h3 className="shrink-0 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+            판관비 항목
+          </h3>
+          <p className="mb-2 shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+            항목을 누르면 등록란에 선택됩니다.
+          </p>
+          <OverheadCategoryReferenceTable
+            fillHeight
+            categories={categories}
+            selectedCategoryId={createDraft.category_id}
+            onSelectCategory={(categoryId) =>
+              setCreateDraft((current) => ({
+                ...current,
+                category_id: categoryId,
+              }))
+            }
+          />
+        </aside>
+      </div>
 
       {deletingExpense ? (
         <ConfirmDialog

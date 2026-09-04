@@ -10,7 +10,6 @@ import { createClient } from "@/lib/supabase/server";
 
 function revalidateOverheadPaths() {
   revalidatePath("/settings/overhead");
-  revalidatePath("/settings/users");
 }
 
 function readExpenseFields(formData: FormData) {

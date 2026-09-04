@@ -1,6 +1,17 @@
 import type { AuthError, User } from "@supabase/supabase-js";
 import { getAppUrl } from "@/lib/app-url";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createTTLCache } from "@/lib/ttl-cache";
+
+const orphanAuthUserCache = createTTLCache<{
+  users: User[];
+  serviceRoleMissing: boolean;
+}>();
+const ORPHAN_AUTH_USER_CACHE_TTL_MS = 5 * 60_000;
+
+export function invalidateOrphanAuthUserCache() {
+  orphanAuthUserCache.invalidate();
+}
 
 export type RegistrationProfilePayload = {
   id: string;
@@ -204,17 +215,26 @@ export async function listAuthUsersWithoutProfiles(): Promise<{
   users: User[];
   serviceRoleMissing: boolean;
 }> {
+  const cached = orphanAuthUserCache.get();
+  if (cached) {
+    return cached;
+  }
+
   try {
     const adminClient = createAdminClient();
     const authUsers = await listAllAuthUsers();
     const { data: profiles } = await adminClient.from("profiles").select("id");
     const profileIds = new Set((profiles ?? []).map((row) => row.id));
 
-    return {
+    const result = {
       users: authUsers.filter((user) => user.id && !profileIds.has(user.id)),
       serviceRoleMissing: false,
     };
+    orphanAuthUserCache.set(result, ORPHAN_AUTH_USER_CACHE_TTL_MS);
+    return result;
   } catch {
-    return { users: [], serviceRoleMissing: true };
+    const result = { users: [], serviceRoleMissing: true };
+    orphanAuthUserCache.set(result, ORPHAN_AUTH_USER_CACHE_TTL_MS);
+    return result;
   }
 }

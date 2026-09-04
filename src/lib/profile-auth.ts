@@ -14,6 +14,20 @@ export type AuthProfile = {
   account_status: AccountStatus;
 };
 
+const AUTH_PROFILE_TTL_MS = 30_000;
+const authProfileCache = new Map<
+  string,
+  { profile: AuthProfile | null; expiresAt: number }
+>();
+
+export function invalidateAuthProfileCache(userId?: string) {
+  if (userId) {
+    authProfileCache.delete(userId);
+    return;
+  }
+  authProfileCache.clear();
+}
+
 function isMissingColumnError(message: string | undefined) {
   if (!message) return false;
   return (
@@ -23,8 +37,7 @@ function isMissingColumnError(message: string | undefined) {
   );
 }
 
-/** account_status 컬럼이 없는 DB에서도 기존 사용자 로그인이 되도록 조회 */
-export async function fetchAuthProfile(
+async function fetchAuthProfileFromDb(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<AuthProfile | null> {
@@ -63,4 +76,22 @@ export async function fetchAuthProfile(
     role: normalizeRole(base.data.role),
     account_status: "active",
   };
+}
+
+/** account_status 컬럼이 없는 DB에서도 기존 사용자 로그인이 되도록 조회 */
+export async function fetchAuthProfile(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<AuthProfile | null> {
+  const cached = authProfileCache.get(userId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.profile;
+  }
+
+  const profile = await fetchAuthProfileFromDb(supabase, userId);
+  authProfileCache.set(userId, {
+    profile,
+    expiresAt: Date.now() + AUTH_PROFILE_TTL_MS,
+  });
+  return profile;
 }

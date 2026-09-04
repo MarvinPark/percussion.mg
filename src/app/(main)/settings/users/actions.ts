@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getRoleChangeRpcAvailable } from "@/lib/admin-settings-probes";
 import { getAppUrl } from "@/lib/app-url";
-import { profileFromAuthUser } from "@/lib/auth-registration";
+import { invalidateOrphanAuthUserCache, profileFromAuthUser } from "@/lib/auth-registration";
+import { invalidateAuthProfileCache } from "@/lib/profile-auth";
 import type { RolePermissionMap } from "@/lib/permissions";
 import { requirePermission } from "@/lib/profile";
 import {
@@ -15,7 +17,7 @@ import type { UserRole } from "@/types/profile";
 
 function revalidateAdminPaths() {
   revalidatePath("/settings/users");
-  revalidatePath("/", "layout");
+  invalidateOrphanAuthUserCache();
 }
 
 function mapRoleUpdateError(message: string) {
@@ -109,14 +111,7 @@ async function updateUserRoleViaAdmin(
 }
 
 export async function checkRoleChangeRpcAvailable() {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("update_user_role", {
-    target_user_id: "00000000-0000-0000-0000-000000000001",
-    new_role: "employee",
-  });
-
-  if (!error) return true;
-  return !isMissingRoleChangeRpc(error.message);
+  return getRoleChangeRpcAvailable();
 }
 
 export async function updateUserRole(userId: string, role: UserRole) {
@@ -148,6 +143,7 @@ export async function updateUserRole(userId: string, role: UserRole) {
         }
 
         revalidateAdminPaths();
+        invalidateAuthProfileCache(userId);
         return { success: true as const };
       } catch {
         return { error: mapRoleUpdateError(error.message) };
@@ -158,6 +154,7 @@ export async function updateUserRole(userId: string, role: UserRole) {
   }
 
   revalidateAdminPaths();
+  invalidateAuthProfileCache(userId);
   return { success: true as const };
 }
 
@@ -322,6 +319,7 @@ export async function approveUser(userId: string, jobTitleInput?: string) {
     }
 
     revalidateAdminPaths();
+    invalidateAuthProfileCache(userId);
     return { success: true as const };
   }
 
@@ -348,6 +346,7 @@ export async function approveUser(userId: string, jobTitleInput?: string) {
   }
 
   revalidateAdminPaths();
+  invalidateAuthProfileCache(userId);
   return { success: true as const };
 }
 
