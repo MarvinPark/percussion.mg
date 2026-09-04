@@ -52,7 +52,7 @@ export default function OverheadGroupChart({
     <section className="min-w-0 overflow-hidden rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
       <div className="relative z-10 bg-white dark:bg-zinc-900">
         <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-          판관비 구성
+          판관비 내역
         </h3>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {formatAccrualMonthLabel(`${month}-01`)} · {formatKRW(totalAmount)}원

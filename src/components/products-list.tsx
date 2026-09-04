@@ -596,24 +596,28 @@ export default function ProductsList({
     const isSelected = selectedIds.has(product.id);
     const isKeyStock = product.is_key_stock ?? false;
     const hasReservation = (product.reserved_quantity ?? 0) > 0;
+    const hasAvailableStock = availableProductStock(product) > 0;
 
     const base =
       "cursor-pointer border-b border-zinc-100 transition last:border-0 dark:border-zinc-800";
     const highlight = highlightedIds.has(product.id) ? "paste-row-highlight" : "";
+    const boldRow = hasAvailableStock
+      ? "[&_td]:!font-semibold [&_td_input]:font-semibold [&_td_button]:font-semibold"
+      : "";
 
     if (isSelected) {
-      return `${base} bg-yellow-100 hover:bg-yellow-100 dark:bg-yellow-950/50 dark:hover:bg-yellow-950/50 ${highlight}`;
+      return `${base} bg-yellow-100 hover:bg-yellow-100 dark:bg-yellow-950/50 dark:hover:bg-yellow-950/50 ${boldRow} ${highlight}`;
     }
 
     if (isKeyStock) {
-      return `${base} bg-red-50/80 hover:bg-red-100/70 dark:bg-red-950/25 dark:hover:bg-red-950/40 ${highlight}`;
+      return `${base} bg-red-50/80 hover:bg-red-100/70 dark:bg-red-950/25 dark:hover:bg-red-950/40 ${boldRow} ${highlight}`;
     }
 
     if (hasReservation) {
-      return `${base} ${reservationRowBg} ${highlight}`;
+      return `${base} ${reservationRowBg} ${boldRow} ${highlight}`;
     }
 
-    return `${base} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${highlight}`;
+    return `${base} hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${boldRow} ${highlight}`;
   };
 
   function stickyRowBackground(product: Product) {
