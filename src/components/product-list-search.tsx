@@ -10,10 +10,10 @@ const inputClass =
   "w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs leading-none text-zinc-900 placeholder:text-xs placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 max-md:text-base max-md:placeholder:text-base dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400";
 
 const compactInputClass =
-  "h-[26px] w-44 rounded border border-zinc-300 bg-white px-2 py-1 text-xs leading-none text-zinc-900 placeholder:text-xs placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 max-md:h-10 max-md:text-base max-md:placeholder:text-base dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400 sm:w-52";
+  "h-[24px] w-44 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] leading-none text-zinc-900 placeholder:text-[11px] placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400 sm:w-52";
 
 const compactConfirmButtonClass =
-  "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+  "inline-flex h-[24px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
 const MAX_RESULTS = 40;
 

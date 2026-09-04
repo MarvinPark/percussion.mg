@@ -37,7 +37,7 @@ const arrowButtonClass =
   "inline-flex h-8 w-8 items-center justify-center rounded border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
 const compactFilterInputClass =
-  "h-[26px] w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-xs leading-none text-zinc-900 placeholder:text-xs placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 max-md:h-10 max-md:text-base max-md:placeholder:text-base dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400 sm:w-28";
+  "h-[24px] w-24 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] leading-none text-zinc-900 placeholder:text-[11px] placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400 sm:w-28";
 
 function clampPageWindowStart(start: number, totalPages: number) {
   if (totalPages <= VISIBLE_PAGE_COUNT) return 1;
@@ -386,7 +386,8 @@ export default function ProductsPageClient({
                 id="product_list_category_filter"
                 value={draftCategoryFilter}
                 options={filterCategories}
-                emptyLabel="전체"
+                emptyLabel="품목"
+                placeholder="품목"
                 onChange={setDraftCategoryFilter}
                 className={compactFilterInputClass}
               />
@@ -394,7 +395,8 @@ export default function ProductsPageClient({
                 id="product_list_brand_filter"
                 value={draftBrandFilter}
                 options={draftBrandOptions}
-                emptyLabel="전체"
+                emptyLabel="브랜드"
+                placeholder="브랜드"
                 onChange={setDraftBrandFilter}
                 className={compactFilterInputClass}
               />
