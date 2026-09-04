@@ -3,15 +3,16 @@ import {
   DUPLICATE_SKU_MESSAGE,
   resolveRegistrationSku,
 } from "@/lib/product-duplicate";
+import {
+  formatProductInsertError,
+  insertProductRow,
+} from "@/lib/product-insert";
 import type {
   InlineCreatedProduct,
   InlineProductCreateInput,
 } from "@/lib/inline-product-create-shared";
 import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
-
-const INLINE_PRODUCT_SELECT =
-  "id, product_name, model_name, sku, supplier, category, brand, keywords, color, product_option, size, sale_price, purchase_price, stock_quantity";
 
 export type { InlineCreatedProduct, InlineProductCreateInput };
 
@@ -56,9 +57,9 @@ export async function createInlineProduct(
     return { error: resolved.error };
   }
 
-  const { data, error } = await supabase
-    .from("products")
-    .insert({
+  const insertResult = await insertProductRow(
+    supabase,
+    {
       sku: resolved.sku,
       product_name,
       model_name,
@@ -72,21 +73,21 @@ export async function createInlineProduct(
       sale_price: Math.round(input.sale_price),
       stock_quantity,
       min_stock_quantity: 0,
-      stock_floor3: stock_quantity,
-      stock_b1: 0,
-      stock_display: 0,
-      stock_location: "3층",
-      is_key_stock: false,
-    })
-    .select(INLINE_PRODUCT_SELECT)
-    .single();
+    },
+    { stock_floor3: stock_quantity },
+  );
 
-  if (error) {
-    if (error.code === "23505") {
+  if ("error" in insertResult) {
+    if (insertResult.error.code === "23505") {
       return { error: DUPLICATE_SKU_MESSAGE };
     }
-    return { error: "제품 등록에 실패했습니다." };
+
+    const message = formatProductInsertError(insertResult.error);
+    console.error("[createInlineProduct]", insertResult.error);
+    return { error: message ?? "제품 등록에 실패했습니다." };
   }
+
+  const data = insertResult.data;
 
   return {
     product: {
@@ -101,9 +102,9 @@ export async function createInlineProduct(
       color: data.color,
       product_option: data.product_option,
       size: data.size,
-      sale_price: Number(data.sale_price) || 0,
-      purchase_price: Number(data.purchase_price) || 0,
-      stock_quantity: Number(data.stock_quantity) || 0,
+      sale_price: data.sale_price,
+      purchase_price: data.purchase_price,
+      stock_quantity: data.stock_quantity,
     },
   };
 }
