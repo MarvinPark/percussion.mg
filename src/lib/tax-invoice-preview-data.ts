@@ -3,6 +3,7 @@ import {
   splitVatInclusive,
 } from "@/lib/tax-invoice-calculations";
 import { isoDateToPopbillDate } from "@/lib/tax-invoice-dates";
+import { TAX_INVOICE_SUPPLIER_EMAIL } from "@/lib/tax-invoice-supplier-email";
 import type { BusinessPartner } from "@/types/business-partner";
 import type { TaxInvoiceIssue, TaxInvoicePurposeType } from "@/types/tax-invoice";
 import { SUPPLIER_INFO } from "@/types/quote";
@@ -32,8 +33,10 @@ export type TaxInvoicePreviewItem = {
 
 export type TaxInvoicePreviewData = {
   writeDateLabel: string;
+  writeDateCompact: string;
   itemPurchaseDateLabel: string;
   purposeType: TaxInvoicePurposeType;
+  approvalNumber: string;
   supplier: TaxInvoicePreviewParty;
   buyer: TaxInvoicePreviewParty;
   items: TaxInvoicePreviewItem[];
@@ -72,7 +75,7 @@ function buildSupplierParty(corpNum: string): TaxInvoicePreviewParty {
     address: SUPPLIER_INFO.address,
     bizType: "도소매",
     bizClass: "악기",
-    email: SUPPLIER_INFO.email,
+    email: TAX_INVOICE_SUPPLIER_EMAIL,
     tel: SUPPLIER_INFO.phone,
     contactName: "전인철",
   };
@@ -123,10 +126,16 @@ export function buildTaxInvoicePreviewData(input: {
   );
   const { supplyCost, tax, totalAmount } = splitVatInclusive(input.totalAmount);
 
+  const writeDateCompact = input.writeDate.slice(0, 10);
+
   return {
     writeDateLabel: formatIsoDateLabel(input.writeDate),
+    writeDateCompact: /^\d{4}-\d{2}-\d{2}$/.test(writeDateCompact)
+      ? writeDateCompact
+      : "-",
     itemPurchaseDateLabel: formatIsoDateLabel(input.itemPurchaseDate),
     purposeType: input.purposeType,
+    approvalNumber: "",
     supplier: buildSupplierParty(input.supplierCorpNum),
     buyer: buildBuyerParty(input.partner, input.displayName, input.buyerEmail),
     items: detailList.map((item) => ({
@@ -181,6 +190,8 @@ export function buildTaxInvoicePreviewDataFromIssue(
       remark: "",
     }));
   }
+
+  preview.approvalNumber = issue.nts_confirm_num?.trim() || "";
 
   return preview;
 }

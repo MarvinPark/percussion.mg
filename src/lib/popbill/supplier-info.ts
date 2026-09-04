@@ -1,3 +1,4 @@
+import { TAX_INVOICE_SUPPLIER_EMAIL } from "@/lib/tax-invoice-supplier-email";
 import { SUPPLIER_INFO } from "@/types/quote";
 
 export function getPopbillSupplierFields(corpNum: string) {
@@ -12,6 +13,6 @@ export function getPopbillSupplierFields(corpNum: string) {
     invoicerBizClass: "악기",
     invoicerContactName: "전인철",
     invoicerTEL: SUPPLIER_INFO.phone,
-    invoicerEmail: SUPPLIER_INFO.email,
+    invoicerEmail: TAX_INVOICE_SUPPLIER_EMAIL,
   };
 }
