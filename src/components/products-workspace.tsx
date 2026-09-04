@@ -13,6 +13,7 @@ import ProductsBulkEditModal from "@/components/products-bulk-edit-modal";
 import ProductsList from "@/components/products-list";
 import type { ProductReservationsByProductId } from "@/lib/product-reservations";
 import type { ProductListSort, ProductSortColumn } from "@/lib/product-list-sort";
+import type { ProductPageSize } from "@/lib/product-list-loader";
 import type { Product } from "@/types/product";
 
 const toolbarButtonClass =
@@ -48,6 +49,8 @@ type ProductsWorkspaceProps = {
     field: ProductInlineField,
     value: string,
   ) => void;
+  pageSize?: ProductPageSize;
+  onPageSizeChange?: (pageSize: ProductPageSize) => void;
 };
 
 export default function ProductsWorkspace({
@@ -65,6 +68,8 @@ export default function ProductsWorkspace({
   onProductRegistered,
   onReloadList,
   onProductFieldSaved,
+  pageSize,
+  onPageSizeChange,
 }: ProductsWorkspaceProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
@@ -235,45 +240,9 @@ export default function ProductsWorkspace({
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        {searchSlot || listSummary || !readOnly ? (
+        {searchSlot || listSummary ? (
           <div className="flex flex-wrap items-center gap-3">
             {searchSlot ? <div className="shrink-0">{searchSlot}</div> : null}
-            {!readOnly ? (
-              <div className="flex flex-wrap gap-1">
-                <button
-                  type="button"
-                  onClick={handleDuplicateSelected}
-                  disabled={selectedIds.size === 0 || isDuplicating}
-                  className={toolbarButtonClass}
-                >
-                  {isDuplicating ? "복제 중..." : "복제"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedIds.size === 0}
-                  className={toolbarButtonClass}
-                >
-                  삭제
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBulkEditOpen(true)}
-                  disabled={selectedIds.size === 0}
-                  className={toolbarButtonClass}
-                >
-                  일괄수정
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleApplyKeyStock()}
-                  disabled={selectedIds.size === 0 || isApplyingKeyStock}
-                  className={toolbarButtonClass}
-                >
-                  {isApplyingKeyStock ? "적용 중..." : "주요재고 적용"}
-                </button>
-              </div>
-            ) : null}
             {listSummary ? (
               <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                 {listSummary}
@@ -325,6 +294,46 @@ export default function ProductsWorkspace({
         emptyMessage={emptyMessage}
         onProductRegistered={onProductRegistered}
         onProductFieldSaved={onProductFieldSaved}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+        selectionToolbar={
+          readOnly ? null : (
+            <div className="mr-1 flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={handleDuplicateSelected}
+                disabled={selectedIds.size === 0 || isDuplicating}
+                className={toolbarButtonClass}
+              >
+                {isDuplicating ? "복제 중..." : "복제"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={selectedIds.size === 0}
+                className={toolbarButtonClass}
+              >
+                삭제
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkEditOpen(true)}
+                disabled={selectedIds.size === 0}
+                className={toolbarButtonClass}
+              >
+                일괄수정
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleApplyKeyStock()}
+                disabled={selectedIds.size === 0 || isApplyingKeyStock}
+                className={toolbarButtonClass}
+              >
+                {isApplyingKeyStock ? "적용 중..." : "주요재고 적용"}
+              </button>
+            </div>
+          )
+        }
       />
     </>
   );

@@ -1,17 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
+import KeyStockFilterCombobox from "@/components/key-stock-filter-combobox";
 import ProductListSearch from "@/components/product-list-search";
 import ProductsWorkspace from "@/components/products-workspace";
+import type { KeyStockFilterOptionRow } from "@/lib/key-stock-loader";
 import type {
   ProductListStats,
   ProductPageSize,
 } from "@/lib/product-list-loader";
 import {
+  buildProductListBrandOptions,
   PRODUCT_PAGE_SIZE,
-  PRODUCT_PAGE_SIZE_OPTIONS,
   PRODUCT_SEARCH_MIN_LENGTH,
   saveProductPageSize,
 } from "@/lib/product-list-loader";
@@ -34,6 +36,9 @@ const pageButtonClass =
 const arrowButtonClass =
   "inline-flex h-8 w-8 items-center justify-center rounded border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
+const compactFilterInputClass =
+  "h-[26px] w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-xs leading-none text-zinc-900 placeholder:text-xs placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 max-md:h-10 max-md:text-base max-md:placeholder:text-base dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400 sm:w-28";
+
 function clampPageWindowStart(start: number, totalPages: number) {
   if (totalPages <= VISIBLE_PAGE_COUNT) return 1;
   const maxStart = totalPages - VISIBLE_PAGE_COUNT + 1;
@@ -45,9 +50,13 @@ function syncProductsUrl(
   searchQuery: string,
   pageSize: ProductPageSize,
   sort: ProductListSort,
+  categoryFilter: string,
+  brandFilter: string,
 ) {
   const params = new URLSearchParams();
   if (searchQuery) params.set("q", searchQuery);
+  if (categoryFilter) params.set("category", categoryFilter);
+  if (brandFilter) params.set("brand", brandFilter);
   if (page > 1) params.set("page", String(page));
   if (pageSize !== 10) params.set("limit", String(pageSize));
   const sortParams = productListSortToSearchParams(sort);
@@ -66,6 +75,10 @@ type ProductsPageClientProps = {
   currentPage: number;
   totalPages: number;
   searchQuery: string;
+  categoryFilter: string;
+  brandFilter: string;
+  filterCategories: string[];
+  filterOptionRows: KeyStockFilterOptionRow[];
   pageSize: ProductPageSize;
   sort: ProductListSort;
   readOnly?: boolean;
@@ -80,6 +93,10 @@ export default function ProductsPageClient({
   currentPage: initialCurrentPage,
   totalPages: initialTotalPages,
   searchQuery: initialSearchQuery,
+  categoryFilter: initialCategoryFilter,
+  brandFilter: initialBrandFilter,
+  filterCategories,
+  filterOptionRows,
   pageSize: initialPageSize,
   sort: initialSort,
   readOnly = false,
@@ -95,9 +112,15 @@ export default function ProductsPageClient({
   const [currentPage, setCurrentPage] = useState(initialCurrentPage);
   const [totalPages, setTotalPages] = useState(initialTotalPages);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [categoryFilter, setCategoryFilter] = useState(initialCategoryFilter);
+  const [brandFilter, setBrandFilter] = useState(initialBrandFilter);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [sort, setSort] = useState(initialSort);
   const [draftQuery, setDraftQuery] = useState(initialSearchQuery);
+  const [draftCategoryFilter, setDraftCategoryFilter] = useState(
+    initialCategoryFilter,
+  );
+  const [draftBrandFilter, setDraftBrandFilter] = useState(initialBrandFilter);
   const [pageWindowStart, setPageWindowStart] = useState(1);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
@@ -106,6 +129,14 @@ export default function ProductsPageClient({
   const hasAppliedSavedPageSize = useRef(false);
 
   const isSearchActive = searchQuery.length > 0;
+  const isScopeFilterActive =
+    categoryFilter.length > 0 || brandFilter.length > 0;
+  const isListFiltered = isSearchActive || isScopeFilterActive;
+
+  const draftBrandOptions = useMemo(
+    () => buildProductListBrandOptions(filterOptionRows, draftCategoryFilter),
+    [draftCategoryFilter, filterOptionRows],
+  );
 
   useEffect(() => {
     setPageWindowStart(clampPageWindowStart(currentPage, totalPages));
@@ -121,8 +152,8 @@ export default function ProductsPageClient({
   const canShiftPageWindowRight =
     visiblePageStart + VISIBLE_PAGE_COUNT - 1 < totalPages;
 
-  const listSummary = isSearchActive
-    ? `검색 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`
+  const listSummary = isListFiltered
+    ? `${isSearchActive ? "검색" : "필터"} ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`
     : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`;
 
   const loadView = useCallback(
@@ -131,6 +162,9 @@ export default function ProductsPageClient({
       query: string,
       nextPageSize: ProductPageSize = pageSize,
       nextSort: ProductListSort = sort,
+      nextCategoryFilter: string = categoryFilter,
+      nextBrandFilter: string = brandFilter,
+      syncDraftFromResult = false,
     ) => {
       const requestId = ++loadRequestRef.current;
       setIsLoading(true);
@@ -141,6 +175,8 @@ export default function ProductsPageClient({
         searchQuery: query,
         pageSize: nextPageSize,
         sort: nextSort,
+        categoryFilter: nextCategoryFilter,
+        brandFilter: nextBrandFilter,
       })
         .then((result) => {
           if (requestId !== loadRequestRef.current) return;
@@ -163,15 +199,23 @@ export default function ProductsPageClient({
           setCurrentPage(result.currentPage);
           setTotalPages(result.totalPages);
           setSearchQuery(result.searchQuery);
+          setCategoryFilter(result.categoryFilter ?? nextCategoryFilter);
+          setBrandFilter(result.brandFilter ?? nextBrandFilter);
           setPageSize(resolvedPageSize);
           setSort(nextSort);
-          setDraftQuery(result.searchQuery);
+          if (syncDraftFromResult) {
+            setDraftQuery(result.searchQuery);
+            setDraftCategoryFilter(result.categoryFilter ?? nextCategoryFilter);
+            setDraftBrandFilter(result.brandFilter ?? nextBrandFilter);
+          }
           saveProductPageSize(userId, resolvedPageSize);
           syncProductsUrl(
             result.currentPage,
             result.searchQuery,
             resolvedPageSize,
             nextSort,
+            result.categoryFilter ?? nextCategoryFilter,
+            result.brandFilter ?? nextBrandFilter,
           );
         })
         .catch(() => {
@@ -184,7 +228,7 @@ export default function ProductsPageClient({
           }
         });
     },
-    [pageSize, sort, userId],
+    [categoryFilter, brandFilter, pageSize, sort, userId],
   );
 
   useEffect(() => {
@@ -203,9 +247,13 @@ export default function ProductsPageClient({
         initialSearchQuery,
         initialPageSize,
         initialSort,
+        initialCategoryFilter,
+        initialBrandFilter,
       );
     }
   }, [
+    initialBrandFilter,
+    initialCategoryFilter,
     initialCurrentPage,
     initialPageSize,
     initialSearchQuery,
@@ -219,8 +267,23 @@ export default function ProductsPageClient({
       setLoadError(`검색어는 ${PRODUCT_SEARCH_MIN_LENGTH}자 이상 입력해 주세요.`);
       return;
     }
-    loadView(1, draftQuery, pageSize, sort);
-  }, [draftQuery, loadView, pageSize, sort]);
+    loadView(
+      1,
+      draftQuery,
+      pageSize,
+      sort,
+      draftCategoryFilter,
+      draftBrandFilter,
+      true,
+    );
+  }, [
+    draftBrandFilter,
+    draftCategoryFilter,
+    draftQuery,
+    loadView,
+    pageSize,
+    sort,
+  ]);
 
   const handlePageSizeChange = useCallback(
     (nextPageSize: ProductPageSize) => {
@@ -243,7 +306,7 @@ export default function ProductsPageClient({
     (product: SaleProductOption) => {
       const value = product.sku || product.model_name;
       setDraftQuery(value);
-      loadView(1, value, pageSize, sort);
+      loadView(1, value, pageSize, sort, categoryFilter, brandFilter, true);
       setHighlightedIds(new Set([product.id]));
 
       requestAnimationFrame(() => {
@@ -256,7 +319,7 @@ export default function ProductsPageClient({
         setHighlightedIds(new Set());
       }, 2500);
     },
-    [loadView, pageSize, sort],
+    [categoryFilter, brandFilter, loadView, pageSize, sort],
   );
 
   const handleProductRegistered = useCallback(
@@ -294,9 +357,6 @@ export default function ProductsPageClient({
     [],
   );
 
-  const pageSizeSelectClass =
-    "h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200";
-
   return (
     <>
       <div>
@@ -311,15 +371,33 @@ export default function ProductsPageClient({
           listSummary={listSummary}
           searchQuery={searchQuery}
           emptyMessage={
-            isSearchActive
+            isListFiltered
               ? "검색 조건에 맞는 제품이 없습니다."
               : undefined
           }
           onProductRegistered={handleProductRegistered}
           onReloadList={reloadList}
           onProductFieldSaved={handleProductFieldSaved}
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
           searchSlot={
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1">
+              <KeyStockFilterCombobox
+                id="product_list_category_filter"
+                value={draftCategoryFilter}
+                options={filterCategories}
+                emptyLabel="전체"
+                onChange={setDraftCategoryFilter}
+                className={compactFilterInputClass}
+              />
+              <KeyStockFilterCombobox
+                id="product_list_brand_filter"
+                value={draftBrandFilter}
+                options={draftBrandOptions}
+                emptyLabel="전체"
+                onChange={setDraftBrandFilter}
+                className={compactFilterInputClass}
+              />
               <ProductListSearch
                 compact
                 liveSuggestions={false}
@@ -328,25 +406,6 @@ export default function ProductsPageClient({
                 onConfirm={applySearch}
                 onSelectProduct={handleSelectProduct}
               />
-              <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                <span className="shrink-0">표시</span>
-                <select
-                  value={pageSize}
-                  onChange={(event) =>
-                    handlePageSizeChange(
-                      Number(event.target.value) as ProductPageSize,
-                    )
-                  }
-                  className={pageSizeSelectClass}
-                  aria-label="페이지당 표시 개수"
-                >
-                  {PRODUCT_PAGE_SIZE_OPTIONS.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
           }
         />

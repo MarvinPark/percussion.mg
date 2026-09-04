@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
 import EditableProductCell from "@/components/editable-product-cell";
 import KeyStockStarToggle from "@/components/key-stock-star-toggle";
 import ResizableHeaderCell from "@/components/resizable-header-cell";
+import TablePageSizeSelect from "@/components/table-page-size-select";
 import TableRowSizeControl, {
   fontControlBoxClass,
   fontControlButtonClass,
@@ -23,6 +24,8 @@ import {
   type ProductListSort,
   type ProductSortColumn,
 } from "@/lib/product-list-sort";
+import type { ProductPageSize } from "@/lib/product-list-loader";
+import type { TablePageSize } from "@/lib/table-page-size";
 import { isLowStockProduct } from "@/lib/product-stock";
 import ProductReservationHover from "@/components/product-reservation-hover";
 import ProductReservationList from "@/components/product-reservation-list";
@@ -106,6 +109,9 @@ type ProductsListProps = {
     field: ProductInlineField,
     value: string,
   ) => void;
+  pageSize?: ProductPageSize;
+  onPageSizeChange?: (pageSize: ProductPageSize) => void;
+  selectionToolbar?: ReactNode;
 };
 
 type ContextMenuState = {
@@ -415,6 +421,9 @@ export default function ProductsList({
   emptyMessage,
   onProductRegistered,
   onProductFieldSaved,
+  pageSize,
+  onPageSizeChange,
+  selectionToolbar,
 }: ProductsListProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showInlineRegister, setShowInlineRegister] = useState(false);
@@ -1128,6 +1137,16 @@ export default function ProductsList({
       <div className="max-w-full min-w-0 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
         <div className="sticky top-[var(--app-header-height)] z-20 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
           <div className="flex items-center justify-end gap-1 border-b border-zinc-200 px-3 py-1 dark:border-zinc-700">
+            {selectionToolbar}
+            {pageSize != null && onPageSizeChange ? (
+              <TablePageSizeSelect
+                compact
+                value={pageSize as TablePageSize}
+                onChange={(nextPageSize) =>
+                  onPageSizeChange(nextPageSize as ProductPageSize)
+                }
+              />
+            ) : null}
             {!readOnly ? (
               <div className={fontControlBoxClass}>
                 <button

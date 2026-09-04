@@ -1566,6 +1566,8 @@ export async function loadProductsListView(input: {
   searchQuery?: string;
   pageSize?: number;
   sort?: ProductListSort;
+  categoryFilter?: string;
+  brandFilter?: string;
 }) {
   const supabase = await createClient();
   const { user } = await getCurrentUserProfile();
@@ -1577,12 +1579,15 @@ export async function loadProductsListView(input: {
   const normalized = normalizeProductSearchQuery(input.searchQuery ?? "");
   const requestedPage = Math.max(1, input.page);
   const pageSize = input.pageSize ?? PRODUCT_PAGE_SIZE;
+  const categoryFilter = input.categoryFilter?.trim() ?? "";
+  const brandFilter = input.brandFilter?.trim() ?? "";
 
   const view = await fetchProductsListView(supabase, {
     page: requestedPage,
     pageSize,
     searchQuery: normalized.searchQuery,
     sort: input.sort,
+    scopeFilters: { category: categoryFilter, brand: brandFilter },
   });
 
   if (view.searchError) {
@@ -1614,6 +1619,8 @@ export async function loadProductsListView(input: {
     currentPage,
     totalPages,
     searchQuery: normalized.searchQuery,
+    categoryFilter,
+    brandFilter,
     pageSize,
     error: null,
   };

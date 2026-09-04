@@ -9,6 +9,8 @@ type KeyStockFilterComboboxProps = {
   value: string;
   options: string[];
   placeholder?: string;
+  /** value가 비어 있을 때 입력란에 표시할 라벨 (예: 전체) */
+  emptyLabel?: string;
   onChange: (value: string) => void;
   className?: string;
 };
@@ -18,17 +20,24 @@ export default function KeyStockFilterCombobox({
   value,
   options,
   placeholder = "전체",
+  emptyLabel,
   onChange,
   className = "",
 }: KeyStockFilterComboboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
 
   useEffect(() => {
+    if (isFocused) return;
     setQuery(value);
-  }, [value]);
+  }, [isFocused, value]);
+
+  const displayValue = isFocused
+    ? query
+    : value.trim() || emptyLabel || "";
 
   const matches = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -51,25 +60,18 @@ export default function KeyStockFilterCombobox({
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
       ) {
-        setOpen(false);
-        setQuery(value);
+        resolveInputOnDismiss();
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [value]);
+  }, [options, query, value]);
 
-  function commitValue(nextValue: string) {
-    onChange(nextValue);
-    setQuery(nextValue);
-    setOpen(false);
-  }
-
-  function handleBlur() {
+  function resolveInputOnDismiss() {
     setOpen(false);
     const trimmed = query.trim();
-    if (!trimmed) {
+    if (!trimmed || (emptyLabel && trimmed === emptyLabel)) {
       if (value) commitValue("");
       else setQuery("");
       return;
@@ -86,12 +88,22 @@ export default function KeyStockFilterCombobox({
     setQuery(value);
   }
 
+  function commitValue(nextValue: string) {
+    onChange(nextValue);
+    setQuery(nextValue);
+    setOpen(false);
+  }
+
+  function handleBlur() {
+    resolveInputOnDismiss();
+  }
+
   return (
     <div ref={containerRef} className="relative min-w-0">
       <input
         id={id}
         type="text"
-        value={query}
+        value={displayValue}
         placeholder={placeholder}
         autoComplete="off"
         role="combobox"
@@ -101,9 +113,16 @@ export default function KeyStockFilterCombobox({
           setQuery(event.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setIsFocused(true);
+          setOpen(true);
+          setQuery(value.trim());
+        }}
         onClick={() => setOpen(true)}
-        onBlur={handleBlur}
+        onBlur={() => {
+          setIsFocused(false);
+          handleBlur();
+        }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
@@ -134,6 +153,7 @@ export default function KeyStockFilterCombobox({
           if (event.key === "Escape") {
             setOpen(false);
             setQuery(value);
+            setIsFocused(false);
           }
         }}
         className={className}

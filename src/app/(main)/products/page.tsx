@@ -15,6 +15,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import ProductsPageClient from "@/components/products-page-client";
 import {
+  fetchProductListFilterOptions,
   fetchProductsListView,
   getProductPageSizeStorageKey,
   normalizeProductSearchQuery,
@@ -33,6 +34,8 @@ type ProductsPageProps = {
   searchParams: Promise<{
     page?: string;
     q?: string;
+    category?: string;
+    brand?: string;
     limit?: string;
     sort?: string;
     order?: string;
@@ -46,6 +49,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const normalizedSearch = normalizeProductSearchQuery(params.q ?? "");
   const searchQuery = normalizedSearch.searchQuery;
   const searchValidationError = normalizedSearch.error ?? null;
+  const categoryFilter = params.category?.trim() ?? "";
+  const brandFilter = params.brand?.trim() ?? "";
   const requestedPage = Math.max(1, Number(params.page) || 1);
 
   const supabase = await createClient();
@@ -71,12 +76,15 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   let products: Awaited<ReturnType<typeof fetchProductsListView>>["products"] = [];
   let pageError: string | null = searchValidationError;
 
+  const filterOptions = await fetchProductListFilterOptions(supabase);
+
   if (!searchValidationError) {
     const view = await fetchProductsListView(supabase, {
       page: requestedPage,
       pageSize,
       searchQuery,
       sort,
+      scopeFilters: { category: categoryFilter, brand: brandFilter },
     });
 
     if (view.error) {
@@ -101,6 +109,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   ) {
     const nextParams = new URLSearchParams();
     if (searchQuery) nextParams.set("q", searchQuery);
+    if (categoryFilter) nextParams.set("category", categoryFilter);
+    if (brandFilter) nextParams.set("brand", brandFilter);
     if (currentPage > 1) nextParams.set("page", String(currentPage));
     if (pageSize !== PRODUCT_PAGE_SIZE) {
       nextParams.set("limit", String(pageSize));
@@ -123,7 +133,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       : {};
   const showProductListView =
     searchValidationError !== null ||
-    (!pageError && (listStats.totalCount > 0 || searchQuery.length > 0));
+    (!pageError &&
+      (listStats.totalCount > 0 ||
+        searchQuery.length > 0 ||
+        categoryFilter.length > 0 ||
+        brandFilter.length > 0));
 
   return (
       <main className={pageMainWithMobileFab}>
@@ -194,6 +208,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <ProductsPageClient
             key={[
               searchQuery,
+              categoryFilter,
+              brandFilter,
               currentPage,
               pageSize,
               sort.column ?? "",
@@ -206,6 +222,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             currentPage={currentPage}
             totalPages={totalPages}
             searchQuery={searchQuery}
+            categoryFilter={categoryFilter}
+            brandFilter={brandFilter}
+            filterCategories={filterOptions.categories}
+            filterOptionRows={filterOptions.rows}
             pageSize={pageSize}
             sort={sort}
             readOnly={!canManageProducts}

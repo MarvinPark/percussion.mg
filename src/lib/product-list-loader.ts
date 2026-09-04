@@ -9,11 +9,22 @@ import {
   normalizeProductSearchQuery,
   toPostgrestIlikePattern,
 } from "@/lib/postgrest-search-filter";
+import {
+  applyProductListScopeFilters,
+  hasProductListScopeFilters,
+  normalizeProductListScopeFilters,
+  type ProductListScopeFilters,
+} from "@/lib/product-list-scope-filters";
 
 export {
   PRODUCT_SEARCH_MIN_LENGTH,
   normalizeProductSearchQuery,
 } from "@/lib/postgrest-search-filter";
+export type { ProductListScopeFilters } from "@/lib/product-list-scope-filters";
+export {
+  fetchProductListFilterOptions,
+  buildProductListBrandOptions,
+} from "@/lib/product-list-scope-filters";
 import type { Product } from "@/types/product";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
@@ -118,7 +129,12 @@ export { toPostgrestIlikePattern };
 async function fetchStatsViaRpc(
   supabase: SupabaseClient,
   searchQuery?: string,
+  scopeFilters?: ProductListScopeFilters,
 ): Promise<ProductListStats | null> {
+  if (hasProductListScopeFilters(scopeFilters ?? {})) {
+    return null;
+  }
+
   const { data, error } = await supabase.rpc("get_product_list_stats", {
     search_query: searchQuery?.trim() || null,
   });
@@ -134,6 +150,7 @@ async function fetchStatsViaRpc(
 async function fetchStatsFallback(
   supabase: SupabaseClient,
   searchQuery?: string,
+  scopeFilters?: ProductListScopeFilters,
 ): Promise<ProductListStats> {
   let builder = supabase
     .from("products")
@@ -142,6 +159,8 @@ async function fetchStatsFallback(
   if (searchQuery?.trim()) {
     builder = applyProductSearchFilter(builder, searchQuery);
   }
+
+  builder = applyProductListScopeFilters(builder, scopeFilters ?? {});
 
   const { count } = await builder;
 
@@ -154,11 +173,12 @@ async function fetchStatsFallback(
 export async function fetchProductListStats(
   supabase: SupabaseClient,
   searchQuery?: string,
+  scopeFilters?: ProductListScopeFilters,
 ): Promise<ProductListStats> {
-  const rpcStats = await fetchStatsViaRpc(supabase, searchQuery);
+  const rpcStats = await fetchStatsViaRpc(supabase, searchQuery, scopeFilters);
   if (rpcStats) return rpcStats;
 
-  return fetchStatsFallback(supabase, searchQuery);
+  return fetchStatsFallback(supabase, searchQuery, scopeFilters);
 }
 
 export async function fetchProductsPage(
@@ -170,6 +190,7 @@ export async function fetchProductsPage(
     sort?: ProductListSort;
     /** false면 count 집계 생략 (통계 RPC와 중복 조회 방지) */
     includeCount?: boolean;
+    scopeFilters?: ProductListScopeFilters;
   },
 ): Promise<ProductPageResult> {
   const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
@@ -179,6 +200,7 @@ export async function fetchProductsPage(
   const searchQuery = options.searchQuery?.trim() ?? "";
   const sort = options.sort ?? DEFAULT_PRODUCT_LIST_SORT;
   const includeCount = options.includeCount ?? true;
+  const scopeFilters = normalizeProductListScopeFilters(options.scopeFilters);
 
   let builder = includeCount
     ? supabase.from("products").select(PRODUCT_LIST_SELECT, { count: "exact" })
@@ -195,6 +217,8 @@ export async function fetchProductsPage(
   if (searchQuery) {
     builder = applyProductSearchFilter(builder, searchQuery);
   }
+
+  builder = applyProductListScopeFilters(builder, scopeFilters);
 
   const { data, count, error } = await builder.range(from, to);
 
@@ -217,9 +241,11 @@ export async function fetchProductsListView(
     pageSize?: number;
     searchQuery?: string;
     sort?: ProductListSort;
+    scopeFilters?: ProductListScopeFilters;
   },
 ): Promise<ProductsListViewResult> {
   const normalized = normalizeProductSearchQuery(options.searchQuery ?? "");
+  const scopeFilters = normalizeProductListScopeFilters(options.scopeFilters);
 
   if (normalized.error) {
     return {
@@ -235,13 +261,14 @@ export async function fetchProductsListView(
   const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
 
   const [listStats, pageData] = await Promise.all([
-    fetchProductListStats(supabase, searchQuery || undefined),
+    fetchProductListStats(supabase, searchQuery || undefined, scopeFilters),
     fetchProductsPage(supabase, {
       page,
       pageSize,
       searchQuery,
       sort: options.sort,
       includeCount: false,
+      scopeFilters,
     }),
   ]);
 
