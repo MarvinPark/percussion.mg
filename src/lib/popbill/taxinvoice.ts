@@ -69,6 +69,45 @@ export function splitVatInclusive(totalAmount: number) {
   return { supplyCost, tax, totalAmount: total };
 }
 
+export function buildDetailListFromItemNames(
+  itemNames: string[],
+  totalAmount: number,
+  purchaseDate: string,
+): PopbillTaxinvoiceDetail[] {
+  const names = itemNames.map((name) => name.trim()).filter(Boolean);
+  const resolvedNames = names.length > 0 ? names : ["악기"];
+  const { supplyCost: totalSupply, tax: totalTax } = splitVatInclusive(totalAmount);
+  const count = resolvedNames.length;
+  let supplyRemaining = totalSupply;
+  let taxRemaining = totalTax;
+
+  return resolvedNames.map((itemName, index) => {
+    const isLast = index === count - 1;
+    const supply = isLast ? supplyRemaining : Math.round(totalSupply / count);
+    const tax = isLast ? taxRemaining : Math.round(totalTax / count);
+    supplyRemaining -= supply;
+    taxRemaining -= tax;
+
+    return {
+      serialNum: index + 1,
+      purchaseDT: purchaseDate,
+      itemName,
+      qty: "1",
+      unitCost: String(supply),
+      supplyCost: String(supply),
+      tax: String(tax),
+    };
+  });
+}
+
+export function detailListToStoredItems(detailList: PopbillTaxinvoiceDetail[]) {
+  return detailList.map((item) => ({
+    name: item.itemName,
+    supply_cost: Number(item.supplyCost) || 0,
+    tax_amount: Number(item.tax) || 0,
+  }));
+}
+
 function mapPartnerTypeToPopbill(partnerType: BusinessPartnerType): string {
   if (partnerType === "business") return "사업자";
   if (partnerType === "foreigner") return "외국인";
@@ -154,11 +193,12 @@ export function mapPartnerToPopbillBuyer(partner: BusinessPartner) {
 export function buildTaxInvoicePayload(input: {
   partner: BusinessPartner;
   totalAmount: number;
-  itemName: string;
+  itemNames: string[];
   writeDate?: string;
   itemPurchaseDate?: string;
   mgtKey: string;
   purposeType?: "영수" | "청구";
+  buyerEmail?: string;
 }): PopbillTaxinvoicePayload {
   const writeDate =
     input.writeDate ?? new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -167,6 +207,15 @@ export function buildTaxInvoicePayload(input: {
   const corpNum = getPopbillCorpNum();
   const supplier = getPopbillSupplierFields(corpNum);
   const buyer = mapPartnerToPopbillBuyer(input.partner);
+  const detailList = buildDetailListFromItemNames(
+    input.itemNames,
+    input.totalAmount,
+    purchaseDT,
+  );
+
+  if (input.buyerEmail?.trim()) {
+    buyer.invoiceeEmail1 = input.buyerEmail.trim();
+  }
 
   return {
     writeDate,
@@ -180,17 +229,7 @@ export function buildTaxInvoicePayload(input: {
     invoicerMgtKey: input.mgtKey,
     ...supplier,
     ...buyer,
-    detailList: [
-      {
-        serialNum: 1,
-        purchaseDT,
-        itemName: input.itemName.trim() || "악기",
-        qty: "1",
-        unitCost: String(supplyCost),
-        supplyCost: String(supplyCost),
-        tax: String(tax),
-      },
-    ],
+    detailList,
   };
 }
 
@@ -207,6 +246,107 @@ export async function registPopbillTaxInvoice(taxinvoice: PopbillTaxinvoicePaylo
   return promisifyPopbill<Record<string, unknown>>((success, error) => {
     service.registIssue(corpNum, taxinvoice, success, error);
   });
+}
+
+const POPBILL_MGT_KEY_TYPE = "SELL";
+
+export type PopbillTaxInvoiceInfo = {
+  mgtKey?: string;
+  itemKey?: string;
+  stateCode?: number | string;
+  stateDT?: string;
+  stateMemo?: string;
+  ntsconfirmNum?: string;
+  ntssendDT?: string;
+  ntssendErrCode?: string;
+  ntssendState?: number | string;
+  openYN?: boolean;
+  openDT?: string;
+  lateIssueYN?: boolean;
+  state?: string;
+  invoicerMgtKey?: string;
+  invoiceeMgtKey?: string;
+  trusteeMgtKey?: string;
+  [key: string]: unknown;
+};
+
+export async function getPopbillTaxInvoiceInfo(mgtKey: string) {
+  const service = getPopbillTaxinvoiceService();
+  const corpNum = getPopbillCorpNum();
+
+  return promisifyPopbill<PopbillTaxInvoiceInfo>((success, error) => {
+    service.getInfo(corpNum, POPBILL_MGT_KEY_TYPE, mgtKey, success, error);
+  });
+}
+
+export async function getPopbillTaxInvoicePdfUrl(mgtKey: string) {
+  const service = getPopbillTaxinvoiceService();
+  const corpNum = getPopbillCorpNum();
+
+  return promisifyPopbill<string>((success, error) => {
+    service.getPDFURL(corpNum, POPBILL_MGT_KEY_TYPE, mgtKey, success, error);
+  });
+}
+
+export async function sendPopbillTaxInvoiceEmail(
+  mgtKey: string,
+  receiverEmail: string,
+) {
+  const service = getPopbillTaxinvoiceService();
+  const corpNum = getPopbillCorpNum();
+
+  return promisifyPopbill<Record<string, unknown>>((success, error) => {
+    service.sendEmail(
+      corpNum,
+      POPBILL_MGT_KEY_TYPE,
+      mgtKey,
+      receiverEmail,
+      success,
+      error,
+    );
+  });
+}
+
+export async function cancelPopbillTaxInvoice(mgtKey: string, memo: string) {
+  const service = getPopbillTaxinvoiceService();
+  const corpNum = getPopbillCorpNum();
+
+  return promisifyPopbill<Record<string, unknown>>((success, error) => {
+    service.cancelIssue(
+      corpNum,
+      POPBILL_MGT_KEY_TYPE,
+      mgtKey,
+      memo,
+      success,
+      error,
+    );
+  });
+}
+
+export function extractPopbillTaxInvoiceState(info: PopbillTaxInvoiceInfo) {
+  if (typeof info.state === "string" && info.state.trim()) {
+    return info.state.trim();
+  }
+  if (info.stateCode != null) {
+    return String(info.stateCode);
+  }
+  return null;
+}
+
+export function extractPopbillNtsConfirmNum(info: PopbillTaxInvoiceInfo) {
+  const value = info.ntsconfirmNum;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export function canCancelPopbillTaxInvoice(
+  issue: { cancelled_at: string | null; popbill_state: string | null },
+  info?: PopbillTaxInvoiceInfo | null,
+) {
+  if (issue.cancelled_at) return false;
+  const state = info?.state ?? issue.popbill_state ?? "";
+  if (state.includes("취소")) return false;
+  if (state.includes("국세청") && state.includes("완료")) return false;
+  return true;
 }
 
 export async function resolveInvoicePartnerContext(

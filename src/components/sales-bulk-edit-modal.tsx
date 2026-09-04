@@ -5,6 +5,7 @@ import {
   bulkUpdateSales,
   type BulkUpdateSalesFields,
 } from "@/app/(main)/sales/actions";
+import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import type { StaffOption } from "@/components/sales-page-client";
 
 const inputClass =
@@ -30,6 +31,8 @@ export default function SalesBulkEditModal({
 }: SalesBulkEditModalProps) {
   const firstInputRef = useRef<HTMLSelectElement>(null);
   const [sellerName, setSellerName] = useState("");
+  const [businessPartner, setBusinessPartner] = useState("");
+  const [partnerId, setPartnerId] = useState("");
   const [saleCategory, setSaleCategory] = useState("");
   const [soldAt, setSoldAt] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -80,11 +83,17 @@ export default function SalesBulkEditModal({
       fields.quantity = Number(quantity);
     }
 
+    if (businessPartner.trim()) {
+      fields.business_partner = businessPartner.trim();
+      fields.partner_id = partnerId.trim() || null;
+    }
+
     if (
       fields.created_by_name === undefined &&
       fields.sale_category === undefined &&
       fields.sold_at === undefined &&
-      fields.quantity === undefined
+      fields.quantity === undefined &&
+      fields.business_partner === undefined
     ) {
       setError("수정할 항목을 하나 이상 입력해 주세요.");
       return;
@@ -117,7 +126,7 @@ export default function SalesBulkEditModal({
           일괄 수정
         </h3>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          선택한 {saleIds.length}건의 판매자, 구분, 날짜, 수량을 수정합니다.
+          선택한 {saleIds.length}건의 판매자, 거래처명, 구분, 날짜, 수량을 수정합니다.
           입력한 항목만 변경됩니다.
         </p>
 
@@ -140,6 +149,22 @@ export default function SalesBulkEditModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="bulk_business_partner" className={labelClass}>
+              거래처명
+            </label>
+            <BusinessPartnerAutocomplete
+              id="bulk_business_partner"
+              name="business_partner"
+              value={businessPartner}
+              partnerId={partnerId}
+              onChange={setBusinessPartner}
+              onPartnerIdChange={setPartnerId}
+              placeholder="예: OO음악학원"
+              className={inputClass}
+            />
           </div>
 
           <div>

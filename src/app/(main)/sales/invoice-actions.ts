@@ -8,8 +8,17 @@ import {
 import {
   buildTaxInvoiceMgtKey,
   buildTaxInvoicePayload,
+  buildDetailListFromItemNames,
+  cancelPopbillTaxInvoice,
+  canCancelPopbillTaxInvoice,
+  detailListToStoredItems,
+  extractPopbillNtsConfirmNum,
+  extractPopbillTaxInvoiceState,
+  getPopbillTaxInvoiceInfo,
+  getPopbillTaxInvoicePdfUrl,
   registPopbillTaxInvoice,
   resolveInvoicePartnerContext,
+  sendPopbillTaxInvoiceEmail,
   splitVatInclusive,
   validatePartnerForIssue,
 } from "@/lib/popbill/taxinvoice";
@@ -29,6 +38,8 @@ import {
   isoDateToPopbillDate,
   validateTaxInvoiceIsoDate,
 } from "@/lib/tax-invoice-dates";
+import { mapTaxInvoiceIssueRow } from "@/lib/tax-invoice-issues";
+import type { TaxInvoiceIssue } from "@/types/tax-invoice";
 
 const DEFAULT_ITEM_NAME = "악기";
 
@@ -226,10 +237,11 @@ export async function getTaxInvoicePopbillStatus(): Promise<
 
 export async function issueTaxInvoiceFromSales(input: {
   saleIds: string[];
-  itemName?: string;
+  itemNames?: string[];
   purposeType?: "영수" | "청구";
   writeDate?: string;
   itemPurchaseDate?: string;
+  recipientEmail?: string;
   partner?: (BusinessPartnerInput & { partnerId?: string | null }) | null;
 }) {
   const saleIds = [...new Set(input.saleIds.map((id) => id.trim()).filter(Boolean))];
@@ -308,17 +320,22 @@ export async function issueTaxInvoiceFromSales(input: {
     return { error: `품목일자: ${itemDateError}` };
   }
 
-  const itemName = input.itemName?.trim() || DEFAULT_ITEM_NAME;
+  const itemNames = (input.itemNames ?? [])
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const resolvedItemNames = itemNames.length > 0 ? itemNames : [DEFAULT_ITEM_NAME];
   const mgtKey = buildTaxInvoiceMgtKey(saleIds);
+  const recipientEmail = input.recipientEmail?.trim() ?? "";
 
   const taxinvoice = buildTaxInvoicePayload({
     partner: partnerContext.partner,
     totalAmount,
-    itemName,
+    itemNames: resolvedItemNames,
     writeDate: isoDateToPopbillDate(writeDateIso),
     itemPurchaseDate: isoDateToPopbillDate(itemPurchaseDateIso),
     mgtKey,
     purposeType: input.purposeType,
+    buyerEmail: recipientEmail || undefined,
   });
 
   const readiness = await assertPopbillReadyForIssue();
@@ -328,14 +345,38 @@ export async function issueTaxInvoiceFromSales(input: {
 
   const { supplyCost, tax: taxAmount } = splitVatInclusive(totalAmount);
   const purposeType = input.purposeType ?? "영수";
+  const detailList = buildDetailListFromItemNames(
+    resolvedItemNames,
+    totalAmount,
+    isoDateToPopbillDate(itemPurchaseDateIso),
+  );
+  const storedDetailItems = detailListToStoredItems(detailList);
+  const itemName = resolvedItemNames.join(", ");
 
   try {
     const result = await registPopbillTaxInvoice(taxinvoice);
 
+    let popbillInfo = null;
+    try {
+      popbillInfo = await getPopbillTaxInvoiceInfo(mgtKey);
+    } catch {
+      popbillInfo = null;
+    }
+
+    if (recipientEmail) {
+      try {
+        await sendPopbillTaxInvoiceEmail(mgtKey, recipientEmail);
+      } catch (emailError) {
+        console.error("세금계산서 이메일 전송 실패:", emailError);
+      }
+    }
+
     const ntsConfirmNum =
+      extractPopbillNtsConfirmNum(popbillInfo ?? {}) ??
       (result.ntsconfirmNum as string | undefined) ??
       (result.confirmNum as string | undefined) ??
       null;
+    const popbillState = extractPopbillTaxInvoiceState(popbillInfo ?? {});
     const popbillCode =
       typeof result.code === "number"
         ? result.code
@@ -344,17 +385,18 @@ export async function issueTaxInvoiceFromSales(input: {
       result.message != null ? String(result.message) : null;
 
     const partner = partnerContext.partner;
-    const { error: insertError } = await loaded.supabase
+    const { data: inserted, error: insertError } = await loaded.supabase
       .from("tax_invoice_issues")
       .insert({
         mgt_key: mgtKey,
         partner_id: partner.id,
         partner_name: partner.display_name,
         partner_corp_num: partner.corp_num,
-        partner_email: partner.invoice_email || partner.contact_email,
+        partner_email: recipientEmail || partner.invoice_email || partner.contact_email,
         sale_ids: saleIds,
         sale_count: loaded.sales.length,
         item_name: itemName,
+        detail_items: storedDetailItems,
         purpose_type: purposeType,
         write_date: writeDateIso,
         item_purchase_date: itemPurchaseDateIso,
@@ -364,10 +406,13 @@ export async function issueTaxInvoiceFromSales(input: {
         nts_confirm_num: ntsConfirmNum,
         popbill_code: popbillCode,
         popbill_message: popbillMessage,
+        popbill_state: popbillState,
         issued_by_user_id: auth.userId,
         issued_by_name: auth.name,
         is_test: getPopbillEnv().isTest,
-      });
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("세금계산서 발행 내역 저장 실패:", insertError.message);
@@ -378,14 +423,140 @@ export async function issueTaxInvoiceFromSales(input: {
 
     return {
       success: true as const,
+      issueId: inserted?.id ? String(inserted.id) : null,
       mgtKey,
       ntsConfirmNum,
+      popbillState,
       totalAmount,
       itemName,
+      detailItems: storedDetailItems,
       saleCount: loaded.sales.length,
       partnerName: partner.display_name,
+      recipientEmail: recipientEmail || partner.invoice_email || partner.contact_email,
+      writeDate: writeDateIso,
+      itemPurchaseDate: itemPurchaseDateIso,
+      purposeType,
     };
   } catch (error) {
     return { error: formatPopbillErrorMessage(error) };
   }
+}
+
+export async function getTaxInvoicePdfUrl(input: { mgtKey: string }) {
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
+
+  if (!isPopbillConfigured()) {
+    return { error: "Popbill 환경 변수가 설정되지 않았습니다." };
+  }
+
+  const mgtKey = input.mgtKey.trim();
+  if (!mgtKey) {
+    return { error: "문서번호가 없습니다." };
+  }
+
+  try {
+    const url = await getPopbillTaxInvoicePdfUrl(mgtKey);
+    return { url };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "PDF URL을 가져오지 못했습니다.",
+    };
+  }
+}
+
+export async function cancelTaxInvoiceIssue(input: {
+  issueId: string;
+  memo?: string;
+}) {
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
+
+  if (!isPopbillConfigured()) {
+    return { error: "Popbill 환경 변수가 설정되지 않았습니다." };
+  }
+
+  const supabase = await createClient();
+  const { data: row, error: fetchError } = await supabase
+    .from("tax_invoice_issues")
+    .select("*")
+    .eq("id", input.issueId)
+    .maybeSingle();
+
+  if (fetchError || !row) {
+    return { error: "발행 내역을 찾을 수 없습니다." };
+  }
+
+  const issue = mapTaxInvoiceIssueRow(row);
+  if (issue.cancelled_at) {
+    return { error: "이미 취소된 세금계산서입니다." };
+  }
+
+  let popbillInfo = null;
+  try {
+    popbillInfo = await getPopbillTaxInvoiceInfo(issue.mgt_key);
+  } catch {
+    popbillInfo = null;
+  }
+
+  if (!canCancelPopbillTaxInvoice(issue, popbillInfo)) {
+    return {
+      error:
+        "국세청 전송이 완료되었거나 취소할 수 없는 상태입니다. Popbill에서 상태를 확인해 주세요.",
+    };
+  }
+
+  const memo = input.memo?.trim() || "Percy에서 발행 취소";
+
+  try {
+    await cancelPopbillTaxInvoice(issue.mgt_key, memo);
+
+    let nextInfo = null;
+    try {
+      nextInfo = await getPopbillTaxInvoiceInfo(issue.mgt_key);
+    } catch {
+      nextInfo = null;
+    }
+
+    const { error: updateError } = await supabase
+      .from("tax_invoice_issues")
+      .update({
+        cancelled_at: new Date().toISOString(),
+        cancel_memo: memo,
+        popbill_state:
+          extractPopbillTaxInvoiceState(nextInfo ?? {}) ?? "발행취소",
+      })
+      .eq("id", issue.id);
+
+    if (updateError) {
+      return { error: "Popbill 취소는 완료했지만 내역 저장에 실패했습니다." };
+    }
+
+    revalidatePath("/sales/tax-invoices");
+    return { success: true as const };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "발행 취소에 실패했습니다.",
+    };
+  }
+}
+
+export async function getTaxInvoiceIssueById(input: {
+  issueId: string;
+}): Promise<{ issue: TaxInvoiceIssue } | { error: string }> {
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tax_invoice_issues")
+    .select("*")
+    .eq("id", input.issueId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { error: "발행 내역을 찾을 수 없습니다." };
+  }
+
+  return { issue: mapTaxInvoiceIssueRow(data) };
 }

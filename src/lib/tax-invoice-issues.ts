@@ -30,8 +30,29 @@ export function mapTaxInvoiceIssueRow(
     issued_by_user_id: (row.issued_by_user_id as string | null) ?? null,
     issued_by_name: (row.issued_by_name as string | null) ?? null,
     is_test: Boolean(row.is_test),
+    detail_items: parseDetailItems(row.detail_items),
+    popbill_state: (row.popbill_state as string | null) ?? null,
+    cancelled_at: (row.cancelled_at as string | null) ?? null,
+    cancel_memo: (row.cancel_memo as string | null) ?? null,
     created_at: String(row.created_at ?? ""),
   };
+}
+
+function parseDetailItems(value: unknown): TaxInvoiceIssue["detail_items"] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Record<string, unknown>;
+      const name = String(row.name ?? "").trim();
+      if (!name) return null;
+      return {
+        name,
+        supply_cost: Number(row.supply_cost) || 0,
+        tax_amount: Number(row.tax_amount) || 0,
+      };
+    })
+    .filter((item): item is TaxInvoiceIssue["detail_items"][number] => item !== null);
 }
 
 export async function fetchTaxInvoiceIssues(

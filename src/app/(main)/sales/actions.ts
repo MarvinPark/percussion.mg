@@ -1102,6 +1102,8 @@ export type BulkUpdateSalesFields = {
   sale_category?: string;
   sold_at?: string;
   quantity?: number;
+  business_partner?: string;
+  partner_id?: string | null;
 };
 
 export async function bulkUpdateSales(
@@ -1122,8 +1124,15 @@ export async function bulkUpdateSales(
   const hasCategoryUpdate = fields.sale_category !== undefined;
   const hasDateUpdate = fields.sold_at !== undefined;
   const hasQuantityUpdate = fields.quantity !== undefined;
+  const hasPartnerUpdate = fields.business_partner !== undefined;
 
-  if (!hasSellerUpdate && !hasCategoryUpdate && !hasDateUpdate && !hasQuantityUpdate) {
+  if (
+    !hasSellerUpdate &&
+    !hasCategoryUpdate &&
+    !hasDateUpdate &&
+    !hasQuantityUpdate &&
+    !hasPartnerUpdate
+  ) {
     return { error: "수정할 항목을 하나 이상 입력해 주세요." };
   }
 
@@ -1158,6 +1167,27 @@ export async function bulkUpdateSales(
     resolvedCategory = sale_category;
   }
 
+  let resolvedPartner:
+    | {
+        partner_id: string | null;
+        business_partner: string | null;
+      }
+    | undefined;
+  if (hasPartnerUpdate) {
+    const partnerResult = await resolvePartnerForSave(supabase, {
+      business_partner: fields.business_partner ?? "",
+      partner_id: fields.partner_id ?? "",
+      source: "sale",
+    });
+    if (partnerResult.error) {
+      return { error: partnerResult.error };
+    }
+    resolvedPartner = {
+      partner_id: partnerResult.partner_id,
+      business_partner: partnerResult.business_partner,
+    };
+  }
+
   let updated = 0;
   const errors: string[] = [];
 
@@ -1189,6 +1219,11 @@ export async function bulkUpdateSales(
 
     if (hasDateUpdate) {
       updatePayload.sold_at = fields.sold_at!.trim();
+    }
+
+    if (hasPartnerUpdate && resolvedPartner) {
+      updatePayload.business_partner = resolvedPartner.business_partner;
+      updatePayload.partner_id = resolvedPartner.partner_id;
     }
 
     if (

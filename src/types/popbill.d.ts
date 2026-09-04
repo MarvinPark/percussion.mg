@@ -36,6 +36,36 @@ declare module "popbill" {
       success: PopbillSuccess<Record<string, unknown>>,
       error: PopbillErrorHandler,
     ) => void;
+    getInfo: (
+      corpNum: string,
+      keyType: string,
+      mgtKey: string,
+      success: PopbillSuccess<Record<string, unknown>>,
+      error: PopbillErrorHandler,
+    ) => void;
+    getPDFURL: (
+      corpNum: string,
+      keyType: string,
+      mgtKey: string,
+      success: PopbillSuccess<string>,
+      error: PopbillErrorHandler,
+    ) => void;
+    sendEmail: (
+      corpNum: string,
+      keyType: string,
+      mgtKey: string,
+      receiverMail: string,
+      success: PopbillSuccess<Record<string, unknown>>,
+      error: PopbillErrorHandler,
+    ) => void;
+    cancelIssue: (
+      corpNum: string,
+      keyType: string,
+      mgtKey: string,
+      memo: string,
+      success: PopbillSuccess<Record<string, unknown>>,
+      error: PopbillErrorHandler,
+    ) => void;
   };
 
   interface PopbillModule {
