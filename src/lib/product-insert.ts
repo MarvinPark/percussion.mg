@@ -131,6 +131,13 @@ export function formatProductInsertError(error: {
     return null;
   }
 
+  if (
+    error.code === "42501" ||
+    error.message.includes("row-level security")
+  ) {
+    return "로그인 세션이 유효하지 않습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.";
+  }
+
   if (isMissingProductColumnError(error.message)) {
     return "제품 DB 스키마가 최신이 아닙니다. Supabase SQL Editor에서 supabase/schema-product-keywords.sql과 schema-product-stock-locations.sql을 실행해 주세요.";
   }

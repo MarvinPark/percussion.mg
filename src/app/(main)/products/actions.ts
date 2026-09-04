@@ -10,7 +10,11 @@ import {
 import type { ProductListSort } from "@/lib/product-list-sort";
 import { normalizeProductSearchQuery } from "@/lib/postgrest-search-filter";
 import { createInlineProduct } from "@/lib/inline-product-create";
-import { toSaleProductOption } from "@/lib/inline-product-create-shared";
+import {
+  toSaleProductOption,
+  type InlineCreatedProduct,
+  type InlineProductCreateInput,
+} from "@/lib/inline-product-create-shared";
 import {
   createDuplicateSkuContext,
   createRegistrationSkuContext,
@@ -237,6 +241,20 @@ export async function createProduct(formData: FormData) {
 
 export async function createProductInlineList(formData: FormData) {
   return insertProductFromForm(formData);
+}
+
+export async function createInlineProductAction(
+  input: InlineProductCreateInput,
+): Promise<{ error: string } | { product: InlineCreatedProduct }> {
+  const result = await createInlineProduct(input);
+
+  if ("product" in result) {
+    revalidatePath("/products");
+    revalidatePath("/products/key-stock");
+    revalidatePath("/dashboard");
+  }
+
+  return result;
 }
 
 export async function updateProduct(formData: FormData) {

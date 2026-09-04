@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { createInlineProductAction } from "@/app/(main)/products/actions";
 import PriceInput from "@/components/price-input";
 import type { InlineCreatedProduct } from "@/lib/inline-product-create-shared";
 
@@ -64,21 +65,18 @@ export default function InlineProductCreateModal({
   const [salePrice, setSalePrice] = useState(0);
   const [stockQuantity, setStockQuantity] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const copy = CONTEXT_COPY[context];
   const showStockQuantity = context === "quote" || context === "products";
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setIsPending(true);
 
-    try {
-      const response = await fetch("/api/products/inline-create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+    startTransition(async () => {
+      try {
+        const result = await createInlineProductAction({
           product_name: productName,
           model_name: modelName,
           sku,
@@ -88,27 +86,19 @@ export default function InlineProductCreateModal({
           purchase_price: purchasePrice,
           sale_price: salePrice,
           stock_quantity: showStockQuantity ? stockQuantity : 0,
-        }),
-      });
+        });
 
-      const result = (await response.json()) as
-        | { product: InlineCreatedProduct }
-        | { error: string };
+        if ("error" in result) {
+          setError(result.error ?? "제품 등록에 실패했습니다.");
+          return;
+        }
 
-      if (!response.ok || !("product" in result)) {
-        setError(
-          "error" in result ? result.error : "제품 등록에 실패했습니다.",
-        );
-        return;
+        onCreated(result.product);
+        onClose();
+      } catch {
+        setError("제품 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       }
-
-      onCreated(result.product);
-      onClose();
-    } catch {
-      setError("제품 등록에 실패했습니다.");
-    } finally {
-      setIsPending(false);
-    }
+    });
   }
 
   return (
