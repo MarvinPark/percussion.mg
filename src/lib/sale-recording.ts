@@ -289,7 +289,7 @@ export async function recordStockIn(
   const locationPatch = addLocationStock(product, quantity);
   const stockAfter = sumLocationStock({ ...product, ...locationPatch });
 
-  await supabase.from("stock_movements").insert({
+  const { error: movementError } = await supabase.from("stock_movements").insert({
     product_id: productId,
     movement_type: "in",
     quantity,
@@ -300,7 +300,11 @@ export async function recordStockIn(
     modified_by_name: modifier.name,
   });
 
-  await supabase
+  if (movementError) {
+    return { error: "재고 입고 기록에 실패했습니다." as const };
+  }
+
+  const { error: updateError } = await supabase
     .from("products")
     .update({
       ...locationPatch,
@@ -308,6 +312,10 @@ export async function recordStockIn(
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
+
+  if (updateError) {
+    return { error: "재고 수량 업데이트에 실패했습니다." as const };
+  }
 
   return { ok: true as const };
 }
