@@ -50,8 +50,8 @@ export default async function NewSalePage() {
             매출 등록
           </h2>
           <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            + 버튼으로 여러 제품을 한 번에 등록할 수 있으며, 등록 시 재고가
-            자동으로 차감됩니다.
+            + 버튼으로 여러 제품을 한 번에 등록할 수 있으며, 매장 출고 시 재고가
+            자동으로 차감됩니다. 재고가 0이어도 마이너스로 등록할 수 있습니다.
           </p>
         </div>
 

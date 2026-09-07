@@ -15,6 +15,7 @@ import {
   fetchQuoteConversionInsights,
   fetchSalesComparisonInsights,
 } from "@/lib/dashboard-insights";
+import { fetchTotalInventoryAsset } from "@/lib/inventory-asset";
 import { isLowStockProduct } from "@/lib/product-stock";
 import { formatKRW } from "@/lib/sales-calculator";
 import { fetchSalesAnalyticsRows } from "@/lib/sales-analytics";
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
     "사용자";
 
   const [
-    { count: productCount },
+    totalInventoryAsset,
     { data: lowStockCandidates },
     summary,
     { count: quoteCount },
@@ -55,7 +56,7 @@ export default async function DashboardPage() {
     salesComparison,
     quoteConversion,
   ] = await Promise.all([
-    supabase.from("products").select("*", { count: "exact", head: true }),
+    fetchTotalInventoryAsset(supabase),
     supabase
       .from("products")
       .select("id, product_name, model_name, stock_quantity, min_stock_quantity")
@@ -95,12 +96,12 @@ export default async function DashboardPage() {
               재고
             </p>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              제품 등록 · 재고 확인
+              총 재고 자산 · 매입가 기준
             </p>
             <p className="mt-3 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {productCount ?? 0}
+              {formatKRW(totalInventoryAsset)}
               <span className="ml-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                개 제품
+                원
               </span>
             </p>
           </Link>

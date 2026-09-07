@@ -310,7 +310,7 @@ export default function QuoteConvertDialog({
             </p>
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               매입 수량을 입력하면 입고 후 판매 수량만큼 재고에서 차감합니다.
-              비워두면 입고 없이 재고에서 바로 차감합니다.
+              비워두면 입고 없이 재고에서 바로 차감하며, 재고가 부족하면 마이너스가 될 수 있습니다.
             </p>
           </div>
           <div className="overflow-x-auto">

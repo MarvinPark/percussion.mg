@@ -32,3 +32,15 @@ end;
 $$;
 
 grant execute on function public.get_product_list_stats(text) to authenticated;
+
+create or replace function public.get_total_inventory_asset()
+returns numeric
+language sql
+stable
+security invoker
+as $$
+  select coalesce(sum(purchase_price * stock_quantity), 0)::numeric
+  from products;
+$$;
+
+grant execute on function public.get_total_inventory_asset() to authenticated;
