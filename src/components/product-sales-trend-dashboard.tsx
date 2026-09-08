@@ -1,17 +1,10 @@
 "use client";
 
 import ProductSalesTrendSection from "@/components/product-sales-trend-section";
-import type { SalesAnalyticsRow } from "@/lib/sales-analytics";
 
 const PRODUCT_SLOT_COUNT = 3;
 
-type ProductSalesTrendDashboardProps = {
-  rows: SalesAnalyticsRow[];
-};
-
-export default function ProductSalesTrendDashboard({
-  rows,
-}: ProductSalesTrendDashboardProps) {
+export default function ProductSalesTrendDashboard() {
   return (
     <div className="space-y-4">
       <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
@@ -28,7 +21,6 @@ export default function ProductSalesTrendDashboard({
             className={index > 0 ? "hidden lg:block" : undefined}
           >
             <ProductSalesTrendSection
-              rows={rows}
               slotIndex={index + 1}
               showSectionTitle={false}
             />

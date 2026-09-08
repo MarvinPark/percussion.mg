@@ -1,8 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  aggregateSalesRanking,
   getCurrentMonthRange,
-  type SalesAnalyticsRow,
   type SalesRankEntry,
 } from "@/lib/sales-analytics";
 import type { SalesPeriodSummary } from "@/lib/sales-summary";
@@ -199,15 +197,15 @@ export async function fetchQuoteConversionInsights(
   };
 }
 
+/** 당월 구분별 순위(fetchCurrentMonthRankings의 sale_category)를 점유율로 환산합니다. */
 export function buildCategoryShareInsights(
-  rows: SalesAnalyticsRow[],
+  entries: SalesRankEntry[],
   now = new Date(),
 ): CategoryShareInsights {
-  const { start, end } = getCurrentMonthRange(now);
+  const { start } = getCurrentMonthRange(now);
   const [y, m] = start.split("-");
   const monthLabel = `${y}년 ${Number(m)}월`;
 
-  const entries = aggregateSalesRanking(rows, "sale_category", start, end, 20);
   const totalSales = entries.reduce((sum, entry) => sum + entry.sales, 0);
 
   const withShare: CategoryShareEntry[] = entries.map((entry) => ({

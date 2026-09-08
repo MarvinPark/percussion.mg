@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import SalesRankChart from "@/components/sales-rank-chart";
 import {
-  aggregateSalesRanking,
   getCurrentMonthRange,
   SALES_RANK_DIMENSION_LABELS,
-  type SalesAnalyticsRow,
+  type SalesMonthRankings,
   type SalesRankDimension,
 } from "@/lib/sales-analytics";
+
+/** 차트에 노출할 순위 개수. 서버는 기준 전환에 대비해 더 넉넉히 내려줍니다. */
+const RANK_DISPLAY_LIMIT = 7;
 
 const RANK_DIMENSIONS: SalesRankDimension[] = [
   "sale_category",
@@ -52,11 +54,11 @@ function formatMonthLabel(start: string): string {
 }
 
 type SalesAnalyticsRankSectionProps = {
-  rows: SalesAnalyticsRow[];
+  rankings: SalesMonthRankings;
 };
 
 export default function SalesAnalyticsRankSection({
-  rows,
+  rankings,
 }: SalesAnalyticsRankSectionProps) {
   const [leftDimension, setLeftDimension] =
     useState<SalesRankDimension>("business_partner");
@@ -67,25 +69,13 @@ export default function SalesAnalyticsRankSection({
   const monthLabel = formatMonthLabel(monthRange.start);
 
   const leftRanking = useMemo(
-    () =>
-      aggregateSalesRanking(
-        rows,
-        leftDimension,
-        monthRange.start,
-        monthRange.end,
-      ),
-    [rows, leftDimension, monthRange.start, monthRange.end],
+    () => rankings[leftDimension].slice(0, RANK_DISPLAY_LIMIT),
+    [rankings, leftDimension],
   );
 
   const rightRanking = useMemo(
-    () =>
-      aggregateSalesRanking(
-        rows,
-        rightDimension,
-        monthRange.start,
-        monthRange.end,
-      ),
-    [rows, rightDimension, monthRange.start, monthRange.end],
+    () => rankings[rightDimension].slice(0, RANK_DISPLAY_LIMIT),
+    [rankings, rightDimension],
   );
 
   return (

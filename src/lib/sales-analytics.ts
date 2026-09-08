@@ -49,6 +49,23 @@ export type SalesRankEntry = {
   margin: number;
 };
 
+/**
+ * 일자별로 미리 합산한 매출 버킷입니다.
+ *
+ * 대시보드 차트는 이 버킷만 받고 원본 매출 행은 받지 않습니다. 전송량이
+ * 매출 건수가 아니라 달력 일수에 비례하므로 매출이 늘어도 늘지 않습니다.
+ * 매출이 없는 날은 아예 포함하지 않습니다.
+ */
+export type SalesDailyBucket = {
+  date: string;
+  sales: number;
+  purchase: number;
+  margin: number;
+};
+
+/** 차원별 당월 매출 순위 (클라이언트에서 기준을 바꿔도 재조회가 필요 없도록 전 차원을 미리 계산합니다) */
+export type SalesMonthRankings = Record<SalesRankDimension, SalesRankEntry[]>;
+
 export function toManwon(amount: number): number {
   return amount / 10000;
 }
@@ -190,21 +207,59 @@ function enumerateBucketKeys(
   return keys;
 }
 
-export function aggregateSalesByPeriod(
-  rows: SalesAnalyticsRow[],
+/** 원본 매출 행을 일자별 버킷으로 합산합니다. 서버에서만 호출합니다. */
+export function aggregateSalesDaily(
+  rows: Pick<
+    SalesAnalyticsRow,
+    "sold_at" | "total_amount" | "purchase_amount" | "margin_amount"
+  >[],
+): SalesDailyBucket[] {
+  const totals = new Map<
+    string,
+    { sales: number; purchase: number; margin: number }
+  >();
+
+  for (const row of rows) {
+    const current = totals.get(row.sold_at) ?? {
+      sales: 0,
+      purchase: 0,
+      margin: 0,
+    };
+    current.sales += Number(row.total_amount) || 0;
+    current.purchase += Number(row.purchase_amount) || 0;
+    current.margin += Number(row.margin_amount) || 0;
+    totals.set(row.sold_at, current);
+  }
+
+  return [...totals.entries()]
+    .map(([date, value]) => ({ date, ...value }))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+/**
+ * 일자별 버킷을 원하는 granularity로 다시 묶습니다.
+ *
+ * 원본 행 대신 일별 합계를 입력으로 받으므로, 클라이언트가 서버 왕복 없이
+ * 일/주/월을 전환하고 기간을 바꿀 수 있습니다.
+ */
+export function aggregateDailyBuckets(
+  daily: SalesDailyBucket[],
   granularity: SalesPeriodGranularity,
   start: string,
   end: string,
 ): SalesPeriodBucket[] {
-  const totals = new Map<string, { sales: number; purchase: number; margin: number }>();
+  const totals = new Map<
+    string,
+    { sales: number; purchase: number; margin: number }
+  >();
 
-  for (const row of rows) {
-    if (row.sold_at < start || row.sold_at > end) continue;
-    const key = bucketKey(row.sold_at, granularity);
+  for (const bucket of daily) {
+    if (bucket.date < start || bucket.date > end) continue;
+    const key = bucketKey(bucket.date, granularity);
     const current = totals.get(key) ?? { sales: 0, purchase: 0, margin: 0 };
-    current.sales += Number(row.total_amount) || 0;
-    current.purchase += Number(row.purchase_amount) || 0;
-    current.margin += Number(row.margin_amount) || 0;
+    current.sales += bucket.sales;
+    current.purchase += bucket.purchase;
+    current.margin += bucket.margin;
     totals.set(key, current);
   }
 
@@ -279,8 +334,19 @@ export function aggregateProductSalesByPeriod(
   });
 }
 
+/** 순위 집계에 필요한 최소 필드. SalesAnalyticsRow도 그대로 넘길 수 있습니다. */
+export type SalesRankingRow = Pick<
+  SalesAnalyticsRow,
+  | "sold_at"
+  | "total_amount"
+  | "margin_amount"
+  | "business_partner"
+  | "sale_category"
+  | "products"
+>;
+
 function getDimensionValue(
-  row: SalesAnalyticsRow,
+  row: SalesRankingRow,
   dimension: SalesRankDimension,
 ): string {
   switch (dimension) {
@@ -305,7 +371,7 @@ export function getCurrentMonthRange(now = new Date()): {
 }
 
 export function aggregateSalesRanking(
-  rows: SalesAnalyticsRow[],
+  rows: SalesRankingRow[],
   dimension: SalesRankDimension,
   start: string,
   end: string,
@@ -328,48 +394,197 @@ export function aggregateSalesRanking(
     .slice(0, limit);
 }
 
-export async function fetchSalesAnalyticsRows(
+/** PostgREST가 한 번에 1000행까지만 돌려주므로 범위를 나눠 전부 읽습니다. */
+const SALES_PAGE_SIZE = 1000;
+
+async function fetchSalesRowsPaged(
+  supabase: SupabaseClient,
+  select: string,
+  start: string,
+  end?: string,
+): Promise<{ rows: Record<string, unknown>[]; error: string | null }> {
+  const rows: Record<string, unknown>[] = [];
+  let offset = 0;
+
+  while (true) {
+    let query = supabase
+      .from("sales")
+      .select(select)
+      .gte("sold_at", start)
+      .order("sold_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + SALES_PAGE_SIZE - 1);
+
+    if (end) {
+      query = query.lte("sold_at", end);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { rows: [], error: "매출 분석 데이터를 불러오지 못했습니다." };
+    }
+
+    if (!data?.length) break;
+
+    rows.push(...(data as unknown as Record<string, unknown>[]));
+    if (data.length < SALES_PAGE_SIZE) break;
+    offset += SALES_PAGE_SIZE;
+  }
+
+  return { rows, error: null };
+}
+
+function toRankingRow(row: Record<string, unknown>): SalesRankingRow {
+  const productField = row.products;
+  const product = (
+    Array.isArray(productField) ? productField[0] : productField
+  ) as { brand?: string | null; product_name?: string } | null | undefined;
+
+  return {
+    sold_at: String(row.sold_at),
+    total_amount: Number(row.total_amount) || 0,
+    margin_amount: Number(row.margin_amount) || 0,
+    business_partner: (row.business_partner as string | null) ?? null,
+    sale_category: String(row.sale_category ?? ""),
+    products: product
+      ? {
+          brand: product.brand ?? null,
+          product_name: product.product_name ?? "",
+        }
+      : null,
+  };
+}
+
+/**
+ * 추이 차트용 일자별 매출 버킷을 가져옵니다.
+ *
+ * 제품 조인 없이 금액 컬럼만 읽고 서버에서 일자별로 합산하므로,
+ * 클라이언트로 넘어가는 데이터가 매출 건수와 무관하게 유지됩니다.
+ */
+export async function fetchSalesDailyBuckets(
   supabase: SupabaseClient,
   monthsBack = 36,
-) {
-  const now = new Date();
-  const start = formatDateISO(addMonths(startOfMonth(now), -monthsBack));
+): Promise<{
+  buckets: SalesDailyBucket[];
+  error: string | null;
+  dataFrom: string;
+}> {
+  const start = formatDateISO(addMonths(startOfMonth(new Date()), -monthsBack));
 
-  const { data, error } = await supabase
-    .from("sales")
-    .select(
-      "sold_at, product_id, quantity, total_amount, margin_amount, unit_purchase_price, business_partner, sale_category, products(brand, product_name)",
-    )
-    .gte("sold_at", start)
-    .order("sold_at", { ascending: true });
+  const { rows, error } = await fetchSalesRowsPaged(
+    supabase,
+    "sold_at, total_amount, margin_amount, unit_purchase_price, quantity",
+    start,
+  );
 
-  const rows: SalesAnalyticsRow[] = (data ?? []).map((row) => {
-    const product = Array.isArray(row.products)
-      ? row.products[0]
-      : row.products;
-
-    return {
-      sold_at: row.sold_at,
-      product_id: row.product_id,
-      quantity: Number(row.quantity) || 0,
+  const buckets = aggregateSalesDaily(
+    rows.map((row) => ({
+      sold_at: String(row.sold_at),
       total_amount: Number(row.total_amount) || 0,
       purchase_amount:
         (Number(row.unit_purchase_price) || 0) * (Number(row.quantity) || 0),
       margin_amount: Number(row.margin_amount) || 0,
-      business_partner: row.business_partner,
-      sale_category: row.sale_category,
-      products: product
-        ? {
-            brand: product.brand,
-            product_name: product.product_name,
-          }
-        : null,
-    };
-  });
+    })),
+  );
+
+  return { buckets, error, dataFrom: start };
+}
+
+/** 순위 차트가 기준(구분/거래처/브랜드/품목)을 바꿔도 재조회하지 않도록 상위 20개까지 미리 계산합니다. */
+const MONTH_RANKING_LIMIT = 20;
+
+/** 당월 매출 순위를 차원별로 미리 집계합니다. 조회 범위가 한 달이라 조인을 포함해도 가볍습니다. */
+export async function fetchCurrentMonthRankings(
+  supabase: SupabaseClient,
+  now = new Date(),
+): Promise<{ rankings: SalesMonthRankings; error: string | null }> {
+  const { start, end } = getCurrentMonthRange(now);
+
+  const { rows, error } = await fetchSalesRowsPaged(
+    supabase,
+    "sold_at, total_amount, margin_amount, business_partner, sale_category, products(brand, product_name)",
+    start,
+    end,
+  );
+
+  const rankingRows = rows.map(toRankingRow);
+
+  const rankings = {
+    sale_category: aggregateSalesRanking(
+      rankingRows,
+      "sale_category",
+      start,
+      end,
+      MONTH_RANKING_LIMIT,
+    ),
+    business_partner: aggregateSalesRanking(
+      rankingRows,
+      "business_partner",
+      start,
+      end,
+      MONTH_RANKING_LIMIT,
+    ),
+    brand: aggregateSalesRanking(
+      rankingRows,
+      "brand",
+      start,
+      end,
+      MONTH_RANKING_LIMIT,
+    ),
+    product: aggregateSalesRanking(
+      rankingRows,
+      "product",
+      start,
+      end,
+      MONTH_RANKING_LIMIT,
+    ),
+  } satisfies SalesMonthRankings;
+
+  return { rankings, error };
+}
+
+/** 제품별 추이 차트용. 제품을 선택했을 때만 해당 제품·기간만 조회합니다. */
+export async function fetchProductSalesBuckets(
+  supabase: SupabaseClient,
+  productId: string,
+  granularity: SalesPeriodGranularity,
+  start: string,
+  end: string,
+): Promise<{ buckets: SalesProductPeriodBucket[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("sales")
+    .select("sold_at, product_id, quantity, total_amount, margin_amount, unit_purchase_price")
+    .eq("product_id", productId)
+    .gte("sold_at", start)
+    .lte("sold_at", end)
+    .order("sold_at", { ascending: true });
+
+  if (error) {
+    return { buckets: [], error: "제품 판매 추이를 불러오지 못했습니다." };
+  }
+
+  const rows: SalesAnalyticsRow[] = (data ?? []).map((row) => ({
+    sold_at: String(row.sold_at),
+    product_id: String(row.product_id),
+    quantity: Number(row.quantity) || 0,
+    total_amount: Number(row.total_amount) || 0,
+    purchase_amount:
+      (Number(row.unit_purchase_price) || 0) * (Number(row.quantity) || 0),
+    margin_amount: Number(row.margin_amount) || 0,
+    business_partner: null,
+    sale_category: "",
+    products: null,
+  }));
 
   return {
-    rows,
-    error,
-    dataFrom: start,
+    buckets: aggregateProductSalesByPeriod(
+      rows,
+      productId,
+      granularity,
+      start,
+      end,
+    ),
+    error: null,
   };
 }

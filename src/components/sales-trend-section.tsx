@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import SalesAnalyticsPeriodControls from "@/components/sales-analytics-period-controls";
 import SalesTrendChart from "@/components/sales-trend-chart";
 import {
-  aggregateSalesByPeriod,
+  aggregateDailyBuckets,
   getDefaultDateRange,
-  type SalesAnalyticsRow,
+  type SalesDailyBucket,
   type SalesPeriodGranularity,
 } from "@/lib/sales-analytics";
 
@@ -14,13 +14,13 @@ const sectionClass =
   "rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900";
 
 type SalesTrendSectionProps = {
-  rows: SalesAnalyticsRow[];
+  dailyBuckets: SalesDailyBucket[];
   title: string;
   subtitle: string;
 };
 
 export default function SalesTrendSection({
-  rows,
+  dailyBuckets,
   title,
   subtitle,
 }: SalesTrendSectionProps) {
@@ -32,13 +32,13 @@ export default function SalesTrendSection({
 
   const trendBuckets = useMemo(
     () =>
-      aggregateSalesByPeriod(
-        rows,
+      aggregateDailyBuckets(
+        dailyBuckets,
         granularity,
         dateRange.start,
         dateRange.end,
       ),
-    [rows, granularity, dateRange.start, dateRange.end],
+    [dailyBuckets, granularity, dateRange.start, dateRange.end],
   );
 
   function handleGranularityChange(next: SalesPeriodGranularity) {
