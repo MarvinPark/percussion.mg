@@ -29,13 +29,8 @@ type NonStockCategoriesManagerProps = {
   needsMigration?: boolean;
 };
 
-function resolveNonStockCategoryName(product: QuoteProductOption) {
-  return (
-    product.category?.trim() ||
-    product.product_name?.trim() ||
-    product.model_name?.trim() ||
-    ""
-  );
+function resolveNonStockEntryName(product: QuoteProductOption) {
+  return product.model_name?.trim() || product.sku?.trim() || "";
 }
 
 function productSelectionLabel(product: QuoteProductOption) {
@@ -57,7 +52,7 @@ export default function NonStockCategoriesManager({
   const [selectedProduct, setSelectedProduct] = useState<QuoteProductOption | null>(
     null,
   );
-  const [selectedCategoryName, setSelectedCategoryName] = useState("");
+  const [selectedEntryName, setSelectedEntryName] = useState("");
 
   function refresh() {
     startTransition(() => {
@@ -70,13 +65,13 @@ export default function NonStockCategoriesManager({
     setError(null);
     setMessage(null);
 
-    if (!selectedCategoryName) {
+    if (!selectedEntryName) {
       setError("제품을 검색해 선택해 주세요.");
       return;
     }
 
     const formData = new FormData();
-    formData.set("name", selectedCategoryName);
+    formData.set("name", selectedEntryName);
 
     const result = await createNonStockCategoryOption(formData);
     if (result?.error) {
@@ -86,29 +81,29 @@ export default function NonStockCategoriesManager({
 
     setProductSearch("");
     setSelectedProduct(null);
-    setSelectedCategoryName("");
-    setMessage("품목이 추가되었습니다.");
+    setSelectedEntryName("");
+    setMessage("모델명이 추가되었습니다.");
     refresh();
   }
 
   function handleProductSelect(product: QuoteProductOption) {
-    const categoryName = resolveNonStockCategoryName(product);
-    if (!categoryName) {
+    const entryName = resolveNonStockEntryName(product);
+    if (!entryName) {
       setSelectedProduct(null);
-      setSelectedCategoryName("");
-      setError("선택한 제품에서 추가할 품목 이름을 확인할 수 없습니다.");
+      setSelectedEntryName("");
+      setError("선택한 제품에서 추가할 모델명을 확인할 수 없습니다.");
       return;
     }
 
-    if (options.some((option) => option.name === categoryName)) {
+    if (options.some((option) => option.name === entryName)) {
       setSelectedProduct(null);
-      setSelectedCategoryName("");
-      setError(`"${categoryName}" 품목은 이미 등록되어 있습니다.`);
+      setSelectedEntryName("");
+      setError(`"${entryName}" 모델명은 이미 등록되어 있습니다.`);
       return;
     }
 
     setSelectedProduct(product);
-    setSelectedCategoryName(categoryName);
+    setSelectedEntryName(entryName);
     setError(null);
     setMessage(null);
   }
@@ -118,8 +113,8 @@ export default function NonStockCategoriesManager({
     setError(null);
 
     if (!selectedProduct) {
-      if (selectedCategoryName) {
-        setSelectedCategoryName("");
+      if (selectedEntryName) {
+        setSelectedEntryName("");
       }
       return;
     }
@@ -127,7 +122,7 @@ export default function NonStockCategoriesManager({
     const label = productSelectionLabel(selectedProduct);
     if (value.trim() !== label) {
       setSelectedProduct(null);
-      setSelectedCategoryName("");
+      setSelectedEntryName("");
     }
   }
 
@@ -194,10 +189,10 @@ export default function NonStockCategoriesManager({
         <form onSubmit={handleCreate} className="grid gap-3">
           <div>
             <label htmlFor="non_stock_category_search" className={labelClass}>
-              품목 추가
+              모델명 추가
             </label>
             <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-              견적과 동일하게 제품을 검색해 선택하면 해당 제품의 품목이 추가됩니다.
+              견적과 동일하게 제품을 검색해 선택하면 해당 제품의 모델명이 추가됩니다.
             </p>
             <ModelNameAutocomplete
               value={productSearch}
@@ -205,11 +200,11 @@ export default function NonStockCategoriesManager({
               onSelectProduct={handleProductSelect}
               placeholder="모델명·SKU 검색"
             />
-            {selectedCategoryName ? (
+            {selectedEntryName ? (
               <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-                추가할 품목:{" "}
+                추가할 모델명:{" "}
                 <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {selectedCategoryName}
+                  {selectedEntryName}
                 </span>
               </p>
             ) : null}
@@ -217,7 +212,7 @@ export default function NonStockCategoriesManager({
           <div className="flex items-end">
             <button
               type="submit"
-              disabled={isPending || !selectedCategoryName}
+              disabled={isPending || !selectedEntryName}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500"
             >
               추가
@@ -240,7 +235,7 @@ export default function NonStockCategoriesManager({
 
       {!options.length ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          등록된 품목이 없습니다.
+          등록된 모델명이 없습니다.
         </p>
       ) : (
         <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-700">

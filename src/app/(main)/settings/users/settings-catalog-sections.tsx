@@ -65,8 +65,8 @@ export default async function SettingsCatalogSections({
           4. 재고 미반영 품목
         </h3>
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-          견적·매출·예약 시 재고 차감/입고가 적용되지 않는 제품 품목입니다.
-          제품 등록 시 &quot;품목&quot;과 동일한 이름을 추가하세요.
+          견적·매출·예약 시 재고 차감/입고가 적용되지 않는 제품입니다.
+          제품 모델명을 검색해 추가하세요.
         </p>
 
         <NonStockCategoriesManager
