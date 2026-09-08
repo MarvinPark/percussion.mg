@@ -58,6 +58,7 @@ type SalesPageClientProps = {
   saleCategories: string[];
   staffOptions: StaffOption[];
   canManageSales?: boolean;
+  invoicedSaleIds?: string[];
 };
 
 export default function SalesPageClient({
@@ -69,6 +70,7 @@ export default function SalesPageClient({
   saleCategories,
   staffOptions,
   canManageSales = true,
+  invoicedSaleIds = [],
 }: SalesPageClientProps) {
   const [sellerFilter, setSellerFilter] = useState(currentUserName);
   const [draftQuery, setDraftQuery] = useState("");
@@ -309,6 +311,7 @@ export default function SalesPageClient({
               staffOptions={staffOptions}
               rowFontSize={rowFontSize}
               canManageSales={canManageSales}
+              invoicedSaleIds={invoicedSaleIds}
               sectionTitle={section.label}
               sectionTotalCount={section.sales.length}
               sectionCollapsed={collapsedSections[section.id] ?? false}

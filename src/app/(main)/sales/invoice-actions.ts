@@ -24,6 +24,10 @@ import {
 } from "@/lib/popbill/taxinvoice";
 import { getPopbillEnv, isPopbillConfigured } from "@/lib/popbill/env";
 import {
+  isTaxInvoicePaymentMethod,
+  TAX_INVOICE_PAYMENT_METHOD_NAME,
+} from "@/lib/payment-methods";
+import {
   assertPopbillReadyForIssue,
   formatPopbillErrorMessage,
   getPopbillIssueStatus,
@@ -38,7 +42,7 @@ import {
   isoDateToPopbillDate,
   validateTaxInvoiceIsoDate,
 } from "@/lib/tax-invoice-dates";
-import { mapTaxInvoiceIssueRow } from "@/lib/tax-invoice-issues";
+import { fetchActiveInvoicedSaleIds, mapTaxInvoiceIssueRow } from "@/lib/tax-invoice-issues";
 import type { TaxInvoiceIssue } from "@/types/tax-invoice";
 
 const DEFAULT_ITEM_NAME = "악기";
@@ -59,7 +63,7 @@ async function loadSalesForInvoice(saleIds: string[]) {
   const supabase = await createClient();
   const { data: sales, error } = await supabase
     .from("sales")
-    .select("id, total_amount, partner_id, business_partner, sold_at")
+    .select("id, total_amount, partner_id, business_partner, sold_at, payment_method")
     .in("id", saleIds);
 
   if (error) {
@@ -71,6 +75,46 @@ async function loadSalesForInvoice(saleIds: string[]) {
   }
 
   return { supabase, sales } as const;
+}
+
+function validateSalesPaymentMethodForTaxInvoice(
+  sales: Array<{ payment_method?: string | null }>,
+) {
+  const invalidCount = sales.filter(
+    (sale) => !isTaxInvoicePaymentMethod(sale.payment_method),
+  ).length;
+
+  if (invalidCount > 0) {
+    return {
+      error: `결제 수단이 "${TAX_INVOICE_PAYMENT_METHOD_NAME}"인 매출만 세금계산서를 발행할 수 있습니다.`,
+    } as const;
+  }
+
+  return null;
+}
+
+async function validateSalesNotAlreadyInvoiced(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  saleIds: string[],
+) {
+  const { saleIds: invoicedSaleIds, error } = await fetchActiveInvoicedSaleIds(
+    supabase,
+  );
+  if (error) {
+    return {
+      error: "세금계산서 발행 여부를 확인하지 못했습니다.",
+    } as const;
+  }
+
+  const invoicedSet = new Set(invoicedSaleIds);
+  const alreadyInvoiced = saleIds.filter((id) => invoicedSet.has(id));
+  if (alreadyInvoiced.length > 0) {
+    return {
+      error: "이미 세금계산서가 발행된 매출이 포함되어 있습니다.",
+    } as const;
+  }
+
+  return null;
 }
 
 export async function getTaxInvoiceIssueContext(input: {
@@ -86,6 +130,9 @@ export async function getTaxInvoiceIssueContext(input: {
 
   const loaded = await loadSalesForInvoice(saleIds);
   if ("error" in loaded) return { error: loaded.error ?? "매출 정보를 불러오지 못했습니다." };
+
+  const paymentError = validateSalesPaymentMethodForTaxInvoice(loaded.sales);
+  if (paymentError) return paymentError;
 
   const partnerContext = await resolveInvoicePartnerContext(
     loaded.supabase,
@@ -277,6 +324,15 @@ export async function issueTaxInvoiceFromSales(input: {
 
   const loaded = await loadSalesForInvoice(saleIds);
   if ("error" in loaded) return { error: loaded.error ?? "매출 정보를 불러오지 못했습니다." };
+
+  const paymentError = validateSalesPaymentMethodForTaxInvoice(loaded.sales);
+  if (paymentError) return paymentError;
+
+  const invoicedError = await validateSalesNotAlreadyInvoiced(
+    loaded.supabase,
+    saleIds,
+  );
+  if (invoicedError) return invoicedError;
 
   const partnerContext = await resolveInvoicePartnerContext(
     loaded.supabase,

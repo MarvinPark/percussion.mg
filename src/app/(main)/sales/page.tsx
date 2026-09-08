@@ -11,6 +11,7 @@ import {
 import SalesImportPanels from "@/components/sales-import-panels";
 import SalesPageClient from "@/components/sales-page-client";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
+import { fetchActiveInvoicedSaleIds } from "@/lib/tax-invoice-issues";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
@@ -34,8 +35,14 @@ export default async function SalesPage() {
   const canCreateSales = hasPermission(role, "createSales", permissionMap);
   const canViewSales = hasPermission(role, "viewSales", permissionMap);
 
-  const [{ data: sales, error }, { data: products }, { paymentMethods: paymentMethodsResult }, { data: staffProfiles }, { names: saleCategories }] =
-    await Promise.all([
+  const [
+    { data: sales, error },
+    { data: products },
+    { paymentMethods: paymentMethodsResult },
+    { data: staffProfiles },
+    { names: saleCategories },
+    invoicedSaleIdsResult,
+  ] = await Promise.all([
       supabase
         .from("sales")
         .select("*, products(product_name, model_name, sku)")
@@ -53,9 +60,11 @@ export default async function SalesPage() {
         .not("full_name", "is", null)
         .order("full_name"),
       fetchSaleCategoryOptions(supabase),
+      fetchActiveInvoicedSaleIds(supabase),
     ]);
 
   const paymentMethods = paymentMethodsResult;
+  const invoicedSaleIds = invoicedSaleIdsResult.saleIds;
 
   const staffOptions = (staffProfiles ?? [])
     .filter((profile) => profile.full_name?.trim())
@@ -135,6 +144,7 @@ export default async function SalesPage() {
                 saleCategories={saleCategories}
                 staffOptions={staffOptions}
                 canManageSales={canManageSales}
+                invoicedSaleIds={invoicedSaleIds}
               />
             )}
           </>
