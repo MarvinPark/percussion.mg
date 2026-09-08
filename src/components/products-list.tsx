@@ -178,16 +178,15 @@ function ProductDetailModal({
     { label: "사이즈", value: product.size ?? "-" },
     { label: "매입가", value: `${formatKRW(product.purchase_price)}원` },
     { label: "소비자가", value: `${formatKRW(product.sale_price)}원` },
-    { label: "현재고(3층)", value: `${product.stock_floor3 ?? 0}개` },
-    { label: "현재고(B1)", value: `${product.stock_b1 ?? 0}개` },
-    { label: "현재고(의왕)", value: `${product.stock_display ?? 0}개` },
+    { label: "현재고(양재)", value: `${product.stock_yangjae ?? 0}개` },
+    { label: "현재고(의왕)", value: `${product.stock_uiwang ?? 0}개` },
     { label: "예약", value: `${product.reserved_quantity ?? 0}개` },
     {
       label: "가용",
       value: `${availableProductStock(product)}개`,
     },
     { label: "실재고 합계", value: `${product.stock_quantity}개` },
-    { label: "재고 위치", value: product.stock_location ?? "3층" },
+    { label: "재고 위치", value: product.stock_location ?? "양재" },
     { label: "주요 재고", value: product.is_key_stock ? "예" : "아니오" },
     { label: "최소알림", value: `${product.min_stock_quantity}개` },
     { label: "등록일", value: formatDate(product.created_at) },
@@ -874,51 +873,35 @@ export default function ProductsList({
             />
           </td>
         );
-      case "stock_floor3":
+      case "stock_yangjae":
         return (
           <td
             className={standardCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_floor3")}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_yangjae")}
             onContextMenu={(event) => event.stopPropagation()}
           >
             <EditableProductCell
               productId={product.id}
-              field="stock_floor3"
-              value={String(product.stock_floor3 ?? 0)}
+              field="stock_yangjae"
+              value={String(product.stock_yangjae ?? 0)}
               inputType="number"
-              {...cellFocusProps(product.id, "stock_floor3")}
+              {...cellFocusProps(product.id, "stock_yangjae")}
             />
           </td>
         );
-      case "stock_b1":
+      case "stock_uiwang":
         return (
           <td
             className={standardCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_b1")}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_uiwang")}
             onContextMenu={(event) => event.stopPropagation()}
           >
             <EditableProductCell
               productId={product.id}
-              field="stock_b1"
-              value={String(product.stock_b1 ?? 0)}
+              field="stock_uiwang"
+              value={String(product.stock_uiwang ?? 0)}
               inputType="number"
-              {...cellFocusProps(product.id, "stock_b1")}
-            />
-          </td>
-        );
-      case "stock_display":
-        return (
-          <td
-            className={standardCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_display")}
-            onContextMenu={(event) => event.stopPropagation()}
-          >
-            <EditableProductCell
-              productId={product.id}
-              field="stock_display"
-              value={String(product.stock_display ?? 0)}
-              inputType="number"
-              {...cellFocusProps(product.id, "stock_display")}
+              {...cellFocusProps(product.id, "stock_uiwang")}
             />
           </td>
         );

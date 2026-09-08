@@ -20,8 +20,7 @@ export const EXCEL_HEADERS = [
   "키워드",
   "매입가",
   "소비자가",
-  "3층",
-  "B1",
+  "양재",
   "의왕",
   "합계",
   "최소알림",
@@ -47,8 +46,7 @@ const EXAMPLE_ROW = [
   "컴플렉스, complex",
   1500000,
   2000000,
-  2,
-  1,
+  3,
   0,
   3,
   2,
@@ -67,9 +65,8 @@ export type ExcelProductRow = {
   keywords: string;
   purchase_price: number;
   sale_price: number;
-  stock_floor3: number;
-  stock_b1: number;
-  stock_display: number;
+  stock_yangjae: number;
+  stock_uiwang: number;
   stock_quantity: number;
   min_stock_quantity: number;
 };
@@ -112,9 +109,10 @@ function findTotalStockCell(row: Record<string, unknown>) {
 
 export function hasLocationStockColumns(row: Record<string, unknown>) {
   return (
+    hasCellValue(row["양재"]) ||
+    hasCellValue(row["의왕"]) ||
     hasCellValue(row["3층"]) ||
-    hasCellValue(row["B1"]) ||
-    hasCellValue(row["의왕"])
+    hasCellValue(row["B1"])
   );
 }
 
@@ -128,24 +126,24 @@ function usesLegacyStockColumn(row: Record<string, unknown>) {
 export function parseExcelStockFields(
   row: Record<string, unknown>,
   rowNumber?: number,
-): { stock: Pick<ExcelProductRow, "stock_floor3" | "stock_b1" | "stock_display" | "stock_quantity">; error: string | null } {
+): { stock: Pick<ExcelProductRow, "stock_yangjae" | "stock_uiwang" | "stock_quantity">; error: string | null } {
   if (usesLegacyStockColumn(row)) {
     const stock_quantity = cellNumber(row["현재고"]);
     return {
       stock: {
-        stock_floor3: stock_quantity,
-        stock_b1: 0,
-        stock_display: 0,
+        stock_yangjae: stock_quantity,
+        stock_uiwang: 0,
         stock_quantity,
       },
       error: null,
     };
   }
 
-  const stock_floor3 = cellNumber(row["3층"]);
-  const stock_b1 = cellNumber(row["B1"]);
-  const stock_display = cellNumber(row["의왕"]);
-  const locationSum = stock_floor3 + stock_b1 + stock_display;
+  const stock_yangjae = hasCellValue(row["양재"])
+    ? cellNumber(row["양재"])
+    : cellNumber(row["3층"]) + cellNumber(row["B1"]);
+  const stock_uiwang = cellNumber(row["의왕"]);
+  const locationSum = stock_yangjae + stock_uiwang;
   const totalCell = findTotalStockCell(row);
   const hasTotalCell = Boolean(totalCell);
   const total = hasTotalCell ? totalCell!.value : locationSum;
@@ -154,21 +152,19 @@ export function parseExcelStockFields(
     const prefix = rowNumber ? `${rowNumber}행: ` : "";
     return {
       stock: {
-        stock_floor3,
-        stock_b1,
-        stock_display,
+        stock_yangjae,
+        stock_uiwang,
         stock_quantity: total,
       },
-      error: `${prefix}합계(${total})와 3층+B1+의왕 합(${locationSum})이 일치하지 않습니다.`,
+      error: `${prefix}합계(${total})와 양재+의왕 합(${locationSum})이 일치하지 않습니다.`,
     };
   }
 
   if (hasTotalCell && locationSum === 0) {
     return {
       stock: {
-        stock_floor3: total,
-        stock_b1: 0,
-        stock_display: 0,
+        stock_yangjae: total,
+        stock_uiwang: 0,
         stock_quantity: total,
       },
       error: null,
@@ -177,9 +173,8 @@ export function parseExcelStockFields(
 
   return {
     stock: {
-      stock_floor3,
-      stock_b1,
-      stock_display,
+      stock_yangjae,
+      stock_uiwang,
       stock_quantity: locationSum,
     },
     error: null,
@@ -211,9 +206,8 @@ export function productToExcelRow(product: Product) {
     product.keywords ?? "",
     product.purchase_price,
     product.sale_price,
-    product.stock_floor3,
-    product.stock_b1,
-    product.stock_display,
+    product.stock_yangjae,
+    product.stock_uiwang,
     product.stock_quantity,
     product.min_stock_quantity,
   ];
@@ -294,9 +288,8 @@ export function parseProductExcelBuffer(buffer: ArrayBuffer) {
       keywords: cellValue(row["키워드"]),
       purchase_price: cellNumber(row["매입가"]),
       sale_price: cellNumber(row["소비자가"] ?? row["판매가"]),
-      stock_floor3: stock.stock_floor3,
-      stock_b1: stock.stock_b1,
-      stock_display: stock.stock_display,
+      stock_yangjae: stock.stock_yangjae,
+      stock_uiwang: stock.stock_uiwang,
       stock_quantity: stock.stock_quantity,
       min_stock_quantity: cellNumber(row["최소알림"]),
     };
@@ -326,18 +319,17 @@ export function validateExcelProductRow(row: ExcelProductRow, rowNumber: number)
     return `${rowNumber}행: 가격은 0 이상이어야 합니다.`;
   }
   if (
-    row.stock_floor3 < 0 ||
-    row.stock_b1 < 0 ||
-    row.stock_display < 0 ||
+    row.stock_yangjae < 0 ||
+    row.stock_uiwang < 0 ||
     row.stock_quantity < 0 ||
     row.min_stock_quantity < 0
   ) {
     return `${rowNumber}행: 재고 수량은 0 이상이어야 합니다.`;
   }
 
-  const locationSum = row.stock_floor3 + row.stock_b1 + row.stock_display;
+  const locationSum = row.stock_yangjae + row.stock_uiwang;
   if (locationSum !== row.stock_quantity) {
-    return `${rowNumber}행: 합계(${row.stock_quantity})와 3층+B1+의왕 합(${locationSum})이 일치하지 않습니다.`;
+    return `${rowNumber}행: 합계(${row.stock_quantity})와 양재+의왕 합(${locationSum})이 일치하지 않습니다.`;
   }
 
   return null;
@@ -345,9 +337,8 @@ export function validateExcelProductRow(row: ExcelProductRow, rowNumber: number)
 
 export function excelRowToPayload(row: ExcelProductRow) {
   const locationStocks = {
-    stock_floor3: row.stock_floor3,
-    stock_b1: row.stock_b1,
-    stock_display: row.stock_display,
+    stock_yangjae: row.stock_yangjae,
+    stock_uiwang: row.stock_uiwang,
   };
 
   return {

@@ -24,9 +24,8 @@ export type QuoteItemForReservation = {
 export type QuoteReservationRow = {
   product_id: string;
   quantity: number;
-  stock_floor3: number;
-  stock_b1: number;
-  stock_display: number;
+  stock_yangjae: number;
+  stock_uiwang: number;
 };
 
 export function getReservableQuoteItems(items: QuoteItemForReservation[]) {
@@ -88,7 +87,7 @@ async function fetchProductForReservation(
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id, product_name, stock_quantity, stock_floor3, stock_b1, stock_display, stock_location",
+      "id, product_name, stock_quantity, stock_yangjae, stock_uiwang, stock_location",
     )
     .eq("id", productId)
     .single();
@@ -107,7 +106,7 @@ async function applyPhysicalReservationRestore(
   note: string,
 ) {
   if (
-    taken.stock_floor3 + taken.stock_b1 + taken.stock_display <= 0
+    taken.stock_yangjae + taken.stock_uiwang <= 0
   ) {
     return { success: true as const };
   }
@@ -126,7 +125,7 @@ async function applyPhysicalReservationRestore(
   const { error: movementError } = await supabase.from("stock_movements").insert({
     product_id: productId,
     movement_type: "in",
-    quantity: taken.stock_floor3 + taken.stock_b1 + taken.stock_display,
+    quantity: taken.stock_yangjae + taken.stock_uiwang,
     stock_before: stockBefore,
     stock_after: stockAfter,
     note,
@@ -215,7 +214,7 @@ async function restoreQuoteReservationRows(
   const { data: reservations, error: fetchError } = await supabase
     .from("quote_reservations")
     .select(
-      "product_id, quantity, stock_floor3, stock_b1, stock_display, quotes(customer_name)",
+      "product_id, quantity, stock_yangjae, stock_uiwang, quotes(customer_name)",
     )
     .eq("quote_id", quoteId);
 
@@ -239,9 +238,8 @@ async function restoreQuoteReservationRows(
 
   for (const row of reservations ?? []) {
     const taken: LocationStockPatch = {
-      stock_floor3: Number(row.stock_floor3) || 0,
-      stock_b1: Number(row.stock_b1) || 0,
-      stock_display: Number(row.stock_display) || 0,
+      stock_yangjae: Number(row.stock_yangjae) || 0,
+      stock_uiwang: Number(row.stock_uiwang) || 0,
     };
 
     const quantity = Number(row.quantity) || 0;
@@ -359,9 +357,8 @@ export async function applyQuoteReservations(
     quote_item_id: string;
     product_id: string;
     quantity: number;
-    stock_floor3: number;
-    stock_b1: number;
-    stock_display: number;
+    stock_yangjae: number;
+    stock_uiwang: number;
   }> = [];
 
   for (const item of reservableItems) {
@@ -389,9 +386,8 @@ export async function applyQuoteReservations(
       quote_item_id: item.id,
       product_id: productId,
       quantity,
-      stock_floor3: deductResult.taken.stock_floor3,
-      stock_b1: deductResult.taken.stock_b1,
-      stock_display: deductResult.taken.stock_display,
+      stock_yangjae: deductResult.taken.stock_yangjae,
+      stock_uiwang: deductResult.taken.stock_uiwang,
     });
   }
 

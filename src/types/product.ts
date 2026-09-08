@@ -15,9 +15,8 @@ export type Product = {
   min_stock_quantity: number;
   is_key_stock: boolean;
   stock_location: string;
-  stock_floor3: number;
-  stock_b1: number;
-  stock_display: number;
+  stock_yangjae: number;
+  stock_uiwang: number;
   reserved_quantity: number;
   keywords: string | null;
   created_at: string;
@@ -40,9 +39,8 @@ export type ProductFormData = {
   min_stock_quantity: number;
   is_key_stock: boolean;
   stock_location: string;
-  stock_floor3: number;
-  stock_b1: number;
-  stock_display: number;
+  stock_yangjae: number;
+  stock_uiwang: number;
   reserved_quantity: number;
   keywords: string;
 };

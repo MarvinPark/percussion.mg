@@ -90,26 +90,25 @@ async function recordStockMovement(
 }
 
 function parseProductForm(formData: FormData) {
-  const stock_location = String(formData.get("stock_location") ?? "3층").trim();
+  const stock_location = String(formData.get("stock_location") ?? "양재").trim();
   const stock_quantity = Number(formData.get("stock_quantity") ?? 0);
 
   const locationStocks = {
-    stock_floor3: 0,
-    stock_b1: 0,
-    stock_display: 0,
+    stock_yangjae: 0,
+    stock_uiwang: 0,
   };
 
-  const hasLocationFields = formData.has("stock_floor3");
+  const hasLocationFields = formData.has("stock_yangjae");
 
   if (hasLocationFields) {
-    locationStocks.stock_floor3 = Number(formData.get("stock_floor3") ?? 0);
-    locationStocks.stock_b1 = Number(formData.get("stock_b1") ?? 0);
-    locationStocks.stock_display = Number(formData.get("stock_display") ?? 0);
-  } else if (isStockLocation(stock_location)) {
-    const field = STOCK_LOCATION_FIELD[stock_location];
+    locationStocks.stock_yangjae = Number(formData.get("stock_yangjae") ?? 0);
+    locationStocks.stock_uiwang = Number(formData.get("stock_uiwang") ?? 0);
+  } else if (isStockLocation(normalizeStockLocation(stock_location))) {
+    const field =
+      STOCK_LOCATION_FIELD[normalizeStockLocation(stock_location)];
     locationStocks[field as keyof typeof locationStocks] = stock_quantity;
   } else {
-    locationStocks.stock_floor3 = stock_quantity;
+    locationStocks.stock_yangjae = stock_quantity;
   }
 
   const resolvedStockLocation = hasLocationFields
@@ -148,11 +147,7 @@ function validateProduct(data: ReturnType<typeof parseProductForm>) {
   if (data.stock_quantity < 0 || data.min_stock_quantity < 0) {
     return "재고 수량은 0 이상이어야 합니다.";
   }
-  if (
-    data.stock_floor3 < 0 ||
-    data.stock_b1 < 0 ||
-    data.stock_display < 0
-  ) {
+  if (data.stock_yangjae < 0 || data.stock_uiwang < 0) {
     return "위치별 재고는 0 이상이어야 합니다.";
   }
   return null;
@@ -178,9 +173,8 @@ function productPayload(data: ReturnType<typeof parseProductForm>) {
     keywords: data.keywords || null,
     is_key_stock: data.is_key_stock,
     stock_location: data.stock_location,
-    stock_floor3: data.stock_floor3,
-    stock_b1: data.stock_b1,
-    stock_display: data.stock_display,
+    stock_yangjae: data.stock_yangjae,
+    stock_uiwang: data.stock_uiwang,
   };
 }
 
@@ -305,9 +299,8 @@ export type ProductInlineField =
   | "product_name"
   | "model_name"
   | "sku"
-  | "stock_floor3"
-  | "stock_b1"
-  | "stock_display"
+  | "stock_yangjae"
+  | "stock_uiwang"
   | "reserved_quantity"
   | "stock_quantity"
   | "sale_price"
@@ -401,31 +394,27 @@ async function updateProductFieldInternal(
       updateData.sku = sku;
       break;
     }
-    case "stock_floor3":
-    case "stock_b1":
-    case "stock_display": {
+    case "stock_yangjae":
+    case "stock_uiwang": {
       const locationValue = Number(rawValue);
       if (Number.isNaN(locationValue) || locationValue < 0) {
         return { error: "재고는 0 이상 숫자여야 합니다." };
       }
 
-      const locationLabel =
-        field === "stock_floor3" ? "3층" : field === "stock_b1" ? "B1" : "의왕";
+      const locationLabel = field === "stock_yangjae" ? "양재" : "의왕";
       const previousLocationValue = Number(product[field]) || 0;
       const locationDelta = locationValue - previousLocationValue;
 
       updateData[field] = locationValue;
-      const floor3 =
-        field === "stock_floor3"
+      const yangjae =
+        field === "stock_yangjae"
           ? locationValue
-          : Number(product.stock_floor3) || 0;
-      const b1 =
-        field === "stock_b1" ? locationValue : Number(product.stock_b1) || 0;
-      const display =
-        field === "stock_display"
+          : Number(product.stock_yangjae) || 0;
+      const uiwang =
+        field === "stock_uiwang"
           ? locationValue
-          : Number(product.stock_display) || 0;
-      updateData.stock_quantity = floor3 + b1 + display;
+          : Number(product.stock_uiwang) || 0;
+      updateData.stock_quantity = yangjae + uiwang;
 
       const stockBefore = Number(product.stock_quantity) || 0;
       const stockAfter = updateData.stock_quantity as number;
@@ -559,7 +548,7 @@ export async function updateStock(formData: FormData) {
   const { data: product } = await supabase
     .from("products")
     .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+      "stock_quantity, stock_location, stock_yangjae, stock_uiwang",
     )
     .eq("id", id)
     .single();
@@ -626,7 +615,7 @@ export async function registerStockMovement(formData: FormData) {
   const { data: product } = await supabase
     .from("products")
     .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+      "stock_quantity, stock_location, stock_yangjae, stock_uiwang",
     )
     .eq("id", product_id)
     .single();
@@ -634,10 +623,7 @@ export async function registerStockMovement(formData: FormData) {
   if (!product) return { error: "제품을 찾을 수 없습니다." };
 
   const stockBefore = product.stock_quantity;
-  let locationPatch: Pick<
-    typeof product,
-    "stock_floor3" | "stock_b1" | "stock_display"
-  >;
+  let locationPatch: Pick<typeof product, "stock_yangjae" | "stock_uiwang">;
 
   if (movement_type === "in") {
     locationPatch = addLocationStock(product, quantity);
@@ -752,7 +738,7 @@ export async function registerStockIns(formData: FormData) {
     const { data: product } = await supabase
       .from("products")
       .select(
-        "product_name, stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+        "product_name, stock_quantity, stock_location, stock_yangjae, stock_uiwang",
       )
       .eq("id", line.product_id)
       .single();
@@ -856,7 +842,7 @@ async function applyProductStockDelta(
   const { data: product } = await supabase
     .from("products")
     .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+      "stock_quantity, stock_location, stock_yangjae, stock_uiwang",
     )
     .eq("id", productId)
     .single();
@@ -864,10 +850,7 @@ async function applyProductStockDelta(
   if (!product) return { error: "제품을 찾을 수 없습니다." };
 
   const stockBefore = Number(product.stock_quantity) || 0;
-  let locationPatch: Pick<
-    typeof product,
-    "stock_floor3" | "stock_b1" | "stock_display"
-  >;
+  let locationPatch: Pick<typeof product, "stock_yangjae" | "stock_uiwang">;
 
   if (delta > 0) {
     locationPatch = addLocationStock(product, delta);
@@ -1460,10 +1443,9 @@ export async function duplicateProducts(
         stock_quantity: 0,
         min_stock_quantity: Number(product.min_stock_quantity) || 0,
         is_key_stock: product.is_key_stock ?? false,
-        stock_location: product.stock_location ?? "3층",
-        stock_floor3: 0,
-        stock_b1: 0,
-        stock_display: 0,
+        stock_location: normalizeStockLocation(product.stock_location),
+        stock_yangjae: 0,
+        stock_uiwang: 0,
         reserved_quantity: 0,
         keywords: product.keywords || null,
       })

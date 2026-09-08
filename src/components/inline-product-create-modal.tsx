@@ -31,11 +31,11 @@ const CONTEXT_COPY: Record<
   quote: {
     description:
       "검색되지 않은 제품을 재고에 등록한 뒤 견적에 추가할 수 있습니다.",
-    stockHint: "기본 보관 위치(3층) 재고로 등록됩니다.",
+    stockHint: "기본 보관 위치(양재) 재고로 등록됩니다.",
   },
   products: {
     description: "제품 목록에 바로 등록합니다.",
-    stockHint: "기본 보관 위치(3층) 재고로 등록됩니다.",
+    stockHint: "기본 보관 위치(양재) 재고로 등록됩니다.",
   },
 };
 

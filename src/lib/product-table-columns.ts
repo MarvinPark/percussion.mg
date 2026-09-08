@@ -7,9 +7,8 @@ export type ProductTableColumnId =
   | "product_name"
   | "model_name"
   | "sku"
-  | "stock_floor3"
-  | "stock_b1"
-  | "stock_display"
+  | "stock_yangjae"
+  | "stock_uiwang"
   | "reserved_quantity"
   | "stock_quantity"
   | "purchase_price"
@@ -47,9 +46,8 @@ export const PRODUCT_TABLE_COLUMNS: ProductTableColumn[] = [
     resizable: true,
   },
   { id: "sale_price", label: "소비자가", minWidth: 72, defaultWidth: 96, resizable: true },
-  { id: "stock_floor3", label: "3층", minWidth: 44, defaultWidth: 52, resizable: true },
-  { id: "stock_b1", label: "B1", minWidth: 44, defaultWidth: 52, resizable: true },
-  { id: "stock_display", label: "의왕", minWidth: 44, defaultWidth: 52, resizable: true },
+  { id: "stock_yangjae", label: "양재", minWidth: 44, defaultWidth: 52, resizable: true },
+  { id: "stock_uiwang", label: "의왕", minWidth: 44, defaultWidth: 52, resizable: true },
   {
     id: "reserved_quantity",
     label: "예약",
@@ -80,13 +78,22 @@ export function loadColumnWidths(userId: string) {
     const raw = localStorage.getItem(getColumnStorageKey(userId));
     if (!raw) return defaults;
 
-    const parsed = JSON.parse(raw) as Partial<Record<ProductTableColumnId, number>>;
+    const parsed = JSON.parse(raw) as Partial<
+      Record<ProductTableColumnId | "stock_floor3" | "stock_display", number>
+    >;
     const merged = { ...defaults };
 
     for (const column of PRODUCT_TABLE_COLUMNS) {
       const value = parsed[column.id];
       if (typeof value === "number" && value >= column.minWidth) {
         merged[column.id] = value;
+      }
+      // 이전 3층/B1/의왕 컬럼 너비 → 양재/의왕
+      if (column.id === "stock_yangjae" && parsed.stock_floor3 != null) {
+        merged.stock_yangjae = parsed.stock_floor3;
+      }
+      if (column.id === "stock_uiwang" && parsed.stock_display != null) {
+        merged.stock_uiwang = parsed.stock_display;
       }
     }
 

@@ -1,11 +1,10 @@
-export const STOCK_LOCATIONS = ["3층", "B1", "의왕"] as const;
+export const STOCK_LOCATIONS = ["양재", "의왕"] as const;
 
 export type StockLocation = (typeof STOCK_LOCATIONS)[number];
 
 export const STOCK_LOCATION_FIELD = {
-  "3층": "stock_floor3",
-  B1: "stock_b1",
-  의왕: "stock_display",
+  양재: "stock_yangjae",
+  의왕: "stock_uiwang",
 } as const satisfies Record<StockLocation, string>;
 
 export type StockLocationField =
@@ -13,13 +12,14 @@ export type StockLocationField =
 
 export type LocationStockProduct = {
   stock_location: StockLocation | string | null;
-  stock_floor3: number;
-  stock_b1: number;
-  stock_display: number;
+  stock_yangjae: number;
+  stock_uiwang: number;
   stock_quantity: number;
 };
 
 const LEGACY_STOCK_LOCATIONS: Record<string, StockLocation> = {
+  "3층": "양재",
+  B1: "양재",
   전시: "의왕",
 };
 
@@ -31,7 +31,7 @@ export function normalizeStockLocation(value: string | null | undefined): StockL
   if (isStockLocation(trimmed)) {
     return trimmed;
   }
-  return "3층";
+  return "양재";
 }
 
 export function isStockLocation(value: string): value is StockLocation {
@@ -43,37 +43,29 @@ export function getLocationStock(
   location: StockLocation,
 ): number {
   switch (location) {
-    case "3층":
-      return product.stock_floor3;
-    case "B1":
-      return product.stock_b1;
+    case "양재":
+      return product.stock_yangjae;
     case "의왕":
-      return product.stock_display;
+      return product.stock_uiwang;
   }
 }
 
 export function sumLocationStock(
-  product: Pick<
-    LocationStockProduct,
-    "stock_floor3" | "stock_b1" | "stock_display"
-  >,
+  product: Pick<LocationStockProduct, "stock_yangjae" | "stock_uiwang">,
 ): number {
-  return product.stock_floor3 + product.stock_b1 + product.stock_display;
+  return product.stock_yangjae + product.stock_uiwang;
 }
 
 /** 위치별 재고 중 수량이 가장 많은 곳을 등록 위치로 사용합니다. */
 export function inferPrimaryStockLocation(
-  product: Pick<
-    LocationStockProduct,
-    "stock_floor3" | "stock_b1" | "stock_display"
-  >,
+  product: Pick<LocationStockProduct, "stock_yangjae" | "stock_uiwang">,
 ): StockLocation {
-  let best: StockLocation = "3층";
+  let best: StockLocation = "양재";
   let bestQty = -1;
 
   for (const location of STOCK_LOCATIONS) {
     const qty = getLocationStock(
-      { ...product, stock_location: "3층", stock_quantity: 0 },
+      { ...product, stock_location: "양재", stock_quantity: 0 },
       location,
     );
     if (qty > bestQty) {
@@ -89,9 +81,8 @@ export function locationStockRecord(
   product: LocationStockProduct,
 ): Record<StockLocation, number> {
   return {
-    "3층": product.stock_floor3,
-    B1: product.stock_b1,
-    의왕: product.stock_display,
+    양재: product.stock_yangjae,
+    의왕: product.stock_uiwang,
   };
 }
 
@@ -103,18 +94,14 @@ export function formatLocationStockSummary(product: LocationStockProduct): strin
 
 export type LocationStockPatch = Pick<
   LocationStockProduct,
-  "stock_floor3" | "stock_b1" | "stock_display"
+  "stock_yangjae" | "stock_uiwang"
 >;
 
 /**
- * 재고를 3층 → B1 → 의왕 순서로 차감합니다.
+ * 재고를 양재 → 의왕 순서로 차감합니다.
  *
  * 차감 순서는 제품의 등록 위치(stock_location)와 무관하게 항상 고정입니다.
- * 예약·출고·재고 조정이 모두 이 함수를 거쳐야 위치별 재고가 어긋나지 않습니다.
- * allowNegative면 부족분은 3층에 마이너스로 남습니다.
- *
- * taken은 위치별로 실제 차감된 수량이며, 예약 해제 시
- * restoreLocationStockFromTaken으로 정확히 되돌리는 데 사용합니다.
+ * allowNegative면 부족분은 양재에 마이너스로 남습니다.
  */
 export function deductLocationStock(
   product: LocationStockProduct,
@@ -124,17 +111,16 @@ export function deductLocationStock(
   if (quantity <= 0) {
     return {
       next: {
-        stock_floor3: product.stock_floor3,
-        stock_b1: product.stock_b1,
-        stock_display: product.stock_display,
+        stock_yangjae: product.stock_yangjae,
+        stock_uiwang: product.stock_uiwang,
       },
-      taken: { stock_floor3: 0, stock_b1: 0, stock_display: 0 },
+      taken: { stock_yangjae: 0, stock_uiwang: 0 },
     };
   }
 
   let remaining = quantity;
   const stocks = locationStockRecord(product);
-  const taken: Record<StockLocation, number> = { "3층": 0, B1: 0, 의왕: 0 };
+  const taken: Record<StockLocation, number> = { 양재: 0, 의왕: 0 };
 
   for (const location of STOCK_LOCATIONS) {
     if (remaining <= 0) break;
@@ -147,21 +133,19 @@ export function deductLocationStock(
 
   if (remaining > 0) {
     if (!allowNegative) return null;
-    const sink: StockLocation = "3층";
+    const sink: StockLocation = "양재";
     stocks[sink] -= remaining;
     taken[sink] += remaining;
   }
 
   return {
     next: {
-      stock_floor3: stocks["3층"],
-      stock_b1: stocks.B1,
-      stock_display: stocks.의왕,
+      stock_yangjae: stocks.양재,
+      stock_uiwang: stocks.의왕,
     },
     taken: {
-      stock_floor3: taken["3층"],
-      stock_b1: taken.B1,
-      stock_display: taken.의왕,
+      stock_yangjae: taken.양재,
+      stock_uiwang: taken.의왕,
     },
   };
 }
@@ -172,9 +156,8 @@ export function restoreLocationStockFromTaken(
   taken: LocationStockPatch,
 ): LocationStockPatch {
   return {
-    stock_floor3: product.stock_floor3 + (taken.stock_floor3 || 0),
-    stock_b1: product.stock_b1 + (taken.stock_b1 || 0),
-    stock_display: product.stock_display + (taken.stock_display || 0),
+    stock_yangjae: product.stock_yangjae + (taken.stock_yangjae || 0),
+    stock_uiwang: product.stock_uiwang + (taken.stock_uiwang || 0),
   };
 }
 
@@ -182,7 +165,7 @@ export function restoreLocationStockFromTaken(
 export function addLocationStock(
   product: LocationStockProduct,
   quantity: number,
-): Pick<LocationStockProduct, "stock_floor3" | "stock_b1" | "stock_display"> {
+): LocationStockPatch {
   const location = normalizeStockLocation(product.stock_location);
 
   return addLocationStockAt(product, quantity, location);
@@ -193,23 +176,20 @@ export function addLocationStockAt(
   product: LocationStockProduct,
   quantity: number,
   location: StockLocation,
-): Pick<LocationStockProduct, "stock_floor3" | "stock_b1" | "stock_display"> {
+): LocationStockPatch {
   const stocks = locationStockRecord(product);
   stocks[location] += quantity;
 
   return {
-    stock_floor3: stocks["3층"],
-    stock_b1: stocks.B1,
-    stock_display: stocks.의왕,
+    stock_yangjae: stocks.양재,
+    stock_uiwang: stocks.의왕,
   };
 }
 
 /** 위치별 재고 합계와 stock_quantity 동기화 */
 export function withSyncedTotalStock<T extends LocationStockProduct>(
   product: T,
-  locationPatch?: Partial<
-    Pick<LocationStockProduct, "stock_floor3" | "stock_b1" | "stock_display">
-  >,
+  locationPatch?: Partial<LocationStockPatch>,
 ): T & { stock_quantity: number } {
   const merged = { ...product, ...locationPatch };
   return {

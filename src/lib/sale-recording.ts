@@ -223,7 +223,7 @@ export async function recordStockOutForSale(
   const { data: product } = await supabase
     .from("products")
     .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+      "stock_quantity, stock_location, stock_yangjae, stock_uiwang",
     )
     .eq("id", productId)
     .single();
@@ -283,7 +283,7 @@ export async function recordStockIn(
   const { data: product } = await supabase
     .from("products")
     .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+      "stock_quantity, stock_location, stock_yangjae, stock_uiwang",
     )
     .eq("id", productId)
     .single();
@@ -340,7 +340,7 @@ export async function recordStockInToLocation(
   const { data: product } = await supabase
     .from("products")
     .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
+      "stock_quantity, stock_location, stock_yangjae, stock_uiwang",
     )
     .eq("id", productId)
     .single();

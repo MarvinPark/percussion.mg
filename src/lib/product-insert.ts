@@ -78,14 +78,13 @@ type InsertAttempt = {
 export async function insertProductRow(
   supabase: SupabaseClient,
   core: ProductInsertCore,
-  options?: { stock_floor3?: number },
+  options?: { stock_yangjae?: number },
 ): Promise<{ data: InsertedProductRow } | { error: { code?: string; message: string } }> {
   const extendedPayload = {
     ...core,
-    stock_floor3: options?.stock_floor3 ?? core.stock_quantity,
-    stock_b1: 0,
-    stock_display: 0,
-    stock_location: "3층",
+    stock_yangjae: options?.stock_yangjae ?? core.stock_quantity,
+    stock_uiwang: 0,
+    stock_location: "양재",
     is_key_stock: false,
   };
 

@@ -74,12 +74,13 @@ function isProductListExportFormat(headers: string[]) {
     Boolean(findHeader(headers, "실재고합계")) ||
     Boolean(findHeader(headers, "실재고 합계")) ||
     Boolean(findHeader(headers, "현재고")) ||
+    Boolean(findHeader(headers, "양재")) ||
     Boolean(findHeader(headers, "3층"));
 
   return hasCoreColumns && hasStockColumn;
 }
 
-/** 제품목록 다운받기 형식(3층/B1/의왕/합계 등)을 엑셀 수정용 열로 매핑합니다. */
+/** 제품목록 다운받기 형식(양재/의왕/합계 또는 구 3층/B1/의왕)을 엑셀 수정용 열로 매핑합니다. */
 function mapProductListExportColumns(headers: string[]): ColumnMapping | null {
   if (!isProductListExportFormat(headers)) {
     return null;

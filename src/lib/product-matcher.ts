@@ -289,9 +289,8 @@ export function buildUpdatePayload(
   if (hasLocationColumns && options?.rawRow) {
     const { stock } = parseExcelStockFields(options.rawRow, row.rowNumber);
     const locationFields = [
-      "stock_floor3",
-      "stock_b1",
-      "stock_display",
+      "stock_yangjae",
+      "stock_uiwang",
       "stock_quantity",
     ] as const;
 

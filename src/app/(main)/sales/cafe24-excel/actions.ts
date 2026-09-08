@@ -532,10 +532,9 @@ export async function createProductForCafe24ExcelLink(input: {
       sale_price: Math.round(input.sale_price),
       stock_quantity: 0,
       min_stock_quantity: 0,
-      stock_floor3: 0,
-      stock_b1: 0,
-      stock_display: 0,
-      stock_location: "3층",
+      stock_yangjae: 0,
+      stock_uiwang: 0,
+      stock_location: "양재",
       is_key_stock: false,
     })
     .select(SALE_PRODUCT_OPTION_SELECT)

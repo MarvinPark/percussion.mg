@@ -14,15 +14,13 @@ const inputClass =
   "w-full min-w-0 rounded border border-blue-400 bg-white px-1 py-0.5 text-sm font-normal text-zinc-900 outline-none focus:ring-1 focus:ring-blue-500 max-md:text-base max-md:leading-normal dark:border-blue-500 dark:bg-zinc-800 dark:text-zinc-100";
 
 const STOCK_LOCATION_FIELDS = new Set<ProductInlineField>([
-  "stock_floor3",
-  "stock_b1",
-  "stock_display",
+  "stock_yangjae",
+  "stock_uiwang",
 ]);
 
 const STOCK_LOCATION_LABELS: Partial<Record<ProductInlineField, string>> = {
-  stock_floor3: "3층",
-  stock_b1: "B1",
-  stock_display: "의왕",
+  stock_yangjae: "양재",
+  stock_uiwang: "의왕",
 };
 
 type InboundPromptState = {

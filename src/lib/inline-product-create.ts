@@ -76,7 +76,7 @@ export async function createInlineProduct(
       stock_quantity,
       min_stock_quantity: 0,
     },
-    { stock_floor3: stock_quantity },
+    { stock_yangjae: stock_quantity },
   );
 
   if ("error" in insertResult) {

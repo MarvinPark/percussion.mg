@@ -31,9 +31,8 @@ const EMPTY_FORM = {
   sku: "",
   purchase_price: 0,
   sale_price: 0,
-  stock_floor3: 0,
-  stock_b1: 0,
-  stock_display: 0,
+  stock_yangjae: 0,
+  stock_uiwang: 0,
 };
 
 export default function ProductInlineRegisterPanel({
@@ -66,9 +65,8 @@ export default function ProductInlineRegisterPanel({
     formData.set("sku", form.sku);
     formData.set("purchase_price", String(form.purchase_price));
     formData.set("sale_price", String(form.sale_price));
-    formData.set("stock_floor3", String(form.stock_floor3));
-    formData.set("stock_b1", String(form.stock_b1));
-    formData.set("stock_display", String(form.stock_display));
+    formData.set("stock_yangjae", String(form.stock_yangjae));
+    formData.set("stock_uiwang", String(form.stock_uiwang));
     formData.set("min_stock_quantity", "0");
 
     startTransition(async () => {
@@ -177,29 +175,14 @@ export default function ProductInlineRegisterPanel({
             />
           </div>
           <div className="w-12">
-            <label className={labelClass}>3층</label>
+            <label className={labelClass}>양재</label>
             <input
               type="number"
               min={0}
-              value={form.stock_floor3}
+              value={form.stock_yangjae}
               onChange={(event) =>
                 updateField(
-                  "stock_floor3",
-                  Math.max(0, Number(event.target.value) || 0),
-                )
-              }
-              className={fieldClass}
-            />
-          </div>
-          <div className="w-12">
-            <label className={labelClass}>B1</label>
-            <input
-              type="number"
-              min={0}
-              value={form.stock_b1}
-              onChange={(event) =>
-                updateField(
-                  "stock_b1",
+                  "stock_yangjae",
                   Math.max(0, Number(event.target.value) || 0),
                 )
               }
@@ -211,10 +194,10 @@ export default function ProductInlineRegisterPanel({
             <input
               type="number"
               min={0}
-              value={form.stock_display}
+              value={form.stock_uiwang}
               onChange={(event) =>
                 updateField(
-                  "stock_display",
+                  "stock_uiwang",
                   Math.max(0, Number(event.target.value) || 0),
                 )
               }

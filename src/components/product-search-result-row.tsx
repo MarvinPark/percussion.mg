@@ -25,9 +25,8 @@ function displayText(value: string | null | undefined) {
 function ProductSearchStockSummary({ product }: { product: ProductStockFields }) {
   if (!hasProductStockSummaryData(product)) return null;
 
-  const floor3 = Number(product.stock_floor3) || 0;
-  const b1 = Number(product.stock_b1) || 0;
-  const uiwang = Number(product.stock_display) || 0;
+  const yangjae = Number(product.stock_yangjae) || 0;
+  const uiwang = Number(product.stock_uiwang) || 0;
   const reserved = Number(product.reserved_quantity) || 0;
   const available = availableProductStock(product);
 
@@ -39,12 +38,8 @@ function ProductSearchStockSummary({ product }: { product: ProductStockFields })
   return (
     <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] leading-none tabular-nums">
       <span className={itemClass}>
-        <span className={labelClass}>3층</span>
-        <span className={valueClass}>{floor3}</span>
-      </span>
-      <span className={itemClass}>
-        <span className={labelClass}>B1</span>
-        <span className={valueClass}>{b1}</span>
+        <span className={labelClass}>양재</span>
+        <span className={valueClass}>{yangjae}</span>
       </span>
       <span className={itemClass}>
         <span className={labelClass}>의왕</span>

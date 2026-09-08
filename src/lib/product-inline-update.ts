@@ -29,22 +29,16 @@ export function applyProductInlineFieldUpdate(
     case "sku":
       next.sku = rawValue.trim();
       break;
-    case "stock_floor3": {
+    case "stock_yangjae": {
       const value = Number(rawValue) || 0;
-      next.stock_floor3 = value;
-      next.stock_quantity = value + next.stock_b1 + next.stock_display;
+      next.stock_yangjae = value;
+      next.stock_quantity = value + next.stock_uiwang;
       break;
     }
-    case "stock_b1": {
+    case "stock_uiwang": {
       const value = Number(rawValue) || 0;
-      next.stock_b1 = value;
-      next.stock_quantity = next.stock_floor3 + value + next.stock_display;
-      break;
-    }
-    case "stock_display": {
-      const value = Number(rawValue) || 0;
-      next.stock_display = value;
-      next.stock_quantity = next.stock_floor3 + next.stock_b1 + value;
+      next.stock_uiwang = value;
+      next.stock_quantity = next.stock_yangjae + value;
       break;
     }
     case "reserved_quantity":

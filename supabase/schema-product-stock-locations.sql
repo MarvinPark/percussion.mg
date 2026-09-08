@@ -7,31 +7,31 @@ alter table products
   add column if not exists is_key_stock boolean not null default false;
 
 alter table products
-  add column if not exists stock_location text not null default '3층';
+  add column if not exists stock_location text not null default '양재';
 
 alter table products
-  add column if not exists stock_floor3 integer not null default 0;
+  add column if not exists stock_yangjae integer not null default 0;
 
 alter table products
-  add column if not exists stock_b1 integer not null default 0;
-
-alter table products
-  add column if not exists stock_display integer not null default 0;
+  add column if not exists stock_uiwang integer not null default 0;
 
 alter table products
   add column if not exists reserved_quantity integer not null default 0;
 
--- 기존 재고를 3층으로 이전 (stock_floor3가 0이고 stock_quantity > 0인 경우)
+-- 기존 재고를 양재로 이전 (stock_yangjae가 0이고 stock_quantity > 0인 경우)
 update products
 set
-  stock_floor3 = stock_quantity,
-  stock_location = coalesce(nullif(stock_location, ''), '3층')
-where stock_floor3 = 0
-  and stock_b1 = 0
-  and stock_display = 0
+  stock_yangjae = stock_quantity,
+  stock_location = coalesce(nullif(stock_location, ''), '양재')
+where stock_yangjae = 0
+  and stock_uiwang = 0
   and stock_quantity > 0;
 
--- 기존 '전시' 위치명을 '의왕'으로 변경
+-- 기존 위치명 정리
+update products
+set stock_location = '양재'
+where stock_location in ('3층', 'B1', '전시', '');
+
 update products
 set stock_location = '의왕'
-where stock_location = '전시';
+where stock_location = '의왕';

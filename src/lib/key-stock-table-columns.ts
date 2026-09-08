@@ -1,8 +1,7 @@
 export type KeyStockTableColumnId =
   | "brand"
   | "model"
-  | "floor3"
-  | "b1"
+  | "yangjae"
   | "uiwang"
   | "reserved"
   | "total"
@@ -18,8 +17,7 @@ export type KeyStockTableColumn = {
 export const KEY_STOCK_TABLE_COLUMNS: KeyStockTableColumn[] = [
   { id: "brand", label: "제조사", align: "left", width: 80 },
   { id: "model", label: "모델", align: "left", width: 112 },
-  { id: "floor3", label: "3층", align: "center", width: 40 },
-  { id: "b1", label: "B1", align: "center", width: 40 },
+  { id: "yangjae", label: "양재", align: "center", width: 44 },
   { id: "uiwang", label: "의왕", align: "center", width: 40 },
   { id: "reserved", label: "예약", align: "center", width: 48 },
   { id: "total", label: "총수량", align: "center", width: 44 },

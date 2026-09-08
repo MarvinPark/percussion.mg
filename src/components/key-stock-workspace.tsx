@@ -42,16 +42,15 @@ import { formatKRW } from "@/lib/sales-calculator";
 function normalizeProduct(product: Product): Product {
   return {
     ...product,
-    stock_floor3: product.stock_floor3 ?? 0,
-    stock_b1: product.stock_b1 ?? 0,
-    stock_display: product.stock_display ?? 0,
+    stock_yangjae: product.stock_yangjae ?? 0,
+    stock_uiwang: product.stock_uiwang ?? 0,
     reserved_quantity: product.reserved_quantity ?? 0,
     is_key_stock: product.is_key_stock ?? false,
   };
 }
 
 function grossStock(product: Product) {
-  return product.stock_floor3 + product.stock_b1 + product.stock_display;
+  return product.stock_yangjae + product.stock_uiwang;
 }
 
 function netStock(product: Product, reserved: number) {
@@ -212,17 +211,13 @@ function ProductCells({
             {item.model_name}
           </td>
         );
-      case "floor3":
+      case "yangjae":
         return (
-          <td className={`${cellClass} text-center`}>{item.stock_floor3}</td>
-        );
-      case "b1":
-        return (
-          <td className={`${cellClass} text-center`}>{item.stock_b1}</td>
+          <td className={`${cellClass} text-center`}>{item.stock_yangjae}</td>
         );
       case "uiwang":
         return (
-          <td className={`${cellClass} text-center`}>{item.stock_display}</td>
+          <td className={`${cellClass} text-center`}>{item.stock_uiwang}</td>
         );
       case "reserved":
         return (

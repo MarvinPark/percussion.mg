@@ -252,7 +252,7 @@ export default function ProductForm({ product }: ProductFormProps) {
               id="stock_location"
               name="stock_location"
               required
-              defaultValue={product?.stock_location ?? "3층"}
+              defaultValue={product?.stock_location ?? "양재"}
               className={inputClass}
             >
               {STOCK_LOCATIONS.map((location) => (
@@ -278,9 +278,7 @@ export default function ProductForm({ product }: ProductFormProps) {
                 min={0}
                 readOnly
                 value={
-                  (product?.stock_floor3 ?? 0) +
-                  (product?.stock_b1 ?? 0) +
-                  (product?.stock_display ?? 0)
+                  (product?.stock_yangjae ?? 0) + (product?.stock_uiwang ?? 0)
                 }
                 className={`${inputClass} bg-zinc-100 dark:bg-zinc-800/80`}
               />
@@ -298,41 +296,28 @@ export default function ProductForm({ product }: ProductFormProps) {
           {isEdit ? (
             <>
               <div>
-                <label htmlFor="stock_floor3" className={labelClass}>
-                  3층 재고
+                <label htmlFor="stock_yangjae" className={labelClass}>
+                  양재 재고
                 </label>
                 <input
-                  id="stock_floor3"
-                  name="stock_floor3"
+                  id="stock_yangjae"
+                  name="stock_yangjae"
                   type="number"
                   min={0}
-                  defaultValue={product?.stock_floor3 ?? 0}
+                  defaultValue={product?.stock_yangjae ?? 0}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label htmlFor="stock_b1" className={labelClass}>
-                  B1 재고
-                </label>
-                <input
-                  id="stock_b1"
-                  name="stock_b1"
-                  type="number"
-                  min={0}
-                  defaultValue={product?.stock_b1 ?? 0}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="stock_display" className={labelClass}>
+                <label htmlFor="stock_uiwang" className={labelClass}>
                   의왕 재고
                 </label>
                 <input
-                  id="stock_display"
-                  name="stock_display"
+                  id="stock_uiwang"
+                  name="stock_uiwang"
                   type="number"
                   min={0}
-                  defaultValue={product?.stock_display ?? 0}
+                  defaultValue={product?.stock_uiwang ?? 0}
                   className={inputClass}
                 />
               </div>

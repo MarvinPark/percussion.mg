@@ -83,9 +83,8 @@ export type QuoteProductOption = {
   sale_price: number;
   purchase_price: number;
   stock_quantity?: number;
-  stock_floor3?: number;
-  stock_b1?: number;
-  stock_display?: number;
+  stock_yangjae?: number;
+  stock_uiwang?: number;
   reserved_quantity?: number;
 };
 
