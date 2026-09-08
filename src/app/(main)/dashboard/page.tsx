@@ -18,7 +18,11 @@ import {
 import { fetchTotalInventoryAsset } from "@/lib/inventory-asset";
 import { isLowStockProduct } from "@/lib/product-stock";
 import { formatKRW } from "@/lib/sales-calculator";
-import { fetchSalesAnalyticsRows } from "@/lib/sales-analytics";
+import {
+  fetchCurrentMonthRankings,
+  fetchSalesDailyBuckets,
+  type SalesMonthRankings,
+} from "@/lib/sales-analytics";
 import { fetchSalesPeriodSummaries } from "@/lib/sales-summary";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
@@ -47,12 +51,20 @@ export default async function DashboardPage() {
     user.email?.split("@")[0] ||
     "사용자";
 
+  const emptyRankings: SalesMonthRankings = {
+    sale_category: [],
+    business_partner: [],
+    brand: [],
+    product: [],
+  };
+
   const [
     totalInventoryAsset,
     { data: lowStockCandidates },
     summary,
     { count: quoteCount },
-    salesAnalytics,
+    salesDaily,
+    monthRankings,
     salesComparison,
     quoteConversion,
   ] = await Promise.all([
@@ -64,7 +76,12 @@ export default async function DashboardPage() {
       .limit(200),
     fetchSalesPeriodSummaries(supabase),
     supabase.from("quotes").select("*", { count: "exact", head: true }),
-    canViewSales ? fetchSalesAnalyticsRows(supabase) : Promise.resolve({ rows: [] }),
+    canViewSales
+      ? fetchSalesDailyBuckets(supabase)
+      : Promise.resolve({ buckets: [] }),
+    canViewSales
+      ? fetchCurrentMonthRankings(supabase)
+      : Promise.resolve({ rankings: emptyRankings }),
     canViewSales
       ? fetchSalesComparisonInsights(supabase)
       : Promise.resolve(null),
@@ -73,10 +90,9 @@ export default async function DashboardPage() {
       : Promise.resolve(null),
   ]);
 
-  const categoryShare =
-    canViewSales
-      ? buildCategoryShareInsights(salesAnalytics.rows)
-      : null;
+  const categoryShare = canViewSales
+    ? buildCategoryShareInsights(monthRankings.rankings.sale_category)
+    : null;
 
   const lowStockProducts =
     lowStockCandidates?.filter((item) => isLowStockProduct(item)) ?? [];
@@ -147,18 +163,18 @@ export default async function DashboardPage() {
           <>
             <div className="mt-6">
               <SalesTrendSection
-                rows={salesAnalytics.rows}
+                dailyBuckets={salesDaily.buckets}
                 title="판매현황"
                 subtitle="기간별 매출·매입·마진 추이 (만원)"
               />
             </div>
 
             <div className="mt-6">
-              <ProductSalesTrendDashboard rows={salesAnalytics.rows} />
+              <ProductSalesTrendDashboard />
             </div>
 
             <div className="mt-6">
-              <SalesAnalyticsRankSection rows={salesAnalytics.rows} />
+              <SalesAnalyticsRankSection rankings={monthRankings.rankings} />
             </div>
           </>
         ) : null}
