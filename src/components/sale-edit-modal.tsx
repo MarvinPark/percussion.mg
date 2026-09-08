@@ -11,6 +11,7 @@ import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
 import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
+import { describeError } from "@/lib/error-detail";
 import {
   calculateSaleAmounts,
   formatKRW,
@@ -240,7 +241,9 @@ export default function SaleEditModal({
         onClose();
       } catch (error) {
         console.error("sale update failed:", error);
-        setSaveError("판매 수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        setSaveError(
+          `판매 수정 저장에 실패했습니다. ${describeError(error)} — 이 메시지를 그대로 알려주시면 원인을 찾을 수 있습니다.`,
+        );
       }
     });
   }
@@ -564,7 +567,7 @@ export default function SaleEditModal({
           </div>
 
           {saveError ? (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm break-words text-red-700 dark:bg-red-950 dark:text-red-300">
               {saveError}
             </p>
           ) : null}

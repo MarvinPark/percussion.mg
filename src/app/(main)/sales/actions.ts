@@ -1,5 +1,6 @@
 "use server";
 
+import { describeError, isNextControlFlowError } from "@/lib/error-detail";
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import { resolveSaleCategory } from "@/lib/sale-category-options";
 import {
@@ -528,6 +529,23 @@ export async function createSale(formData: FormData) {
 
 export async function updateSale(formData: FormData) {
   const sale_id = String(formData.get("sale_id") ?? "").trim();
+
+  try {
+    return await updateSaleInternal(formData, sale_id);
+  } catch (error) {
+    if (isNextControlFlowError(error)) throw error;
+
+    console.error("[updateSale] 예상하지 못한 오류", {
+      sale_id,
+      product_id: String(formData.get("product_id") ?? ""),
+      error,
+    });
+
+    return { error: `판매 수정 중 오류가 발생했습니다. ${describeError(error)}` };
+  }
+}
+
+async function updateSaleInternal(formData: FormData, sale_id: string) {
   const sale_category_raw = String(formData.get("sale_category") ?? "");
   const product_id = String(formData.get("product_id") ?? "");
   const sold_at = String(formData.get("sold_at") ?? "").trim();
