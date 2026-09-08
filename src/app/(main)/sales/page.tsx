@@ -19,7 +19,6 @@ import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { SaleWithProduct } from "@/types/sale";
-import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
 export const metadata = createPageMetadata("매출");
 
@@ -37,7 +36,6 @@ export default async function SalesPage() {
 
   const [
     { data: sales, error },
-    { data: products },
     { paymentMethods: paymentMethodsResult },
     { data: staffProfiles },
     { names: saleCategories },
@@ -49,10 +47,6 @@ export default async function SalesPage() {
         .order("sold_at", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(5000),
-      supabase
-        .from("products")
-        .select(SALE_PRODUCT_OPTION_SELECT)
-        .order("product_name", { ascending: true }),
       fetchPaymentMethods(supabase),
       supabase
         .from("profiles")
@@ -116,7 +110,6 @@ export default async function SalesPage() {
             <div className="mt-6">
               <SalesImportPanels
                 canImport={canCreateSales}
-                products={products ?? []}
                 paymentMethods={paymentMethods ?? []}
                 saleCategories={saleCategories}
               />
@@ -139,7 +132,6 @@ export default async function SalesPage() {
                 userId={user.id}
                 currentUserName={profile?.full_name?.trim() ?? ""}
                 sales={sales as SaleWithProduct[]}
-                products={products ?? []}
                 paymentMethods={paymentMethods ?? []}
                 saleCategories={saleCategories}
                 staffOptions={staffOptions}

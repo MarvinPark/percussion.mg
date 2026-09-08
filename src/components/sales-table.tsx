@@ -34,7 +34,7 @@ import {
   getTableHeaderPaddingClass,
   getTableRowPaddingClass,
 } from "@/lib/table-row-preferences";
-import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
+import type { PaymentMethod, SaleWithProduct } from "@/types/sale";
 import {
   loadSalesEmphasizedIds,
   saveSalesEmphasizedIds,
@@ -259,7 +259,6 @@ function SaleInlinePriceCell({
 type SalesTableProps = {
   userId: string;
   sales: SaleWithProduct[];
-  products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   staffOptions: StaffOption[];
@@ -286,7 +285,6 @@ type SalesTableProps = {
 export default function SalesTable({
   userId,
   sales,
-  products,
   paymentMethods,
   saleCategories,
   staffOptions,
@@ -1211,7 +1209,6 @@ export default function SalesTable({
         <SaleEditModal
           key={editingSale.id}
           sale={editingSale}
-          products={products}
           paymentMethods={paymentMethods}
           saleCategories={saleCategories}
           staffOptions={staffOptions}
