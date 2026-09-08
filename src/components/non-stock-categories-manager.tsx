@@ -29,6 +29,19 @@ type NonStockCategoriesManagerProps = {
   needsMigration?: boolean;
 };
 
+function resolveNonStockCategoryName(product: QuoteProductOption) {
+  return (
+    product.category?.trim() ||
+    product.product_name?.trim() ||
+    product.model_name?.trim() ||
+    ""
+  );
+}
+
+function productSelectionLabel(product: QuoteProductOption) {
+  return (product.model_name || product.sku || "").trim();
+}
+
 export default function NonStockCategoriesManager({
   options,
   schemaError,
@@ -41,6 +54,9 @@ export default function NonStockCategoriesManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<QuoteProductOption | null>(
+    null,
+  );
   const [selectedCategoryName, setSelectedCategoryName] = useState("");
 
   function refresh() {
@@ -69,30 +85,50 @@ export default function NonStockCategoriesManager({
     }
 
     setProductSearch("");
+    setSelectedProduct(null);
     setSelectedCategoryName("");
     setMessage("품목이 추가되었습니다.");
     refresh();
   }
 
   function handleProductSelect(product: QuoteProductOption) {
-    const category = product.category?.trim();
-    if (!category) {
+    const categoryName = resolveNonStockCategoryName(product);
+    if (!categoryName) {
+      setSelectedProduct(null);
       setSelectedCategoryName("");
-      setError(
-        "선택한 제품에 품목(카테고리)이 없습니다. 제품 등록에서 품목을 입력해 주세요.",
-      );
+      setError("선택한 제품에서 추가할 품목 이름을 확인할 수 없습니다.");
       return;
     }
 
-    if (options.some((option) => option.name === category)) {
+    if (options.some((option) => option.name === categoryName)) {
+      setSelectedProduct(null);
       setSelectedCategoryName("");
-      setError(`"${category}" 품목은 이미 등록되어 있습니다.`);
+      setError(`"${categoryName}" 품목은 이미 등록되어 있습니다.`);
       return;
     }
 
-    setSelectedCategoryName(category);
+    setSelectedProduct(product);
+    setSelectedCategoryName(categoryName);
     setError(null);
     setMessage(null);
+  }
+
+  function handleProductSearchChange(value: string) {
+    setProductSearch(value);
+    setError(null);
+
+    if (!selectedProduct) {
+      if (selectedCategoryName) {
+        setSelectedCategoryName("");
+      }
+      return;
+    }
+
+    const label = productSelectionLabel(selectedProduct);
+    if (value.trim() !== label) {
+      setSelectedProduct(null);
+      setSelectedCategoryName("");
+    }
   }
 
   async function handleUpdate(id: string) {
@@ -165,11 +201,7 @@ export default function NonStockCategoriesManager({
             </p>
             <ModelNameAutocomplete
               value={productSearch}
-              onChange={(value) => {
-                setProductSearch(value);
-                setSelectedCategoryName("");
-                setError(null);
-              }}
+              onChange={handleProductSearchChange}
               onSelectProduct={handleProductSelect}
               placeholder="모델명·SKU 검색"
             />
