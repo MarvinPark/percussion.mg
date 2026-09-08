@@ -17,7 +17,6 @@ import SaleCategorySelect from "@/components/sale-category-select";
 import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import { getPartnerCustomerFields } from "@/lib/business-partners";
-import { createCustomerContactPasteHandler } from "@/lib/use-customer-contact-paste";
 import {
   calculateQuoteLine,
   calculateQuoteTotals,
@@ -195,15 +194,6 @@ export default function QuoteForm({
   );
   const [customerNote, setCustomerNote] = useState(
     initialQuote?.customer_note ?? "",
-  );
-  const handleCustomerContactPaste = useMemo(
-    () =>
-      createCustomerContactPasteHandler({
-        setCustomerName,
-        setCustomerPhone,
-        setCustomerAddress,
-      }),
-    [],
   );
   const [memo, setMemo] = useState(initialQuote?.memo ?? "");
   const [discountAmount, setDiscountAmount] = useState(
@@ -559,9 +549,6 @@ export default function QuoteForm({
         <p className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
           고객 정보
         </p>
-        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          이름·전화·주소를 한 번에 붙여넣으면 각 칸에 자동으로 나뉘어 들어갑니다.
-        </p>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -598,7 +585,6 @@ export default function QuoteForm({
                 name="customer_name"
                 value={customerName}
                 onChange={setCustomerName}
-                onPaste={handleCustomerContactPaste}
                 suggestions={contactSuggestions.customers}
                 onSelectCustomer={(customer) => {
                   setCustomerPhone(customer.phone);
@@ -619,7 +605,6 @@ export default function QuoteForm({
                 name="customer_phone"
                 value={customerPhone}
                 onChange={setCustomerPhone}
-                onPaste={handleCustomerContactPaste}
                 className={inputClass}
               />
             </div>
@@ -631,7 +616,6 @@ export default function QuoteForm({
                 id="quote_customer_address"
                 value={customerAddress}
                 onChange={(event) => setCustomerAddress(event.target.value)}
-                onPaste={handleCustomerContactPaste}
                 className={inputClass}
               />
             </div>

@@ -13,7 +13,6 @@ import SaleCategorySelect from "@/components/sale-category-select";
 import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import { getPartnerCustomerFields } from "@/lib/business-partners";
-import { createCustomerContactPasteHandler } from "@/lib/use-customer-contact-paste";
 import {
   calculateSaleAmounts,
   formatKRW,
@@ -167,15 +166,6 @@ export default function SaleForm({
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
-  const handleCustomerContactPaste = useMemo(
-    () =>
-      createCustomerContactPasteHandler({
-        setCustomerName,
-        setCustomerPhone,
-        setCustomerAddress,
-      }),
-    [],
-  );
   const [soldAt, setSoldAt] = useState(() => todayString());
   const [saleCategory, setSaleCategory] = useState(
     () => saleCategories[0] ?? "",
@@ -439,9 +429,6 @@ export default function SaleForm({
         <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
           고객 / 거래처 정보
         </h3>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          이름·전화·주소를 한 번에 붙여넣으면 각 칸에 자동으로 나뉘어 들어갑니다.
-        </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -475,7 +462,6 @@ export default function SaleForm({
               name="customer_name"
               value={customerName}
               onChange={setCustomerName}
-              onPaste={handleCustomerContactPaste}
               suggestions={contactSuggestions.customers}
               onSelectCustomer={(customer) => {
                 setCustomerPhone(customer.phone);
@@ -495,7 +481,6 @@ export default function SaleForm({
               name="customer_phone"
               value={customerPhone}
               onChange={setCustomerPhone}
-              onPaste={handleCustomerContactPaste}
               placeholder="01012345678"
               className={inputClass}
             />
@@ -510,7 +495,6 @@ export default function SaleForm({
               name="customer_address"
               value={customerAddress}
               onChange={(event) => setCustomerAddress(event.target.value)}
-              onPaste={handleCustomerContactPaste}
               placeholder="예: 경기도 성남시 ..."
               className={inputClass}
             />
