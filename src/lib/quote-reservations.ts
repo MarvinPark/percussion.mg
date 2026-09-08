@@ -1,3 +1,4 @@
+import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
 import { getModifierInfo } from "@/lib/profile";
 import {
   isNonStockServiceItem,
@@ -28,12 +29,15 @@ export type QuoteReservationRow = {
   stock_uiwang: number;
 };
 
-export function getReservableQuoteItems(items: QuoteItemForReservation[]) {
+export function getReservableQuoteItems(
+  items: QuoteItemForReservation[],
+  nonStockCategories: readonly string[],
+) {
   return items.filter(
     (item) =>
       item.product_id &&
       isStoreFulfillment(item.fulfillment_location) &&
-      !isNonStockServiceItem(item) &&
+      !isNonStockServiceItem(item, nonStockCategories) &&
       Math.round(Number(item.quantity) || 0) > 0,
   );
 }
@@ -314,7 +318,8 @@ export async function applyQuoteReservations(
   quoteId: string,
   items: QuoteItemForReservation[],
 ) {
-  const reservableItems = getReservableQuoteItems(items);
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+  const reservableItems = getReservableQuoteItems(items, nonStockCategories);
 
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")

@@ -16,6 +16,7 @@ export type QuoteConvertLineItem = {
   id: string;
   model_name: string;
   product_name: string;
+  category?: string | null;
   quantity: number;
   fulfillment_location: string;
   purchase_price: number;
@@ -40,6 +41,7 @@ type QuoteConvertDialogProps = {
   description?: string;
   quoteTotal: number;
   items: QuoteConvertLineItem[];
+  nonStockCategories: string[];
   defaultCardFeePercent?: CardFeePercent;
   defaultActualFeeRate?: number;
   staffOptions: StaffOption[];
@@ -83,6 +85,7 @@ export default function QuoteConvertDialog({
   description,
   quoteTotal,
   items,
+  nonStockCategories,
   defaultCardFeePercent,
   defaultActualFeeRate = 0,
   staffOptions,
@@ -100,7 +103,10 @@ export default function QuoteConvertDialog({
   >(() =>
     Object.fromEntries(
       items.map((item) => {
-        const defaultQuantity = defaultQuoteConvertPurchaseQuantity(item);
+        const defaultQuantity = defaultQuoteConvertPurchaseQuantity(
+          item,
+          nonStockCategories,
+        );
         return [
           item.id,
           defaultQuantity > 0 ? String(defaultQuantity) : "",

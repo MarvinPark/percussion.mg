@@ -12,6 +12,7 @@ import { normalizePurchasePrice } from "@/lib/product-duplicate";
 import {
   inferPrimaryStockLocation,
   normalizeStockLocation,
+  STOCK_LOCATION_FIELD,
 } from "@/lib/stock-locations";
 import type { Product } from "@/types/product";
 
@@ -304,6 +305,15 @@ export function buildUpdatePayload(
     if (stockLocation !== normalizeStockLocation(product.stock_location)) {
       payload.stock_location = stockLocation;
     }
+  } else if (
+    typeof payload.stock_quantity === "number" &&
+    payload.stock_quantity !== product.stock_quantity
+  ) {
+    const delta = payload.stock_quantity - product.stock_quantity;
+    const location = normalizeStockLocation(product.stock_location);
+    const locationField = STOCK_LOCATION_FIELD[location];
+    payload[locationField] =
+      (Number(product[locationField]) || 0) + delta;
   }
 
   return Object.keys(payload).length ? payload : null;

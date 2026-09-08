@@ -156,7 +156,7 @@ export function parseExcelStockFields(
         stock_uiwang,
         stock_quantity: total,
       },
-      error: `${prefix}합계(${total})와 양재+의왕 합(${locationSum})이 일치하지 않습니다.`,
+      error: `${prefix}합계(${total})와 위치별 재고 합(${locationSum})이 일치하지 않습니다.`,
     };
   }
 
@@ -329,7 +329,7 @@ export function validateExcelProductRow(row: ExcelProductRow, rowNumber: number)
 
   const locationSum = row.stock_yangjae + row.stock_uiwang;
   if (locationSum !== row.stock_quantity) {
-    return `${rowNumber}행: 합계(${row.stock_quantity})와 양재+의왕 합(${locationSum})이 일치하지 않습니다.`;
+    return `${rowNumber}행: 합계(${row.stock_quantity})와 위치별 재고 합(${locationSum})이 일치하지 않습니다.`;
   }
 
   return null;

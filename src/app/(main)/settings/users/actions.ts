@@ -447,6 +447,104 @@ function revalidateSaleCategoryPaths() {
   revalidatePath("/dashboard");
 }
 
+export async function createNonStockCategoryOption(formData: FormData) {
+  const supabase = await createClient();
+  const auth = await requirePermission("manageUsers");
+  if ("error" in auth) return { error: auth.error };
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: "품목 이름을 입력해 주세요." };
+
+  const { data: lastOption } = await supabase
+    .from("non_stock_category_options")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const sort_order = (lastOption?.sort_order ?? 0) + 1;
+
+  const { error } = await supabase.from("non_stock_category_options").insert({
+    name,
+    sort_order,
+    is_active: true,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "같은 이름의 품목이 이미 있습니다." };
+    }
+    if (error.code === "42P01") {
+      return {
+        error:
+          "재고 미반영 품목 테이블이 없습니다. supabase/schema-non-stock-categories.sql을 실행해 주세요.",
+      };
+    }
+    return { error: "품목 추가에 실패했습니다." };
+  }
+
+  revalidateNonStockCategoryPaths();
+  return { ok: true as const };
+}
+
+export async function updateNonStockCategoryOption(formData: FormData) {
+  const supabase = await createClient();
+  const auth = await requirePermission("manageUsers");
+  if ("error" in auth) return { error: auth.error };
+
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+
+  if (!id) return { error: "수정할 품목을 찾을 수 없습니다." };
+  if (!name) return { error: "품목 이름을 입력해 주세요." };
+
+  const { error } = await supabase
+    .from("non_stock_category_options")
+    .update({ name })
+    .eq("id", id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "같은 이름의 품목이 이미 있습니다." };
+    }
+    return { error: "품목 수정에 실패했습니다." };
+  }
+
+  revalidateNonStockCategoryPaths();
+  return { ok: true as const };
+}
+
+export async function deleteNonStockCategoryOption(formData: FormData) {
+  const supabase = await createClient();
+  const auth = await requirePermission("manageUsers");
+  if ("error" in auth) return { error: auth.error };
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "삭제할 품목을 찾을 수 없습니다." };
+
+  const { error } = await supabase
+    .from("non_stock_category_options")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    return { error: "품목 삭제에 실패했습니다." };
+  }
+
+  revalidateNonStockCategoryPaths();
+  return { ok: true as const };
+}
+
+function revalidateNonStockCategoryPaths() {
+  revalidatePath("/settings/users");
+  revalidatePath("/sales");
+  revalidatePath("/sales/new");
+  revalidatePath("/quotes");
+  revalidatePath("/quotes/new");
+  revalidatePath("/dashboard");
+  revalidatePath("/products/reservations");
+}
+
 export async function updateRolePermissions(map: RolePermissionMap) {
   const supabase = await createClient();
   const auth = await requirePermission("manageUsers");

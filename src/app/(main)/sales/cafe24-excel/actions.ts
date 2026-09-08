@@ -22,6 +22,7 @@ import {
   DEFAULT_FULFILLMENT_LOCATION,
   type FulfillmentLocation,
 } from "@/lib/quote-fulfillment";
+import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
 import { requirePermission } from "@/lib/profile";
 import { ONLINE_SALE_CATEGORY } from "@/lib/sale-categories";
 import {
@@ -275,6 +276,7 @@ export async function importCafe24ExcelOrders(
 
   try {
     const products = await loadProducts(supabase);
+    const nonStockCategories = await fetchNonStockCategoryNames(supabase);
     const existingIds = await loadExistingLineIds(
       supabase,
       rows.map((row) => row.lineId),
@@ -384,7 +386,7 @@ export async function importCafe24ExcelOrders(
 
       const lineNote = buildImportNote(order, fulfillmentLocation);
       const stockNote = `판매 출고${order.customerName ? ` — ${order.customerName}` : ""}`;
-      const skipStock = isNonStockServiceItem(matched);
+      const skipStock = isNonStockServiceItem(matched, nonStockCategories);
 
       if (fromStore && !skipStock) {
         const stockResult = await recordStockOutForSale(

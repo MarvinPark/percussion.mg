@@ -13,6 +13,7 @@ import QuotesPageClient from "@/components/quotes-page-client";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
+import { fetchNonStockCategoryOptions } from "@/lib/non-stock-category-options";
 import { fetchQuoteFavoriteIds } from "@/lib/quote-favorites";
 import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
@@ -35,6 +36,7 @@ export default async function QuotesPage() {
     { data: salesContacts },
     { data: staffProfiles },
     { names: saleCategories },
+    { names: nonStockCategories },
     initialFavoriteQuoteIds,
   ] = await Promise.all([
     supabase
@@ -62,6 +64,7 @@ export default async function QuotesPage() {
       .not("full_name", "is", null)
       .order("full_name"),
     fetchSaleCategoryOptions(supabase),
+    fetchNonStockCategoryOptions(supabase),
     fetchQuoteFavoriteIds(supabase, user.id).catch(() => [] as string[]),
   ]);
 
@@ -135,6 +138,7 @@ export default async function QuotesPage() {
             productSkus={productSkus}
             paymentMethods={paymentMethods}
             saleCategories={saleCategories}
+            nonStockCategories={nonStockCategories}
             convertedQuoteIds={convertedQuoteIds}
             initialFavoriteQuoteIds={initialFavoriteQuoteIds}
             contactSuggestions={contactSuggestions}

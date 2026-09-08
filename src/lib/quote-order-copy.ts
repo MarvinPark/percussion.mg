@@ -22,9 +22,12 @@ function getOrderManagerName() {
   return match?.[1] ?? "전인철";
 }
 
-export function buildQuoteOrderCopyText(quote: QuoteOrderCopySource): string {
+export function buildQuoteOrderCopyText(
+  quote: QuoteOrderCopySource,
+  nonStockCategories: readonly string[],
+): string {
   const orderItems = quote.quote_items.filter(
-    (item) => !isNonStockServiceItem(item),
+    (item) => !isNonStockServiceItem(item, nonStockCategories),
   );
 
   const itemLines = orderItems.map(

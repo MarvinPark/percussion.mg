@@ -71,6 +71,7 @@ type QuotesPageClientProps = {
   productSkus: { id: string; sku?: string | null }[];
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
+  nonStockCategories: string[];
   convertedQuoteIds: string[];
   initialFavoriteQuoteIds: string[];
   contactSuggestions: SaleContactSuggestions;
@@ -86,6 +87,7 @@ export default function QuotesPageClient({
   productSkus,
   paymentMethods,
   saleCategories,
+  nonStockCategories,
   convertedQuoteIds,
   initialFavoriteQuoteIds,
   contactSuggestions,
@@ -525,6 +527,7 @@ export default function QuotesPageClient({
         onToggleFavorite={handleToggleFavorite}
         paymentMethods={paymentMethods}
         saleCategories={saleCategories}
+        nonStockCategories={nonStockCategories}
         convertedQuoteIds={convertedQuoteIds}
         contactSuggestions={contactSuggestions}
         managerName={managerName}

@@ -3,6 +3,7 @@
 import { describeError, isNextControlFlowError } from "@/lib/error-detail";
 import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import { resolveSaleCategory } from "@/lib/sale-category-options";
+import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
 import {
   isStoreFulfillment,
   isNonStockServiceItem,
@@ -87,6 +88,7 @@ async function applySaleStockChange(
   newProductId: string,
   newQuantity: number,
   note: string,
+  nonStockCategories: readonly string[],
 ) {
   const productIds = [...new Set([oldProductId, newProductId])];
   const { data: productRows } = await supabase
@@ -107,8 +109,8 @@ async function applySaleStockChange(
 
   const oldProduct = productsById.get(oldProductId);
   const newProduct = productsById.get(newProductId);
-  const skipOld = oldProduct ? isNonStockServiceItem(oldProduct) : false;
-  const skipNew = newProduct ? isNonStockServiceItem(newProduct) : false;
+  const skipOld = oldProduct ? isNonStockServiceItem(oldProduct, nonStockCategories) : false;
+  const skipNew = newProduct ? isNonStockServiceItem(newProduct, nonStockCategories) : false;
 
   if (oldProductId === newProductId) {
     if (skipOld) return { ok: true as const };
@@ -261,6 +263,7 @@ async function prepareCreateSaleLines(
   parsedLines: SaleLineInput[],
   note: string,
   purchaseQuantities: number[] = [],
+  nonStockCategories: readonly string[] = [],
 ): Promise<PreparedCreateSaleLine[] | { error: string }> {
   const prepared: PreparedCreateSaleLine[] = [];
 
@@ -279,11 +282,14 @@ async function prepareCreateSaleLines(
     }
 
     const fromStore = isStoreFulfillment(line.fulfillment_location);
-    const skipStock = isNonStockServiceItem({
-      product_name: product.product_name,
-      model_name: product.model_name,
-      category: product.category,
-    });
+    const skipStock = isNonStockServiceItem(
+      {
+        product_name: product.product_name,
+        model_name: product.model_name,
+        category: product.category,
+      },
+      nonStockCategories,
+    );
 
     const { data: paymentMethod } = await supabase
       .from("payment_methods")
@@ -377,11 +383,14 @@ export async function createSale(formData: FormData) {
     parsedLines.length,
   );
 
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+
   const preparedLines = await prepareCreateSaleLines(
     supabase,
     parsedLines,
     note,
     purchaseQuantities,
+    nonStockCategories,
   );
   if ("error" in preparedLines) return { error: preparedLines.error };
 
@@ -572,6 +581,8 @@ async function updateSaleInternal(formData: FormData, sale_id: string) {
 
   const stockNote = `판매 수정${customer_name ? ` — ${customer_name}` : existingSale.customer_name ? ` — ${existingSale.customer_name}` : ""}`;
 
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+
   const stockResult = await applySaleStockChange(
     supabase,
     existingSale.product_id,
@@ -579,6 +590,7 @@ async function updateSaleInternal(formData: FormData, sale_id: string) {
     product_id,
     quantity,
     stockNote,
+    nonStockCategories,
   );
 
   if ("error" in stockResult) {
@@ -884,6 +896,8 @@ export async function deleteSales(
   const auth = await requirePermission("manageSales");
   if ("error" in auth) return { error: auth.error };
 
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+
   let deleted = 0;
   const errors: string[] = [];
 
@@ -910,11 +924,14 @@ export async function deleteSales(
 
     if (
       !productInfo ||
-      !isNonStockServiceItem({
-        product_name: productInfo.product_name,
-        model_name: productInfo.model_name,
-        category: productInfo.category,
-      })
+      !isNonStockServiceItem(
+        {
+          product_name: productInfo.product_name,
+          model_name: productInfo.model_name,
+          category: productInfo.category,
+        },
+        nonStockCategories,
+      )
     ) {
       const stockResult = await recordStockIn(
         supabase,
@@ -975,6 +992,7 @@ export async function deleteSale(
 
   if (!existingSale) return { error: "판매 기록을 찾을 수 없습니다." };
 
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
   const stockNote = `판매 삭제${existingSale.customer_name ? ` — ${existingSale.customer_name}` : ""}`;
 
   const linkedProduct = existingSale.products as
@@ -987,11 +1005,14 @@ export async function deleteSale(
 
   if (
     !productInfo ||
-    !isNonStockServiceItem({
-      product_name: productInfo.product_name,
-      model_name: productInfo.model_name,
-      category: productInfo.category,
-    })
+    !isNonStockServiceItem(
+      {
+        product_name: productInfo.product_name,
+        model_name: productInfo.model_name,
+        category: productInfo.category,
+      },
+      nonStockCategories,
+    )
   ) {
     const stockResult = await recordStockIn(
       supabase,
@@ -1082,6 +1103,7 @@ export async function bulkUpdateSales(
   if ("error" in mutation) return { error: mutation.error };
 
   const supabase = mutation.supabase;
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
 
   let resolvedCategory: string | undefined;
   if (hasCategoryUpdate) {
@@ -1164,6 +1186,7 @@ export async function bulkUpdateSales(
         sale.product_id,
         normalizedQuantity,
         stockNote,
+        nonStockCategories,
       );
 
       if ("error" in stockResult) {

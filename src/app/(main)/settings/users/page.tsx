@@ -27,7 +27,7 @@ export default async function AdminSettingsPage() {
         설정
       </h2>
       <p className="mb-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        사용자, 역할별 접근 권한, 결제 수단, 견적 구분{isAdmin ? ", 판관비 항목" : ""}을 관리합니다.
+        사용자, 역할별 접근 권한, 결제 수단, 재고 미반영 품목, 견적 구분{isAdmin ? ", 판관비 항목" : ""}을 관리합니다.
       </p>
 
       <div className="space-y-8">

@@ -94,6 +94,7 @@ type QuotesListProps = {
   onToggleFavorite: (quoteId: string) => void;
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
+  nonStockCategories: string[];
   convertedQuoteIds: string[];
   contactSuggestions: SaleContactSuggestions;
   managerName: string;
@@ -202,6 +203,7 @@ export default function QuotesList({
   onToggleFavorite,
   paymentMethods,
   saleCategories,
+  nonStockCategories,
   convertedQuoteIds,
   contactSuggestions,
   managerName,
@@ -342,7 +344,7 @@ export default function QuotesList({
   }
 
   function handleCopyOrderText(quote: QuoteListItem) {
-    const text = buildQuoteOrderCopyText(quote);
+    const text = buildQuoteOrderCopyText(quote, nonStockCategories);
 
     void navigator.clipboard.writeText(text).then(() => {
       setCopiedOrderQuoteId(quote.id);
@@ -752,10 +754,12 @@ export default function QuotesList({
             id: item.id,
             model_name: item.model_name,
             product_name: item.product_name,
+            category: item.category,
             quantity: item.quantity,
             fulfillment_location: item.fulfillment_location ?? "매장",
             purchase_price: item.purchase_price,
           }))}
+          nonStockCategories={nonStockCategories}
           defaultCardFeePercent={defaultCardFeePercentFromPayment(
             convertingQuote.payment_method,
           )}

@@ -1,6 +1,8 @@
+import NonStockCategoriesManager from "@/components/non-stock-categories-manager";
 import OverheadCategoriesManager from "@/components/overhead-categories-manager";
 import PaymentMethodsManager from "@/components/payment-methods-manager";
 import SaleCategoriesManager from "@/components/sale-categories-manager";
+import { fetchAllNonStockCategoryOptions } from "@/lib/non-stock-category-options";
 import { fetchAllOverheadCategories } from "@/lib/overhead-expenses";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
 import { fetchAllSaleCategoryOptions } from "@/lib/sale-category-options";
@@ -19,10 +21,16 @@ export default async function SettingsCatalogSections({
   const supabase = await createClient();
   const [
     { paymentMethods, error: paymentMethodsError },
+    {
+      options: nonStockCategoryOptions,
+      error: nonStockCategoryError,
+      needsMigration: nonStockCategoryNeedsMigration,
+    },
     { options: saleCategoryOptions, error: saleCategoryError, needsMigration: saleCategoryNeedsMigration },
     overheadCategoriesResult,
   ] = await Promise.all([
     fetchPaymentMethods(supabase),
+    fetchAllNonStockCategoryOptions(supabase),
     fetchAllSaleCategoryOptions(supabase),
     isAdmin
       ? fetchAllOverheadCategories(supabase)
@@ -32,7 +40,7 @@ export default async function SettingsCatalogSections({
   return (
     <div
       className={`grid min-w-0 grid-cols-1 gap-6 lg:items-start ${
-        isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-2"
+        isAdmin ? "lg:grid-cols-2 xl:grid-cols-4" : "lg:grid-cols-3"
       }`}
     >
       <section id="payment-methods" className={sectionClass}>
@@ -52,9 +60,25 @@ export default async function SettingsCatalogSections({
         )}
       </section>
 
+      <section id="non-stock-categories" className={sectionClass}>
+        <h3 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+          4. 재고 미반영 품목
+        </h3>
+        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+          견적·매출·예약 시 재고 차감/입고가 적용되지 않는 제품 품목입니다.
+          제품 등록 시 &quot;품목&quot;과 동일한 이름을 추가하세요.
+        </p>
+
+        <NonStockCategoriesManager
+          options={nonStockCategoryOptions}
+          schemaError={nonStockCategoryError}
+          needsMigration={nonStockCategoryNeedsMigration}
+        />
+      </section>
+
       <section id="quote-categories" className={sectionClass}>
         <h3 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-          4. 견적
+          5. 견적
         </h3>
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
           견적·매출·주문 불러오기 등 전체 영역에서 사용하는 &quot;구분&quot; 항목을
@@ -71,7 +95,7 @@ export default async function SettingsCatalogSections({
       {isAdmin ? (
         <section id="overhead-categories" className={sectionClass}>
           <h3 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-            5. 판관비
+            6. 판관비
           </h3>
           <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
             판관비 등록 화면에서 선택하는 대분류·세부항목을 추가·수정·삭제합니다.

@@ -46,6 +46,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { formatSaleCategoryDbError } from "@/lib/sale-categories";
 import { resolveSaleCategory } from "@/lib/sale-category-options";
+import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
 import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
@@ -639,6 +640,8 @@ export async function convertQuoteToSale(
     return { error: "결제 방식을 찾을 수 없습니다." };
   }
 
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+
   const soldAt = new Date().toISOString().slice(0, 10);
   const stockNote = `견적 매출전환${quote.customer_name ? ` — ${quote.customer_name}` : ""}`;
   const quoteItems = quote.quote_items ?? [];
@@ -734,7 +737,7 @@ export async function convertQuoteToSale(
         : baseUnitSalePrice;
     const unit_purchase_price = Math.round(Number(item.purchase_price) || 0);
     const fromStore = isStoreFulfillment(item.fulfillment_location);
-    const skipStock = isNonStockServiceItem(item);
+    const skipStock = isNonStockServiceItem(item, nonStockCategories);
     const purchaseInQuantity = skipStock
       ? 0
       : Math.max(
@@ -982,7 +985,11 @@ export async function reserveQuote(quoteId: string) {
     return { error: "견적을 찾을 수 없습니다." };
   }
 
-  const reservableItems = getReservableQuoteItems(quote.quote_items ?? []);
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+  const reservableItems = getReservableQuoteItems(
+    quote.quote_items ?? [],
+    nonStockCategories,
+  );
   if (reservableItems.length === 0) {
     return { error: "예약할 매장 출고 품목이 없습니다." };
   }
