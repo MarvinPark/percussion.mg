@@ -435,6 +435,8 @@ export async function createSale(formData: FormData) {
     contact_address: customer_address || null,
   });
 
+  if (!partnerResult.ok) return { error: partnerResult.error };
+
   const purchaseQuantities = parsePurchaseQuantitiesJson(
     purchase_quantities_json,
     parsedLines.length,
@@ -622,6 +624,8 @@ async function updateSaleInternal(formData: FormData, sale_id: string) {
     contact_phone: customer_phone || null,
     contact_address: customer_address || null,
   });
+
+  if (!partnerResult.ok) return { error: partnerResult.error };
 
   const { totalAmount, paymentFeeAmount, marginAmount } = calculateSaleAmounts({
     quantity,
@@ -1132,7 +1136,7 @@ export async function bulkUpdateSales(
       partner_id: fields.partner_id ?? "",
       source: "sale",
     });
-    if (partnerResult.error) {
+    if (!partnerResult.ok) {
       return { error: partnerResult.error };
     }
     resolvedPartner = {
