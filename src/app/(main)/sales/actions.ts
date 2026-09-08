@@ -6,13 +6,14 @@ import {
   isStoreFulfillment,
   parseFulfillmentLocation,
 } from "@/lib/quote-fulfillment";
-import { getModifierInfo, requirePermission } from "@/lib/profile";
-import { recordStockInToLocation } from "@/lib/sale-recording";
+import { requirePermission } from "@/lib/profile";
 import {
-  addLocationStock,
-  deductLocationStock,
+  recordStockIn,
+  recordStockInToLocation,
+  recordStockOutForSale,
+} from "@/lib/sale-recording";
+import {
   normalizeStockLocation,
-  sumLocationStock,
   type StockLocation,
 } from "@/lib/stock-locations";
 import { createClient } from "@/lib/supabase/server";
@@ -75,107 +76,6 @@ async function getSaleMutationSupabase(): Promise<
   }
 
   return { supabase: await createClient() };
-}
-
-async function recordStockOutForSale(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  productId: string,
-  quantity: number,
-  note: string,
-) {
-  const modifier = await getModifierInfo();
-  if ("error" in modifier) return modifier;
-
-  const { data: product } = await supabase
-    .from("products")
-    .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
-    )
-    .eq("id", productId)
-    .single();
-
-  if (!product) return { error: "제품을 찾을 수 없습니다." };
-
-  const stockBefore = product.stock_quantity;
-  const locationPatch = deductLocationStock(product, quantity, true);
-
-  const stockAfter = sumLocationStock({ ...product, ...locationPatch });
-
-  const { error: movementError } = await supabase.from("stock_movements").insert({
-    product_id: productId,
-    movement_type: "out",
-    quantity,
-    stock_before: stockBefore,
-    stock_after: stockAfter,
-    note,
-    modified_by_user_id: modifier.userId,
-    modified_by_name: modifier.name,
-  });
-
-  if (movementError) {
-    return { error: "재고 출고 기록에 실패했습니다." };
-  }
-
-  await supabase
-    .from("products")
-    .update({
-      ...locationPatch,
-      stock_quantity: stockAfter,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", productId);
-
-  return { ok: true as const };
-}
-
-async function recordStockIn(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  productId: string,
-  quantity: number,
-  note: string,
-) {
-  const modifier = await getModifierInfo();
-  if ("error" in modifier) return modifier;
-
-  const { data: product } = await supabase
-    .from("products")
-    .select(
-      "stock_quantity, stock_location, stock_floor3, stock_b1, stock_display",
-    )
-    .eq("id", productId)
-    .single();
-
-  if (!product) return { error: "제품을 찾을 수 없습니다." };
-
-  const stockBefore = product.stock_quantity;
-  const locationPatch = addLocationStock(product, quantity);
-  const stockAfter = sumLocationStock({ ...product, ...locationPatch });
-
-  const { error: movementError } = await supabase.from("stock_movements").insert({
-    product_id: productId,
-    movement_type: "in",
-    quantity,
-    stock_before: stockBefore,
-    stock_after: stockAfter,
-    note,
-    modified_by_user_id: modifier.userId,
-    modified_by_name: modifier.name,
-  });
-
-  if (movementError) {
-    return { error: "재고 입고 기록에 실패했습니다." };
-  }
-
-  await supabase
-    .from("products")
-    .update({
-      ...locationPatch,
-      stock_quantity: stockAfter,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", productId);
-
-  return { ok: true as const };
 }
 
 async function applySaleStockChange(

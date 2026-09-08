@@ -604,13 +604,13 @@ export async function registerStockMovement(formData: FormData) {
   if (movement_type === "in") {
     locationPatch = addLocationStock(product, quantity);
   } else {
-    const deducted = deductLocationStock(product, quantity);
+    const deducted = deductLocationStock(product, quantity, false);
     if (!deducted) {
       return {
         error: `재고가 부족합니다. (현재 ${stockBefore}개, 출고 ${quantity}개)`,
       };
     }
-    locationPatch = deducted;
+    locationPatch = deducted.next;
   }
 
   const stockAfter = sumLocationStock({ ...product, ...locationPatch });
@@ -826,13 +826,19 @@ async function applyProductStockDelta(
   if (!product) return { error: "제품을 찾을 수 없습니다." };
 
   const stockBefore = Number(product.stock_quantity) || 0;
-  const locationPatch =
-    delta > 0
-      ? addLocationStock(product, delta)
-      : deductLocationStock(product, -delta, true);
+  let locationPatch: Pick<
+    typeof product,
+    "stock_floor3" | "stock_b1" | "stock_display"
+  >;
 
-  if (!locationPatch) {
-    return { error: "재고 조정에 실패했습니다." };
+  if (delta > 0) {
+    locationPatch = addLocationStock(product, delta);
+  } else {
+    const deducted = deductLocationStock(product, -delta, true);
+    if (!deducted) {
+      return { error: "재고 조정에 실패했습니다." };
+    }
+    locationPatch = deducted.next;
   }
 
   const stockAfter = sumLocationStock({ ...product, ...locationPatch });
