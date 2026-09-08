@@ -388,6 +388,22 @@ export async function searchProductsForDropdown(
   return (data as Product[]) ?? [];
 }
 
+/** 이미 선택된 제품 하나만 다시 채워 넣을 때 사용합니다. (매출 수정 등) */
+export async function fetchSaleProductById(
+  supabase: SupabaseClient,
+  productId: string,
+) {
+  if (!productId) return null;
+
+  const { data } = await supabase
+    .from("products")
+    .select(SALE_PRODUCT_OPTION_SELECT)
+    .eq("id", productId)
+    .maybeSingle();
+
+  return data ?? null;
+}
+
 export async function searchSaleProductsForDropdown(
   supabase: SupabaseClient,
   searchQuery: string,

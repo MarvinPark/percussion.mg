@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { getSaleProductById } from "@/app/(main)/products/actions";
 import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
@@ -10,6 +11,7 @@ import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
 import PriceInput from "@/components/price-input";
 import SaleCategorySelect from "@/components/sale-category-select";
+import { describeError } from "@/lib/error-detail";
 import {
   calculateSaleAmounts,
   formatKRW,
@@ -64,6 +66,23 @@ export default function SaleEditModal({
     initialProduct ?? null,
   );
   const [selectedProductId, setSelectedProductId] = useState(sale.product_id);
+
+  // products 목록에 없는 제품(목록 상한 밖)이면 서버에서 직접 가져와 채웁니다.
+  useEffect(() => {
+    if (initialProduct || !sale.product_id) return;
+
+    let cancelled = false;
+
+    void getSaleProductById(sale.product_id).then((result) => {
+      if (cancelled || !result.product) return;
+      setSelectedProduct((current) => current ?? result.product);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialProduct, sale.product_id]);
+
   const [sellerName, setSellerName] = useState(
     sale.created_by_name?.trim() || sellerNameOptions[0] || "",
   );
@@ -222,7 +241,9 @@ export default function SaleEditModal({
         onClose();
       } catch (error) {
         console.error("sale update failed:", error);
-        setSaveError("판매 수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        setSaveError(
+          `판매 수정 저장에 실패했습니다. ${describeError(error)} — 이 메시지를 그대로 알려주시면 원인을 찾을 수 있습니다.`,
+        );
       }
     });
   }
@@ -546,7 +567,7 @@ export default function SaleEditModal({
           </div>
 
           {saveError ? (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm break-words text-red-700 dark:bg-red-950 dark:text-red-300">
               {saveError}
             </p>
           ) : null}

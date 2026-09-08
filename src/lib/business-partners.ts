@@ -377,14 +377,20 @@ export function mapBusinessPartnerSuggestion(
   };
 }
 
+/**
+ * 거래처 연결 결과입니다.
+ *
+ * 실패를 선택적 필드로 두면 호출부가 확인하지 않고 넘어가기 쉬워서
+ * (실제로 그런 사례가 있었습니다) 판별 유니온으로 좁히도록 강제합니다.
+ */
+export type PartnerSaveResult =
+  | { ok: true; partner_id: string | null; business_partner: string | null }
+  | { ok: false; error: string };
+
 export async function resolvePartnerForSave(
   supabase: SupabaseClient,
   context: PartnerSaveContext,
-): Promise<{
-  partner_id: string | null;
-  business_partner: string | null;
-  error?: string;
-}> {
+): Promise<PartnerSaveResult> {
   const displayName = normalizeOptionalText(context.business_partner);
   const now = new Date().toISOString();
   const partnerId = context.partner_id?.trim() ?? "";
@@ -398,6 +404,7 @@ export async function resolvePartnerForSave(
         .eq("id", partner.id);
 
       return {
+        ok: true,
         partner_id: partner.id,
         business_partner: displayName ?? partner.display_name,
       };
@@ -405,7 +412,7 @@ export async function resolvePartnerForSave(
   }
 
   if (!displayName) {
-    return { partner_id: null, business_partner: null };
+    return { ok: true, partner_id: null, business_partner: null };
   }
 
   const { data: existingRows, error: lookupError } = await supabase
@@ -416,9 +423,8 @@ export async function resolvePartnerForSave(
 
   if (lookupError) {
     return {
-      partner_id: null,
-      business_partner: displayName,
-      error: lookupError.message,
+      ok: false,
+      error: `거래처 "${displayName}" 조회에 실패했습니다. ${lookupError.message}`,
     };
   }
 
@@ -430,6 +436,7 @@ export async function resolvePartnerForSave(
       .eq("id", existing.id);
 
     return {
+      ok: true,
       partner_id: existing.id as string,
       business_partner: existing.display_name as string,
     };
@@ -456,13 +463,13 @@ export async function resolvePartnerForSave(
 
   if (insertError || !created) {
     return {
-      partner_id: null,
-      business_partner: displayName,
-      error: insertError?.message,
+      ok: false,
+      error: `거래처 "${displayName}" 등록에 실패했습니다. ${insertError?.message ?? "알 수 없는 오류"}`,
     };
   }
 
   return {
+    ok: true,
     partner_id: created.id as string,
     business_partner: created.display_name as string,
   };

@@ -261,6 +261,7 @@ export async function createQuote(formData: FormData) {
   const { paymentMethod } = paymentResult;
 
   const partnerResult = await resolveQuotePartner(supabase, fields);
+  if (!partnerResult.ok) return { error: partnerResult.error };
 
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
@@ -376,6 +377,8 @@ export async function pasteQuote(payload: CopiedQuotePayload) {
     contact_address: payload.customer_address?.trim() || null,
   });
 
+  if (!partnerResult.ok) return { error: partnerResult.error };
+
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .insert({
@@ -451,6 +454,7 @@ export async function updateQuote(formData: FormData) {
   const { paymentMethod } = paymentResult;
 
   const partnerResult = await resolveQuotePartner(supabase, fields);
+  if (!partnerResult.ok) return { error: partnerResult.error };
 
   const { error: quoteError } = await supabase
     .from("quotes")
