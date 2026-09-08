@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getSaleProductById } from "@/app/(main)/products/actions";
 import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
-import { getSaleProductById } from "@/app/(main)/products/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import ProductSearchSelect from "@/components/product-search-select";
@@ -64,23 +63,6 @@ export default function SaleEditModal({
     null,
   );
   const [selectedProductId, setSelectedProductId] = useState(sale.product_id);
-
-  // products 목록에 없는 제품(목록 상한 밖)이면 서버에서 직접 가져와 채웁니다.
-  useEffect(() => {
-    if (initialProduct || !sale.product_id) return;
-
-    let cancelled = false;
-
-    void getSaleProductById(sale.product_id).then((result) => {
-      if (cancelled || !result.product) return;
-      setSelectedProduct((current) => current ?? result.product);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [initialProduct, sale.product_id]);
-
   const [sellerName, setSellerName] = useState(
     sale.created_by_name?.trim() || sellerNameOptions[0] || "",
   );
