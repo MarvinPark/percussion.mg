@@ -204,11 +204,18 @@ function DocumentTable({
         })}
         {showTotal && mode === "quote" && (discountAmount ?? 0) > 0 ? (
           <tr>
-            <td colSpan={5} className={`${bodyCellClass} text-center font-medium`}>
+            <td className={narrowTextCellClass} />
+            <td className={narrowTextCellClass} />
+            <td
+              className={`${descriptionCellClass} font-bold text-red-600`}
+            >
               할인
             </td>
+            <td className={narrowTextCellClass} />
+            <td className={`${bodyCellClass} text-center tabular-nums`} />
             <td className={priceCellClass} />
-            <td colSpan={2} className={`${priceCellClass} font-medium text-red-600`}>
+            <td className={priceCellClass} />
+            <td className={`${priceCellClass} font-bold text-red-600`}>
               -{formatKRW(discountAmount ?? 0)}
             </td>
           </tr>
