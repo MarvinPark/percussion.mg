@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteSale, deleteSales, updateSalePaymentMethod, updateSalePurchasePrice, updateSaleShippingCost, updateSaleTotalAmount } from "@/app/(main)/sales/actions";
@@ -62,14 +62,30 @@ const bulkDeleteButtonClass =
 const bulkEditButtonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
-const taxInvoiceBadgeClass =
-  "ml-1 inline-flex shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+const taxInvoiceIssuedHighlightClass =
+  "rounded bg-lime-200/90 px-1 py-0.5 cursor-help dark:bg-lime-900/50";
 
-function TaxInvoiceIssuedBadge() {
+const taxInvoiceIssuedTooltipClass =
+  "pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-lime-300 bg-white px-2 py-1 text-[11px] font-medium text-lime-900 shadow-md group-hover/tax-invoice:block dark:border-lime-700 dark:bg-zinc-900 dark:text-lime-200";
+
+function TaxInvoiceIssuedHint({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: ReactNode;
+}) {
+  if (!enabled) {
+    return <>{children}</>;
+  }
+
   return (
-    <span className={taxInvoiceBadgeClass} title="세금계산서 발행 완료">
-      계산서
-    </span>
+    <div className="group/tax-invoice relative inline-flex min-w-0 max-w-full">
+      {children}
+      <div role="tooltip" className={taxInvoiceIssuedTooltipClass}>
+        발행완료
+      </div>
+    </div>
   );
 }
 
@@ -725,36 +741,45 @@ export default function SalesTable({
           livePaymentMethods,
         );
         const isInvoiced = invoicedSaleIdSet.has(sale.id);
+        const isInvoicedTaxInvoice =
+          isInvoiced && isTaxInvoicePaymentMethod(displaySale.payment_method);
 
         return (
           <td
-            className={`${cellClass} text-zinc-700 dark:text-zinc-300`}
+            className={`${cellClass} text-center text-zinc-700 dark:text-zinc-300`}
             onDoubleClick={(event) => event.stopPropagation()}
           >
-            <div className="flex min-w-0 items-center">
-              {canManageSales && livePaymentMethods.length > 0 ? (
-                <PaymentMethodCombobox
-                  paymentMethods={livePaymentMethods}
-                  value={paymentMethodId}
-                  onChange={(nextPaymentMethodId) => {
-                    if (
-                      savingPaymentMethodId === sale.id ||
-                      !nextPaymentMethodId ||
-                      nextPaymentMethodId === paymentMethodId
-                    ) {
-                      return;
-                    }
-                    void savePaymentMethod(sale.id, nextPaymentMethodId);
-                  }}
-                  showFeeInLabel={false}
-                  placeholder="결제"
-                  className={`${inlineInputClass} min-w-[5.5rem] px-1 py-0.5 text-left text-inherit disabled:opacity-60`}
-                  aria-label={`${sale.products?.product_name ?? "매출"} 결제 방식`}
-                />
-              ) : (
-                <span className="truncate">{displaySale.payment_method}</span>
-              )}
-              {isInvoiced ? <TaxInvoiceIssuedBadge /> : null}
+            <div className="flex min-w-0 items-center justify-center">
+              <TaxInvoiceIssuedHint enabled={isInvoicedTaxInvoice}>
+                <span
+                  className={`inline-flex min-w-0 max-w-full justify-center ${
+                    isInvoicedTaxInvoice ? taxInvoiceIssuedHighlightClass : ""
+                  }`}
+                >
+                  {canManageSales && livePaymentMethods.length > 0 ? (
+                    <PaymentMethodCombobox
+                      paymentMethods={livePaymentMethods}
+                      value={paymentMethodId}
+                      onChange={(nextPaymentMethodId) => {
+                        if (
+                          savingPaymentMethodId === sale.id ||
+                          !nextPaymentMethodId ||
+                          nextPaymentMethodId === paymentMethodId
+                        ) {
+                          return;
+                        }
+                        void savePaymentMethod(sale.id, nextPaymentMethodId);
+                      }}
+                      showFeeInLabel={false}
+                      placeholder="결제"
+                      className={`${inlineInputClass} min-w-[5.5rem] px-1 py-0.5 !text-center text-inherit disabled:opacity-60`}
+                      aria-label={`${sale.products?.product_name ?? "매출"} 결제 방식`}
+                    />
+                  ) : (
+                    <span className="truncate">{displaySale.payment_method}</span>
+                  )}
+                </span>
+              </TaxInvoiceIssuedHint>
             </div>
           </td>
         );

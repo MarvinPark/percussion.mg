@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import {
   cancelTaxInvoiceIssue,
+  deleteTaxInvoiceIssue,
   getTaxInvoicePdfUrl,
 } from "@/app/(main)/sales/invoice-actions";
 import TaxInvoicePreview from "@/components/tax-invoice-preview";
@@ -17,18 +18,21 @@ const buttonClass =
 
 type TaxInvoiceDetailDialogProps = {
   issue: TaxInvoiceIssue;
+  canManageSales?: boolean;
   onClose: () => void;
   onUpdated?: () => void;
 };
 
 export default function TaxInvoiceDetailDialog({
   issue,
+  canManageSales = false,
   onClose,
   onUpdated,
 }: TaxInvoiceDetailDialogProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isCancelling, startCancel] = useTransition();
+  const [isDeleting, startDelete] = useTransition();
 
   const previewData = useMemo(
     () => buildTaxInvoicePreviewDataFromIssue(issue),
@@ -37,9 +41,12 @@ export default function TaxInvoiceDetailDialog({
 
   const isCancelled = Boolean(issue.cancelled_at);
   const canCancel =
+    canManageSales &&
+    !issue.is_test &&
     !isCancelled &&
     !issue.popbill_state?.includes("취소") &&
     !issue.popbill_state?.includes("국세청");
+  const canDelete = canManageSales && issue.is_test;
 
   function handleCancel() {
     const confirmed = window.confirm(
@@ -56,6 +63,25 @@ export default function TaxInvoiceDetailDialog({
         return;
       }
       setActionMessage("발행을 취소했습니다.");
+      onUpdated?.();
+    });
+  }
+
+  function handleDelete() {
+    const confirmed = window.confirm(
+      "이 테스트 발행 내역을 삭제하시겠습니까? 연결된 매출은 다시 세금계산서를 발행할 수 있습니다.",
+    );
+    if (!confirmed) return;
+
+    setActionError(null);
+    setActionMessage(null);
+    startDelete(async () => {
+      const result = await deleteTaxInvoiceIssue({ issueId: issue.id });
+      if ("error" in result) {
+        setActionError(result.error ?? "삭제에 실패했습니다.");
+        return;
+      }
+      setActionMessage("테스트 발행 내역을 삭제했습니다.");
       onUpdated?.();
     });
   }
@@ -110,6 +136,19 @@ export default function TaxInvoiceDetailDialog({
             }}
             disabled={isCancelled}
           />
+
+          {canDelete ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+              >
+                {isDeleting ? "삭제 중…" : "삭제"}
+              </button>
+            </div>
+          ) : null}
 
           {canCancel ? (
             <div className="flex justify-end">

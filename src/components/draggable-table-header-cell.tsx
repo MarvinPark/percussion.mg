@@ -46,6 +46,13 @@ export default function DraggableTableHeaderCell<T extends string>({
         ? "text-right"
         : "text-left";
 
+  const flexJustifyClass =
+    align === "center"
+      ? "justify-center"
+      : align === "right"
+        ? "justify-end"
+        : "";
+
   function handleDragStart(event: React.DragEvent<HTMLElement>) {
     if (!reorderable) return;
     event.dataTransfer.effectAllowed = "move";
@@ -72,7 +79,7 @@ export default function DraggableTableHeaderCell<T extends string>({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="flex items-center pr-2">
+      <div className={`flex items-center pr-2 ${flexJustifyClass}`}>
         {children ?? (
           <span
             draggable={reorderable}

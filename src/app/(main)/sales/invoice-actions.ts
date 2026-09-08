@@ -597,6 +597,48 @@ export async function cancelTaxInvoiceIssue(input: {
   }
 }
 
+export async function deleteTaxInvoiceIssue(input: { issueId: string }) {
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
+
+  const supabase = await createClient();
+  const { data: row, error: fetchError } = await supabase
+    .from("tax_invoice_issues")
+    .select("*")
+    .eq("id", input.issueId)
+    .maybeSingle();
+
+  if (fetchError || !row) {
+    return { error: "발행 내역을 찾을 수 없습니다." };
+  }
+
+  const issue = mapTaxInvoiceIssueRow(row);
+  if (!issue.is_test) {
+    return { error: "테스트 환경 발행 건만 삭제할 수 있습니다." };
+  }
+
+  if (isPopbillConfigured() && !issue.cancelled_at) {
+    try {
+      await cancelPopbillTaxInvoice(issue.mgt_key, "Percy 테스트 발행 삭제");
+    } catch {
+      // 테스트 정리는 Popbill 취소 실패 시에도 DB에서 제거합니다.
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from("tax_invoice_issues")
+    .delete()
+    .eq("id", issue.id);
+
+  if (deleteError) {
+    return { error: "발행 내역 삭제에 실패했습니다." };
+  }
+
+  revalidatePath("/sales");
+  revalidatePath("/sales/tax-invoices");
+  return { success: true as const };
+}
+
 export async function getTaxInvoiceIssueById(input: {
   issueId: string;
 }): Promise<{ issue: TaxInvoiceIssue } | { error: string }> {

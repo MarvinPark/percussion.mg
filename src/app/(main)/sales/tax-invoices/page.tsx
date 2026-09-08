@@ -86,7 +86,11 @@ export default async function TaxInvoicesPage() {
       {error ? (
         <div className={alertError}>발행 내역을 불러오지 못했습니다.</div>
       ) : (
-        <TaxInvoicesList issues={issues} />
+        <TaxInvoicesList
+          issues={issues}
+          userId={user.id}
+          canManageSales={canManageSales}
+        />
       )}
     </main>
   );

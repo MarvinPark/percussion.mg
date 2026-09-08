@@ -435,6 +435,89 @@ export default function SaleForm({
         </div>
       </div>
 
+      <section className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/30">
+        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+          고객 / 거래처 정보
+        </h3>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          이름·전화·주소를 한 번에 붙여넣으면 각 칸에 자동으로 나뉘어 들어갑니다.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="business_partner" className={labelClass}>
+              거래처명
+            </label>
+            <BusinessPartnerAutocomplete
+              id="business_partner"
+              name="business_partner"
+              value={businessPartner}
+              partnerId={partnerId}
+              onChange={setBusinessPartner}
+              onPartnerIdChange={setPartnerId}
+              onSelectPartner={(partner) => {
+                const fields = getPartnerCustomerFields(partner);
+                if (fields.customerName) setCustomerName(fields.customerName);
+                if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
+                if (fields.customerAddress) setCustomerAddress(fields.customerAddress);
+              }}
+              placeholder="예: OO음악학원"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="customer_name" className={labelClass}>
+              고객명
+            </label>
+            <SaleCustomerAutocomplete
+              id="customer_name"
+              name="customer_name"
+              value={customerName}
+              onChange={setCustomerName}
+              onPaste={handleCustomerContactPaste}
+              suggestions={contactSuggestions.customers}
+              onSelectCustomer={(customer) => {
+                setCustomerPhone(customer.phone);
+                setCustomerAddress(customer.address);
+              }}
+              placeholder="예: 홍길동"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="customer_phone" className={labelClass}>
+              전화번호
+            </label>
+            <PhoneInput
+              id="customer_phone"
+              name="customer_phone"
+              value={customerPhone}
+              onChange={setCustomerPhone}
+              onPaste={handleCustomerContactPaste}
+              placeholder="01012345678"
+              className={inputClass}
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label htmlFor="customer_address" className={labelClass}>
+              주소
+            </label>
+            <input
+              id="customer_address"
+              name="customer_address"
+              value={customerAddress}
+              onChange={(event) => setCustomerAddress(event.target.value)}
+              onPaste={handleCustomerContactPaste}
+              placeholder="예: 경기도 성남시 ..."
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </section>
+
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
@@ -843,89 +926,6 @@ export default function SaleForm({
         >
           + 제품 추가
         </button>
-      </section>
-
-      <section className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/30">
-        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-          고객 / 거래처 정보
-        </h3>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          이름·전화·주소를 한 번에 붙여넣으면 각 칸에 자동으로 나뉘어 들어갑니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="business_partner" className={labelClass}>
-              거래처명
-            </label>
-            <BusinessPartnerAutocomplete
-              id="business_partner"
-              name="business_partner"
-              value={businessPartner}
-              partnerId={partnerId}
-              onChange={setBusinessPartner}
-              onPartnerIdChange={setPartnerId}
-              onSelectPartner={(partner) => {
-                const fields = getPartnerCustomerFields(partner);
-                if (fields.customerName) setCustomerName(fields.customerName);
-                if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
-                if (fields.customerAddress) setCustomerAddress(fields.customerAddress);
-              }}
-              placeholder="예: OO음악학원"
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="customer_name" className={labelClass}>
-              고객명
-            </label>
-            <SaleCustomerAutocomplete
-              id="customer_name"
-              name="customer_name"
-              value={customerName}
-              onChange={setCustomerName}
-              onPaste={handleCustomerContactPaste}
-              suggestions={contactSuggestions.customers}
-              onSelectCustomer={(customer) => {
-                setCustomerPhone(customer.phone);
-                setCustomerAddress(customer.address);
-              }}
-              placeholder="예: 홍길동"
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="customer_phone" className={labelClass}>
-              전화번호
-            </label>
-            <PhoneInput
-              id="customer_phone"
-              name="customer_phone"
-              value={customerPhone}
-              onChange={setCustomerPhone}
-              onPaste={handleCustomerContactPaste}
-              placeholder="01012345678"
-              className={inputClass}
-            />
-          </div>
-
-          <div className="sm:col-span-2">
-            <label htmlFor="customer_address" className={labelClass}>
-              주소
-            </label>
-            <input
-              id="customer_address"
-              name="customer_address"
-              value={customerAddress}
-              onChange={(event) => setCustomerAddress(event.target.value)}
-              onPaste={handleCustomerContactPaste}
-              placeholder="예: 경기도 성남시 ..."
-              className={inputClass}
-            />
-          </div>
-        </div>
       </section>
 
       <div>

@@ -16,7 +16,7 @@ export type SalesTableColumnId =
 export type SalesTableColumn = {
   id: SalesTableColumnId;
   label: string;
-  align?: "left" | "right";
+  align?: "left" | "center" | "right";
   minWidth: number;
   defaultWidth: number;
   resizable: boolean;
@@ -55,7 +55,7 @@ export const SALES_TABLE_COLUMNS: SalesTableColumn[] = [
   { id: "fee", label: "수수료", minWidth: 72, defaultWidth: 88, resizable: true },
   { id: "margin", label: "마진", minWidth: 72, defaultWidth: 88, resizable: true },
   { id: "customer", label: "고객", minWidth: 80, defaultWidth: 112, resizable: true },
-  { id: "payment", label: "결제", minWidth: 64, defaultWidth: 80, resizable: true },
+  { id: "payment", label: "결제", align: "center", minWidth: 64, defaultWidth: 80, resizable: true },
   {
     id: "actions",
     label: "수정",
