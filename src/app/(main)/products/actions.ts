@@ -1,5 +1,6 @@
 "use server";
 
+import { describeError, isNextControlFlowError } from "@/lib/error-detail";
 import { getCurrentUserProfile, getModifierInfo, requirePermission } from "@/lib/profile";
 import {
   fetchProductsListView,
@@ -322,6 +323,27 @@ export async function updateProductField(
   rawValue: string,
   options?: UpdateProductFieldOptions,
 ): Promise<{ error?: string }> {
+  try {
+    return await updateProductFieldInternal(productId, field, rawValue, options);
+  } catch (error) {
+    if (isNextControlFlowError(error)) throw error;
+
+    console.error("[updateProductField] 예상하지 못한 오류", {
+      productId,
+      field,
+      error,
+    });
+
+    return { error: `수정 중 오류가 발생했습니다. ${describeError(error)}` };
+  }
+}
+
+async function updateProductFieldInternal(
+  productId: string,
+  field: ProductInlineField,
+  rawValue: string,
+  options?: UpdateProductFieldOptions,
+): Promise<{ error?: string }> {
   if (!productId) {
     return { error: "수정할 제품을 찾을 수 없습니다." };
   }
@@ -393,14 +415,19 @@ export async function updateProductField(
       const locationDelta = locationValue - previousLocationValue;
 
       updateData[field] = locationValue;
-      updateData.stock_quantity =
+      const floor3 =
         field === "stock_floor3"
-          ? locationValue + product.stock_b1 + product.stock_display
-          : field === "stock_b1"
-            ? product.stock_floor3 + locationValue + product.stock_display
-            : product.stock_floor3 + product.stock_b1 + locationValue;
+          ? locationValue
+          : Number(product.stock_floor3) || 0;
+      const b1 =
+        field === "stock_b1" ? locationValue : Number(product.stock_b1) || 0;
+      const display =
+        field === "stock_display"
+          ? locationValue
+          : Number(product.stock_display) || 0;
+      updateData.stock_quantity = floor3 + b1 + display;
 
-      const stockBefore = product.stock_quantity;
+      const stockBefore = Number(product.stock_quantity) || 0;
       const stockAfter = updateData.stock_quantity as number;
 
       if (locationDelta > 0) {
@@ -501,11 +528,19 @@ export async function updateProductField(
     return { error: "수정에 실패했습니다. 잠시 후 다시 시도해 주세요." };
   }
 
-  revalidatePath("/products");
-  revalidatePath("/products/stock/list");
-  revalidatePath("/products/history");
-  revalidatePath("/products/key-stock");
-  revalidatePath("/dashboard");
+  try {
+    revalidatePath("/products");
+    revalidatePath("/products/stock/list");
+    revalidatePath("/products/history");
+    revalidatePath("/products/key-stock");
+    revalidatePath("/dashboard");
+  } catch (error) {
+    console.error("[updateProductField] revalidatePath 실패", {
+      productId,
+      field,
+      error,
+    });
+  }
 
   return {};
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
 import KeyStockFilterCombobox from "@/components/key-stock-filter-combobox";
@@ -103,7 +102,6 @@ export default function ProductsPageClient({
   readOnly = false,
   initialLoadError = null,
 }: ProductsPageClientProps) {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const loadRequestRef = useRef(0);
   const [products, setProducts] = useState(initialProducts);
@@ -144,8 +142,7 @@ export default function ProductsPageClient({
     setPageWindowStart(clampPageWindowStart(currentPage, totalPages));
   }, [currentPage, totalPages]);
 
-  // 전체 수정 후 돌아오거나 router.refresh()로 서버 props가 바뀌면
-  // 클라이언트 목록 state를 맞춥니다. (페이지·필터가 어긋난 경우는 건너뜀)
+  // 전체 수정 후 돌아올 때 서버 props와 클라이언트 state를 맞춥니다.
   useEffect(() => {
     if (
       initialCurrentPage !== currentPage ||
@@ -419,6 +416,32 @@ export default function ProductsPageClient({
     loadView(currentPage, searchQuery, pageSize, sort);
   }, [currentPage, loadView, pageSize, searchQuery, sort]);
 
+  const syncListFromServer = useCallback(() => {
+    void loadProductsListView({
+      page: currentPage,
+      searchQuery,
+      pageSize,
+      sort,
+      categoryFilter,
+      brandFilter,
+    }).then((result) => {
+      if ("error" in result && result.error) return;
+      if (!result.products || !result.listStats) return;
+
+      setProducts(result.products);
+      setReservationsByProductId(result.reservationsByProductId ?? {});
+      setListStats(result.listStats);
+      setTotalPages(result.totalPages);
+    });
+  }, [
+    brandFilter,
+    categoryFilter,
+    currentPage,
+    pageSize,
+    searchQuery,
+    sort,
+  ]);
+
   const handleProductFieldSaved = useCallback(
     (productId: string, field: ProductInlineField, value: string) => {
       setProducts((prev) =>
@@ -428,9 +451,11 @@ export default function ProductsPageClient({
             : product,
         ),
       );
-      router.refresh();
+      // router.refresh()는 저장 직후 RSC 렌더 오류를 유발할 수 있어
+      // 현재 페이지만 서버 액션으로 다시 읽습니다.
+      syncListFromServer();
     },
-    [router],
+    [syncListFromServer],
   );
 
   return (
