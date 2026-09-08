@@ -130,6 +130,10 @@ export default function ResizableHeaderCell({
             event.stopPropagation();
             onResizeStart(columnId, event.clientX);
           }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
         >
           <div className="my-1.5 w-px bg-zinc-300 transition group-hover:w-0.5 group-hover:bg-blue-400 dark:bg-zinc-500 dark:group-hover:bg-blue-400" />
         </div>

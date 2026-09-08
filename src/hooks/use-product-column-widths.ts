@@ -12,6 +12,7 @@ import {
 export function useProductColumnWidths(userId: string) {
   const [widths, setWidths] = useState(getDefaultColumnWidths);
   const widthsRef = useRef(widths);
+  const resizeJustEndedRef = useRef(false);
 
   useEffect(() => {
     widthsRef.current = widths;
@@ -48,6 +49,10 @@ export function useProductColumnWidths(userId: string) {
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         saveColumnWidths(userId, widthsRef.current);
+        resizeJustEndedRef.current = true;
+        window.requestAnimationFrame(() => {
+          resizeJustEndedRef.current = false;
+        });
       }
 
       document.body.style.cursor = "col-resize";
@@ -63,5 +68,10 @@ export function useProductColumnWidths(userId: string) {
     0,
   );
 
-  return { widths, startResize, tableMinWidth };
+  const shouldIgnoreHeaderClick = useCallback(
+    () => resizeJustEndedRef.current,
+    [],
+  );
+
+  return { widths, startResize, tableMinWidth, shouldIgnoreHeaderClick };
 }

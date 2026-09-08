@@ -438,7 +438,8 @@ export default function ProductsList({
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
-  const { widths, startResize, tableMinWidth } = useProductColumnWidths(userId);
+  const { widths, startResize, tableMinWidth, shouldIgnoreHeaderClick } =
+    useProductColumnWidths(userId);
   const baseColumns = useMemo(
     () =>
       readOnly
@@ -1128,7 +1129,7 @@ export default function ProductsList({
             sortable
             sortDirection={sortDirection}
             onSortClick={() => {
-              if (shouldIgnoreSortClick()) return;
+              if (shouldIgnoreSortClick() || shouldIgnoreHeaderClick()) return;
               onSortColumn(columnId);
             }}
             className={`${stickyTableHeaderCellClass} shadow-[inset_0_-1px_0_0_rgb(228_228_231)] dark:shadow-[inset_0_-1px_0_0_rgb(63_63_70)] ${

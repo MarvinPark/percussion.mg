@@ -206,16 +206,14 @@ function DocumentTable({
           <tr>
             <td className={narrowTextCellClass} />
             <td className={narrowTextCellClass} />
-            <td
-              className={`${descriptionCellClass} font-bold text-red-600`}
-            >
+            <td className={`${descriptionCellClass} text-red-600`}>
               할인
             </td>
             <td className={narrowTextCellClass} />
             <td className={`${bodyCellClass} text-center tabular-nums`} />
             <td className={priceCellClass} />
             <td className={priceCellClass} />
-            <td className={`${priceCellClass} font-bold text-red-600`}>
+            <td className={`${priceCellClass} text-red-600`}>
               -{formatKRW(discountAmount ?? 0)}
             </td>
           </tr>

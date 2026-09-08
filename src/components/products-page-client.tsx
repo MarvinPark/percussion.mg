@@ -67,6 +67,23 @@ function syncProductsUrl(
   window.history.replaceState(null, "", nextUrl);
 }
 
+function readProductListParamsFromLocation() {
+  if (typeof window === "undefined") {
+    return {
+      searchQuery: "",
+      categoryFilter: "",
+      brandFilter: "",
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return {
+    searchQuery: params.get("q")?.trim() ?? "",
+    categoryFilter: params.get("category")?.trim() ?? "",
+    brandFilter: params.get("brand")?.trim() ?? "",
+  };
+}
+
 type ProductsPageClientProps = {
   userId: string;
   products: Product[];
@@ -144,6 +161,15 @@ export default function ProductsPageClient({
 
   // 전체 수정 후 돌아올 때 서버 props와 클라이언트 state를 맞춥니다.
   useEffect(() => {
+    const urlParams = readProductListParamsFromLocation();
+    if (
+      urlParams.searchQuery !== searchQuery ||
+      urlParams.categoryFilter !== categoryFilter ||
+      urlParams.brandFilter !== brandFilter
+    ) {
+      return;
+    }
+
     if (
       initialCurrentPage !== currentPage ||
       initialSearchQuery !== searchQuery ||
