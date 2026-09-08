@@ -106,8 +106,17 @@ export type LocationStockPatch = Pick<
   "stock_floor3" | "stock_b1" | "stock_display"
 >;
 
-/** 예약/출고 시 3층 → B1 → 의왕 순으로 차감 (마이너스 허용) */
-export function deductLocationStockFixedOrder(
+/**
+ * 재고를 3층 → B1 → 의왕 순서로 차감합니다.
+ *
+ * 차감 순서는 제품의 등록 위치(stock_location)와 무관하게 항상 고정입니다.
+ * 예약·출고·재고 조정이 모두 이 함수를 거쳐야 위치별 재고가 어긋나지 않습니다.
+ * allowNegative면 부족분은 3층에 마이너스로 남습니다.
+ *
+ * taken은 위치별로 실제 차감된 수량이며, 예약 해제 시
+ * restoreLocationStockFromTaken으로 정확히 되돌리는 데 사용합니다.
+ */
+export function deductLocationStock(
   product: LocationStockProduct,
   quantity: number,
   allowNegative = true,
@@ -166,49 +175,6 @@ export function restoreLocationStockFromTaken(
     stock_floor3: product.stock_floor3 + (taken.stock_floor3 || 0),
     stock_b1: product.stock_b1 + (taken.stock_b1 || 0),
     stock_display: product.stock_display + (taken.stock_display || 0),
-  };
-}
-
-/** 출고 시 위치별 재고에서 차감 (등록 위치 우선, 이후 3층 → B1 → 의왕). allowNegative이면 부족분을 등록 위치에서 마이너스 처리 */
-export function deductLocationStock(
-  product: LocationStockProduct,
-  quantity: number,
-  allowNegative = false,
-): Pick<LocationStockProduct, "stock_floor3" | "stock_b1" | "stock_display"> | null {
-  if (quantity <= 0) {
-    return {
-      stock_floor3: product.stock_floor3,
-      stock_b1: product.stock_b1,
-      stock_display: product.stock_display,
-    };
-  }
-
-  let remaining = quantity;
-  const stocks: Record<StockLocation, number> = locationStockRecord(product);
-
-  const order: StockLocation[] = [];
-  const primary = normalizeStockLocation(product.stock_location);
-  order.push(primary);
-  for (const location of STOCK_LOCATIONS) {
-    if (!order.includes(location)) order.push(location);
-  }
-
-  for (const location of order) {
-    if (remaining <= 0) break;
-    const take = Math.min(stocks[location], remaining);
-    stocks[location] -= take;
-    remaining -= take;
-  }
-
-  if (remaining > 0) {
-    if (!allowNegative) return null;
-    stocks[primary] -= remaining;
-  }
-
-  return {
-    stock_floor3: stocks["3층"],
-    stock_b1: stocks.B1,
-    stock_display: stocks.의왕,
   };
 }
 

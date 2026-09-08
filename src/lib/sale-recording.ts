@@ -231,8 +231,13 @@ export async function recordStockOutForSale(
   if (!product) return { error: "제품을 찾을 수 없습니다." as const };
 
   const stockBefore = product.stock_quantity;
-  const locationPatch = deductLocationStock(product, quantity, true);
+  const deducted = deductLocationStock(product, quantity, true);
 
+  if (!deducted) {
+    return { error: "재고 차감에 실패했습니다." as const };
+  }
+
+  const locationPatch = deducted.next;
   const stockAfter = sumLocationStock({ ...product, ...locationPatch });
 
   const { error: movementError } = await supabase.from("stock_movements").insert({

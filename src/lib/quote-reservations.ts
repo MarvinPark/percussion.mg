@@ -4,7 +4,7 @@ import {
   isStoreFulfillment,
 } from "@/lib/quote-fulfillment";
 import {
-  deductLocationStockFixedOrder,
+  deductLocationStock,
   restoreLocationStockFromTaken,
   sumLocationStock,
   type LocationStockPatch,
@@ -164,7 +164,7 @@ async function applyPhysicalReservationDeduct(
   if ("error" in productResult) return productResult;
 
   const { product } = productResult;
-  const deductResult = deductLocationStockFixedOrder(product, quantity, true);
+  const deductResult = deductLocationStock(product, quantity, true);
   if (!deductResult) {
     return { error: "재고 차감에 실패했습니다." };
   }
@@ -257,19 +257,13 @@ async function restoreQuoteReservationRows(
       ? `${notePrefix} — ${customerName}`
       : notePrefix;
 
-    const restoreTaken =
-      taken.stock_floor3 + taken.stock_b1 + taken.stock_display > 0
-        ? taken
-        : {
-            stock_floor3: quantity,
-            stock_b1: 0,
-            stock_display: 0,
-          };
-
+    // 위치별 차감 기록이 없으면 되돌릴 대상도 없습니다. 수량을 특정 위치에
+    // 추측해서 더하면 차감된 적 없는 재고가 생기므로 그대로 넘깁니다.
+    // (applyPhysicalReservationRestore가 taken 합계 0을 건너뜁니다.)
     const restoreResult = await applyPhysicalReservationRestore(
       supabase,
       row.product_id,
-      restoreTaken,
+      taken,
       note,
     );
     if ("error" in restoreResult && restoreResult.error) {
