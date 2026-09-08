@@ -46,6 +46,7 @@ export type QuoteListItem = {
   payment_method: string | null;
   total_amount: number;
   card_amount: number;
+  discount_amount?: number | null;
   is_reserved?: boolean;
   created_by_name: string | null;
   created_at: string;
@@ -718,6 +719,7 @@ export default function QuotesList({
                   editingQuote.payment_method_id ??
                   paymentMethods[0]?.id ??
                   "",
+                discount_amount: Number(editingQuote.discount_amount) || 0,
                 items: editingQuote.quote_items.map(dbQuoteItemToInput),
                 is_reserved: Boolean(editingQuote.is_reserved),
               }}

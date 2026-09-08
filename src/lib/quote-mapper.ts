@@ -89,6 +89,7 @@ type SavedQuoteForPreview = {
   payment_method_id: string | null;
   total_amount: number;
   card_amount: number;
+  discount_amount?: number | null;
   quote_items: DbQuoteItem[];
 };
 
@@ -97,7 +98,8 @@ export function buildQuotePreviewFromSaved(
   managerPhone: string,
 ) {
   const items = quote.quote_items.map(dbQuoteItemToInput);
-  const calculatedTotals = calculateQuoteTotals(items);
+  const discountAmount = Number(quote.discount_amount) || 0;
+  const calculatedTotals = calculateQuoteTotals(items, discountAmount);
 
   const data: QuoteFormData = {
     quote_date: quote.quote_date,
@@ -113,12 +115,15 @@ export function buildQuotePreviewFromSaved(
     manager_name: quote.manager_name ?? "",
     manager_phone: managerPhone,
     payment_method_id: quote.payment_method_id ?? "",
+    discount_amount: discountAmount,
     items,
   };
 
   return {
     data,
     totals: {
+      subtotalAmount: calculatedTotals.subtotalAmount,
+      discountAmount: calculatedTotals.discountAmount,
       totalAmount: Number(quote.total_amount) || calculatedTotals.totalAmount,
       totalMargin: calculatedTotals.totalMargin,
       cardAmount: Number(quote.card_amount) || calculatedTotals.cardAmount,

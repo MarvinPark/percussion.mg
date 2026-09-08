@@ -37,6 +37,7 @@ export type QuoteFormData = {
   manager_name: string;
   manager_phone: string;
   payment_method_id: string;
+  discount_amount: number;
   items: QuoteItemInput[];
 };
 
@@ -59,6 +60,7 @@ export type Quote = {
   delivery_date_note: string | null;
   total_amount: number;
   card_amount: number;
+  discount_amount: number;
   created_by_name: string | null;
   created_at: string;
 };

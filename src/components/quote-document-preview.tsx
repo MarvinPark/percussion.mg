@@ -33,6 +33,8 @@ type QuoteDocumentPreviewProps = {
   onClose: () => void;
   data: QuoteFormData;
   totals: {
+    subtotalAmount?: number;
+    discountAmount?: number;
     totalAmount: number;
     totalMargin: number;
     cardAmount: number;
@@ -113,6 +115,7 @@ function DocumentTable({
   mode,
   totalAmount,
   totalConsumerAmount,
+  discountAmount,
   cardFeePercent,
   cardPaymentTotal,
   showTotal,
@@ -123,6 +126,7 @@ function DocumentTable({
   mode: PreviewMode;
   totalAmount: number;
   totalConsumerAmount?: number;
+  discountAmount?: number;
   cardFeePercent: CardFeePercent;
   cardPaymentTotal: number;
   showTotal: boolean;
@@ -198,6 +202,17 @@ function DocumentTable({
           </tr>
           );
         })}
+        {showTotal && mode === "quote" && (discountAmount ?? 0) > 0 ? (
+          <tr>
+            <td colSpan={5} className={`${bodyCellClass} text-center font-medium`}>
+              할인
+            </td>
+            <td className={priceCellClass} />
+            <td colSpan={2} className={`${priceCellClass} font-medium text-red-600`}>
+              -{formatKRW(discountAmount ?? 0)}
+            </td>
+          </tr>
+        ) : null}
         {showTotal ? (
           <>
             <tr className="bg-zinc-50 font-semibold">
@@ -908,6 +923,9 @@ export default function QuoteDocumentPreview({
                     mode={mode}
                     totalAmount={documentTotalAmount}
                     totalConsumerAmount={totalConsumerAmount}
+                    discountAmount={
+                      mode === "quote" ? totals.discountAmount ?? data.discount_amount : 0
+                    }
                     cardFeePercent={cardFeePercent}
                     cardPaymentTotal={cardPaymentTotal}
                     showTotal={isLastPage}

@@ -52,6 +52,7 @@ export function isQuoteFormDirty(input: {
   customerNote: string;
   memo: string;
   paymentMethodId: string;
+  discountAmount: number;
   initialSnapshot?: string | null;
 }): boolean {
   const currentSnapshot = JSON.stringify({
@@ -68,6 +69,7 @@ export function isQuoteFormDirty(input: {
     customerNote: input.customerNote,
     memo: input.memo,
     paymentMethodId: input.paymentMethodId,
+    discountAmount: input.discountAmount,
   });
 
   if (input.initialSnapshot) {

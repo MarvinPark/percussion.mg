@@ -12,6 +12,7 @@ export type CopiedQuotePayload = {
   memo: string | null;
   manager_name: string | null;
   payment_method_id: string | null;
+  discount_amount?: number | null;
   items: QuoteItemInput[];
 };
 
@@ -26,6 +27,7 @@ type QuoteForCopy = {
   memo: string | null;
   manager_name: string | null;
   payment_method_id: string | null;
+  discount_amount?: number | null;
   quote_items: Parameters<typeof dbQuoteItemToInput>[0][];
 };
 
@@ -41,6 +43,7 @@ export function quoteToCopiedPayload(quote: QuoteForCopy): CopiedQuotePayload {
     memo: quote.memo,
     manager_name: quote.manager_name,
     payment_method_id: quote.payment_method_id,
+    discount_amount: Number(quote.discount_amount) || 0,
     items: quote.quote_items.map((item) => dbQuoteItemToInput(item)),
   };
 }

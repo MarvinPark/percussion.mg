@@ -62,6 +62,7 @@ type QuoteEditInitial = {
   memo: string;
   manager_name: string;
   payment_method_id: string;
+  discount_amount?: number;
   items: QuoteItemInput[];
   is_reserved?: boolean;
 };
@@ -205,6 +206,9 @@ export default function QuoteForm({
     [],
   );
   const [memo, setMemo] = useState(initialQuote?.memo ?? "");
+  const [discountAmount, setDiscountAmount] = useState(
+    initialQuote?.discount_amount ?? 0,
+  );
   const [paymentMethodId, setPaymentMethodId] = useState(
     () =>
       initialQuote?.payment_method_id ??
@@ -239,6 +243,7 @@ export default function QuoteForm({
       paymentMethodId:
         initialQuote.payment_method_id ??
         getDefaultPaymentMethodId(paymentMethods),
+      discountAmount: initialQuote.discount_amount ?? 0,
     });
   }, [initialQuote, paymentMethods, saleCategories]);
 
@@ -259,7 +264,10 @@ export default function QuoteForm({
     null,
   );
 
-  const totals = useMemo(() => calculateQuoteTotals(items), [items]);
+  const totals = useMemo(
+    () => calculateQuoteTotals(items, discountAmount),
+    [items, discountAmount],
+  );
 
   const isDirty = useMemo(
     () =>
@@ -277,6 +285,7 @@ export default function QuoteForm({
         customerNote,
         memo,
         paymentMethodId,
+        discountAmount,
         initialSnapshot,
       }),
     [
@@ -293,6 +302,7 @@ export default function QuoteForm({
       customerNote,
       memo,
       paymentMethodId,
+      discountAmount,
       initialSnapshot,
     ],
   );
@@ -647,46 +657,6 @@ export default function QuoteForm({
         </div>
       </section>
 
-      <section className={sectionAccent}>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-              견적금액 (VAT포함)
-            </p>
-            <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {formatKRW(totals.totalAmount)}원
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
-              총 마진
-            </p>
-            <p className="mt-1 text-xl font-bold text-green-700 dark:text-green-300">
-              {formatKRW(totals.totalMargin)}원
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-              카드결제 +4%
-            </p>
-            <p className="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100">
-              {formatKRW(totals.cardAmount)}원
-            </p>
-            {paymentFeeMargin && selectedPaymentMethod ? (
-              <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                <p className={`text-sm font-semibold ${marginText}`}>
-                  최종마진 ({selectedPaymentMethod.name}{" "}
-                  {selectedPaymentMethod.fee_rate}% 수수료 반영)
-                </p>
-                <p className={`mt-1 text-xl ${marginTextLg}`}>
-                  {formatKRW(paymentFeeMargin.finalMargin)}원
-                </p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
         <div className="mb-3 flex items-center gap-2">
           <p className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -773,6 +743,8 @@ export default function QuoteForm({
         userId={userId}
         items={items}
         mobileInputClass={mobileInputClass}
+        discountAmount={discountAmount}
+        onDiscountChange={setDiscountAmount}
         draggingItemIndex={draggingItemIndex}
         dragOverItemIndex={dragOverItemIndex}
         onItemDragStart={handleItemDragStart}
@@ -788,6 +760,61 @@ export default function QuoteForm({
         onPurchasePriceChange={updateItemPurchasePrice}
         onRemoveItem={removeItem}
       />
+
+      <section className={sectionAccent}>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {totals.discountAmount > 0 ? (
+            <div className="sm:col-span-3">
+              <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                품목 합계{" "}
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                  {formatKRW(totals.subtotalAmount)}원
+                </span>
+                <span className="mx-2 text-zinc-400">→</span>
+                할인{" "}
+                <span className="font-bold text-red-600 dark:text-red-400">
+                  -{formatKRW(totals.discountAmount)}원
+                </span>
+              </p>
+            </div>
+          ) : null}
+          <div>
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              견적금액 (VAT포함)
+            </p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {formatKRW(totals.totalAmount)}원
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+              총 마진
+            </p>
+            <p className="mt-1 text-xl font-bold text-green-700 dark:text-green-300">
+              {formatKRW(totals.totalMargin)}원
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              카드결제 +4%
+            </p>
+            <p className="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100">
+              {formatKRW(totals.cardAmount)}원
+            </p>
+            {paymentFeeMargin && selectedPaymentMethod ? (
+              <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                <p className={`text-sm font-semibold ${marginText}`}>
+                  최종마진 ({selectedPaymentMethod.name}{" "}
+                  {selectedPaymentMethod.fee_rate}% 수수료 반영)
+                </p>
+                <p className={`mt-1 text-xl ${marginTextLg}`}>
+                  {formatKRW(paymentFeeMargin.finalMargin)}원
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
         <p className="mb-2 font-semibold text-zinc-900 dark:text-zinc-100">
@@ -871,6 +898,7 @@ export default function QuoteForm({
           <input type="hidden" name="customer_email" value={customerEmail} />
           <input type="hidden" name="customer_note" value={customerNote} />
           <input type="hidden" name="memo" value={memo} />
+          <input type="hidden" name="discount_amount" value={discountAmount} />
           <input type="hidden" name="items_json" value={JSON.stringify(items)} />
           <button
             type="submit"

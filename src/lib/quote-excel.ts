@@ -60,6 +60,15 @@ function writeProductRow(ws: XLSX.WorkSheet, row: number, item: QuoteItemInput) 
   setCell(ws, `T${row}`, marginRate);
 }
 
+function writeDiscountRow(
+  ws: XLSX.WorkSheet,
+  row: number,
+  discountAmount: number,
+) {
+  setCell(ws, `G${row}`, "할인");
+  setCell(ws, `L${row}`, -discountAmount);
+}
+
 export function buildQuoteWorkbook(data: QuoteFormData) {
   const templatePath = path.join(process.cwd(), "assets/quote-template.xlsx");
   const buffer = fs.readFileSync(templatePath);
@@ -71,7 +80,11 @@ export function buildQuoteWorkbook(data: QuoteFormData) {
   }
 
   const quoteDate = new Date(`${data.quote_date}T12:00:00`);
-  const { totalAmount, cardAmount } = calculateQuoteTotals(data.items);
+  const discountAmount = Math.max(0, Math.round(data.discount_amount ?? 0));
+  const { totalAmount, cardAmount } = calculateQuoteTotals(
+    data.items,
+    discountAmount,
+  );
 
   setCell(ws, "L2", quoteDate);
   setCell(ws, "I4", data.customer_name);
@@ -94,6 +107,14 @@ export function buildQuoteWorkbook(data: QuoteFormData) {
   data.items.slice(0, QUOTE_LINE_COUNT).forEach((item, index) => {
     writeProductRow(ws, QUOTE_LINE_START_ROW + index, item);
   });
+
+  if (discountAmount > 0) {
+    const discountRow = Math.min(
+      QUOTE_LINE_START_ROW + data.items.length,
+      QUOTE_LINE_START_ROW + QUOTE_LINE_COUNT - 1,
+    );
+    writeDiscountRow(ws, discountRow, discountAmount);
+  }
 
   setCell(ws, "L30", totalAmount);
   setCell(ws, "K11", totalAmount);

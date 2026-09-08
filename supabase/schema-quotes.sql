@@ -25,6 +25,7 @@ create table quotes (
   delivery_date_note text,
   total_amount numeric(12, 0) not null default 0,
   card_amount numeric(12, 0) not null default 0,
+  discount_amount numeric(12, 0) not null default 0,
   created_by_user_id uuid references auth.users(id) on delete set null,
   created_by_name text,
   created_at timestamptz not null default now()

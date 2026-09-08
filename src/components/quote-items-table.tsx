@@ -24,6 +24,8 @@ type QuoteItemsTableProps = {
   userId: string;
   items: QuoteItemInput[];
   mobileInputClass: string;
+  discountAmount: number;
+  onDiscountChange: (value: number) => void;
   draggingItemIndex: number | null;
   dragOverItemIndex: number | null;
   onItemDragStart: (index: number) => void;
@@ -53,6 +55,8 @@ type QuoteItemsTableBodyProps = Omit<
 function QuoteItemsMobileList({
   items,
   mobileInputClass,
+  discountAmount,
+  onDiscountChange,
   onMoveItemUp,
   onMoveItemDown,
   onFulfillmentChange,
@@ -220,6 +224,28 @@ function QuoteItemsMobileList({
           </div>
         </article>
       ))}
+      <article className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/80">
+        <div className="mb-3">
+          <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">할인</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={mobileFieldLabelClass}>할인 금액</label>
+            <PriceInput
+              min={0}
+              value={discountAmount}
+              onChange={onDiscountChange}
+              className={`${mobileInputClass} w-full`}
+            />
+          </div>
+          <div>
+            <label className={mobileFieldLabelClass}>총 판매가</label>
+            <p className="text-sm font-bold tabular-nums text-red-600 dark:text-red-400">
+              {discountAmount > 0 ? `-${formatKRW(discountAmount)}` : formatKRW(0)}원
+            </p>
+          </div>
+        </div>
+      </article>
     </div>
   );
 }
@@ -228,6 +254,8 @@ export default function QuoteItemsTable({
   userId,
   items,
   mobileInputClass,
+  discountAmount,
+  onDiscountChange,
   draggingItemIndex,
   dragOverItemIndex,
   onItemDragStart,
@@ -450,6 +478,59 @@ export default function QuoteItemsTable({
     }
   }
 
+  function renderDiscountCell(columnId: QuoteItemsTableColumnId) {
+    switch (columnId) {
+      case "reorder":
+        return <td className="px-1 py-2" />;
+      case "fulfillment":
+      case "supplier":
+      case "purchase_source":
+      case "product_name":
+        return (
+          <td className="px-2 py-2 text-zinc-400 dark:text-zinc-500">-</td>
+        );
+      case "model_name":
+        return (
+          <td className="px-2 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+            할인
+          </td>
+        );
+      case "quantity":
+        return (
+          <td className="px-2 py-2 text-center text-zinc-400 dark:text-zinc-500">
+            -
+          </td>
+        );
+      case "unit_sale_price":
+        return (
+          <td className="px-2 py-2">
+            <PriceInput
+              min={0}
+              value={discountAmount}
+              onChange={onDiscountChange}
+              className={`${mobileInputClass} w-32 sm:w-28`}
+            />
+          </td>
+        );
+      case "line_total":
+        return (
+          <td className="px-2 py-2 font-semibold text-red-600 dark:text-red-400">
+            {discountAmount > 0 ? `-${formatKRW(discountAmount)}` : formatKRW(0)}
+          </td>
+        );
+      case "purchase_price":
+      case "margin":
+      case "margin_rate":
+        return (
+          <td className="px-2 py-2 text-zinc-400 dark:text-zinc-500">-</td>
+        );
+      case "actions":
+        return <td className="px-2 py-2" />;
+      default:
+        return null;
+    }
+  }
+
   const colGroup = (
     <colgroup>
       {orderedColumns.map((column) => (
@@ -463,6 +544,8 @@ export default function QuoteItemsTable({
       <QuoteItemsMobileList
         items={items}
         mobileInputClass={mobileInputClass}
+        discountAmount={discountAmount}
+        onDiscountChange={onDiscountChange}
         onMoveItemUp={onMoveItemUp}
         onMoveItemDown={onMoveItemDown}
         onFulfillmentChange={onFulfillmentChange}
@@ -536,6 +619,15 @@ export default function QuoteItemsTable({
               </tr>
             ))
           )}
+          {items.length > 0 ? (
+            <tr className="border-t border-zinc-200 bg-zinc-50/80 dark:border-zinc-700 dark:bg-zinc-900/50">
+              {orderedColumns.map((column) => (
+                <Fragment key={`discount-${column.id}`}>
+                  {renderDiscountCell(column.id)}
+                </Fragment>
+              ))}
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </section>

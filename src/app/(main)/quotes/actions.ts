@@ -189,6 +189,10 @@ function formatQuoteSaveError(error: {
     return "quotes 테이블에 작성자 컬럼이 없습니다. supabase/schema-quotes.sql을 다시 확인해 주세요.";
   }
 
+  if (message.includes("discount_amount")) {
+    return "quotes 테이블에 할인 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-discount.sql을 실행해 주세요.";
+  }
+
   if (error.code === "42501" || message.includes("row-level security")) {
     return "견적 등록 권한이 없습니다. supabase/schema-quotes.sql의 insert policy를 확인해 주세요.";
   }
@@ -214,8 +218,25 @@ function readQuoteFormFields(formData: FormData) {
     memo: String(formData.get("memo") ?? "").trim(),
     manager_name: String(formData.get("manager_name") ?? "").trim(),
     payment_method_id: String(formData.get("payment_method_id") ?? "").trim(),
+    discount_amount: String(formData.get("discount_amount") ?? "").trim(),
     itemsRaw: String(formData.get("items_json") ?? ""),
   };
+}
+
+function resolveQuoteTotalsFromItems(
+  items: { line_total: number; margin?: number }[],
+  discountRaw: string,
+) {
+  const { subtotalAmount } = calculateQuoteTotals(items);
+  const discountAmount = Math.max(0, Math.round(Number(discountRaw) || 0));
+
+  if (discountAmount > subtotalAmount) {
+    return {
+      error: `할인 금액은 품목 합계(${subtotalAmount.toLocaleString("ko-KR")}원)를 초과할 수 없습니다.`,
+    } as const;
+  }
+
+  return calculateQuoteTotals(items, discountAmount);
 }
 
 async function resolveQuotePartner(
@@ -242,7 +263,12 @@ export async function createQuote(formData: FormData) {
   const parsedItems = parseQuoteItems(fields.itemsRaw);
   if ("error" in parsedItems) return { error: parsedItems.error };
 
-  const { totalAmount, cardAmount } = calculateQuoteTotals(parsedItems);
+  const totalsResult = resolveQuoteTotalsFromItems(
+    parsedItems,
+    fields.discount_amount,
+  );
+  if ("error" in totalsResult) return { error: totalsResult.error };
+  const { totalAmount, cardAmount, discountAmount } = totalsResult;
 
   const supabase = await createClient();
   const sale_category = await resolveSaleCategory(supabase, fields.sale_category);
@@ -282,6 +308,7 @@ export async function createQuote(formData: FormData) {
       payment_method: paymentMethod.name,
       total_amount: totalAmount,
       card_amount: cardAmount,
+      discount_amount: discountAmount,
       created_by_user_id: modifier.userId,
       created_by_name: modifier.name,
     })
@@ -347,7 +374,10 @@ export async function pasteQuote(payload: CopiedQuotePayload) {
   const parsed = normalizePastedQuoteItems(payload.items);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { totalAmount, cardAmount } = calculateQuoteTotals(parsed.items);
+  const discountRaw = String(payload.discount_amount ?? 0);
+  const totalsResult = resolveQuoteTotalsFromItems(parsed.items, discountRaw);
+  if ("error" in totalsResult) return { error: totalsResult.error };
+  const { totalAmount, cardAmount, discountAmount } = totalsResult;
   const quote_date = new Date().toISOString().slice(0, 10);
 
   const supabase = await createClient();
@@ -398,6 +428,7 @@ export async function pasteQuote(payload: CopiedQuotePayload) {
       payment_method: paymentMethod.name,
       total_amount: totalAmount,
       card_amount: cardAmount,
+      discount_amount: discountAmount,
       created_by_user_id: modifier.userId,
       created_by_name: modifier.name,
     })
@@ -435,7 +466,12 @@ export async function updateQuote(formData: FormData) {
   const parsedItems = parseQuoteItems(fields.itemsRaw);
   if ("error" in parsedItems) return { error: parsedItems.error };
 
-  const { totalAmount, cardAmount } = calculateQuoteTotals(parsedItems);
+  const totalsResult = resolveQuoteTotalsFromItems(
+    parsedItems,
+    fields.discount_amount,
+  );
+  if ("error" in totalsResult) return { error: totalsResult.error };
+  const { totalAmount, cardAmount, discountAmount } = totalsResult;
 
   const supabase = await createClient();
   const sale_category = await resolveSaleCategory(supabase, fields.sale_category);
@@ -475,6 +511,7 @@ export async function updateQuote(formData: FormData) {
       payment_method: paymentMethod.name,
       total_amount: totalAmount,
       card_amount: cardAmount,
+      discount_amount: discountAmount,
     })
     .eq("id", quoteId);
 
