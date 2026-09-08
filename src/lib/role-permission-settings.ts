@@ -9,7 +9,7 @@ import {
   type Permission,
   type RolePermissionMap,
 } from "@/lib/permissions";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createTTLCache } from "@/lib/ttl-cache";
 import type { UserRole } from "@/types/profile";
 
@@ -112,9 +112,11 @@ async function fetchRolePermissionMapFromDb(
   return buildRolePermissionMapFromRows(data);
 }
 
+// unstable_cache 안에서는 cookies()/headers()를 쓸 수 없습니다.
+// 역할 권한은 요청별 세션과 무관한 전역 설정이므로 service role로 조회합니다.
 const getCachedRolePermissionMap = unstable_cache(
   async () => {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     return fetchRolePermissionMapFromDb(supabase);
   },
   ["role-permission-map"],

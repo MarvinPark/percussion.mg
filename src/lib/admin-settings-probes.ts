@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function isMissingRoleChangeRpc(message: string) {
   return (
@@ -10,7 +10,8 @@ function isMissingRoleChangeRpc(message: string) {
 }
 
 async function probeRoleChangeRpcAvailable() {
-  const supabase = await createClient();
+  // unstable_cache 안에서는 cookies()를 쓰는 createClient를 호출할 수 없습니다.
+  const supabase = createAdminClient();
   const { error } = await supabase.rpc("update_user_role", {
     target_user_id: "00000000-0000-0000-0000-000000000001",
     new_role: "employee",
