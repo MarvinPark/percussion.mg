@@ -133,12 +133,14 @@ export function calculateInvoiceDocumentTotal(
   cardFeePercent: CardFeePercent,
   roundingUnit: AmountRoundingUnit,
   roundingMode: AmountRoundingMode,
+  discountAmount = 0,
 ) {
   return resolveInvoiceDocumentPricing(
     items,
     cardFeePercent,
     roundingUnit,
     roundingMode,
+    discountAmount,
   ).documentTotal;
 }
 
@@ -152,14 +154,17 @@ export function resolveInvoiceDocumentPricing(
   cardFeePercent: CardFeePercent,
   roundingUnit: AmountRoundingUnit,
   roundingMode: AmountRoundingMode,
+  discountAmount = 0,
 ) {
-  const quoteTotal = items.reduce((sum, item) => {
+  const subtotal = items.reduce((sum, item) => {
     const quantity = Math.max(0, item.quantity);
     return (
       sum +
       Math.round(item.line_total ?? item.rounded_unit_price * quantity)
     );
   }, 0);
+  const normalizedDiscount = Math.max(0, Math.round(discountAmount));
+  const quoteTotal = Math.max(0, subtotal - normalizedDiscount);
 
   if (cardFeePercent === 0 || items.length === 0) {
     return {

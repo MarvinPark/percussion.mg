@@ -202,7 +202,7 @@ function DocumentTable({
           </tr>
           );
         })}
-        {showTotal && mode === "quote" && (discountAmount ?? 0) > 0 ? (
+        {showTotal && (discountAmount ?? 0) > 0 ? (
           <tr>
             <td className={narrowTextCellClass} />
             <td className={narrowTextCellClass} />
@@ -211,7 +211,7 @@ function DocumentTable({
             </td>
             <td className={narrowTextCellClass} />
             <td className={`${bodyCellClass} text-center tabular-nums`} />
-            <td className={priceCellClass} />
+            {mode === "quote" ? <td className={priceCellClass} /> : null}
             <td className={priceCellClass} />
             <td className={`${priceCellClass} text-red-600`}>
               -{formatKRW(discountAmount ?? 0)}
@@ -633,6 +633,8 @@ export default function QuoteDocumentPreview({
     [totals.totalAmount, cardFeePercent, roundingUnit, roundingMode],
   );
 
+  const discountAmount = totals.discountAmount ?? data.discount_amount ?? 0;
+
   const invoicePricing = useMemo(
     () =>
       resolveInvoiceDocumentPricing(
@@ -640,8 +642,9 @@ export default function QuoteDocumentPreview({
         cardFeePercent,
         roundingUnit,
         roundingMode,
+        discountAmount,
       ),
-    [data.items, cardFeePercent, roundingUnit, roundingMode],
+    [data.items, cardFeePercent, roundingUnit, roundingMode, discountAmount],
   );
 
   const invoiceLinePricing = useMemo(() => {
@@ -928,9 +931,7 @@ export default function QuoteDocumentPreview({
                     mode={mode}
                     totalAmount={documentTotalAmount}
                     totalConsumerAmount={totalConsumerAmount}
-                    discountAmount={
-                      mode === "quote" ? totals.discountAmount ?? data.discount_amount : 0
-                    }
+                    discountAmount={discountAmount}
                     cardFeePercent={cardFeePercent}
                     cardPaymentTotal={cardPaymentTotal}
                     showTotal={isLastPage}
