@@ -4,6 +4,7 @@ import { createPageMetadata } from "@/lib/document-titles";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/lib/profile";
 import { getRolePermissionMap } from "@/lib/role-permission-settings";
+import { fetchAllRows } from "@/lib/supabase-paginate";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { StockMovementWithProduct } from "@/types/stock-movement";
@@ -23,12 +24,16 @@ export default async function StockInListPage() {
   const permissionMap = await getRolePermissionMap();
   const canManage = hasPermission(role, "manageProducts", permissionMap);
 
-  const { data: movements, error } = await supabase
-    .from("stock_movements")
-    .select("*, products(product_name, model_name, sku, supplier)")
-    .eq("movement_type", "in")
-    .order("created_at", { ascending: false })
-    .limit(5000);
+  const { rows: movements, error } = await fetchAllRows<StockMovementWithProduct>(
+    (from, to) =>
+      supabase
+        .from("stock_movements")
+        .select("*, products(product_name, model_name, sku, supplier)")
+        .eq("movement_type", "in")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+  );
 
   return (
     <main className="mx-auto max-w-app px-4 py-8">
