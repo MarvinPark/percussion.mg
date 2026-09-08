@@ -201,7 +201,9 @@ async function insertProductFromForm(
   const denied = await ensureManageProducts(supabase);
   if (denied) return denied;
 
-  const registrationContext = await createRegistrationSkuContext(supabase);
+  const registrationContext = await createRegistrationSkuContext(supabase, [
+    data.sku,
+  ]);
   const resolved = resolveRegistrationSku(
     { sku: data.sku, purchase_price: data.purchase_price },
     registrationContext,
@@ -1301,7 +1303,10 @@ export async function pasteProducts(
   if (denied) return denied;
 
   const ids: string[] = [];
-  const registrationContext = await createRegistrationSkuContext(supabase);
+  const registrationContext = await createRegistrationSkuContext(
+    supabase,
+    items.map((item) => item.sku),
+  );
 
   for (const item of items) {
     const resolved = resolveRegistrationSku(
@@ -1377,7 +1382,10 @@ export async function duplicateProducts(
     return { error: "복제할 제품을 찾을 수 없습니다." };
   }
 
-  const registrationContext = await createDuplicateSkuContext(supabase);
+  const registrationContext = await createDuplicateSkuContext(
+    supabase,
+    products.map((product) => product.sku),
+  );
   const newIds: string[] = [];
 
   for (const product of products) {

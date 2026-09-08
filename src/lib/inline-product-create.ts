@@ -48,7 +48,9 @@ export async function createInlineProduct(
     return { error: auth.error ?? "제품 등록 권한이 없습니다." };
   }
 
-  const registrationContext = await createRegistrationSkuContext(supabase);
+  const registrationContext = await createRegistrationSkuContext(supabase, [
+    sku,
+  ]);
   const resolved = resolveRegistrationSku(
     { sku, purchase_price: input.purchase_price },
     registrationContext,
