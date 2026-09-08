@@ -6,6 +6,7 @@ import {
   type ProductInlineField,
 } from "@/app/(main)/products/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
+import { describeError } from "@/lib/error-detail";
 import { tableFocusRingClass } from "@/lib/product-table-navigation";
 import { formatKRW, parsePriceInput } from "@/lib/sales-calculator";
 
@@ -150,14 +151,21 @@ export default function EditableProductCell({
 
     savingRef.current = true;
 
-    const result = await updateProductField(
-      productId,
-      field,
-      normalizedDraft,
-      options?.recordAsInbound !== undefined
-        ? { recordAsInbound: options.recordAsInbound }
-        : undefined,
-    );
+    let result: { error?: string };
+    try {
+      result = await updateProductField(
+        productId,
+        field,
+        normalizedDraft,
+        options?.recordAsInbound !== undefined
+          ? { recordAsInbound: options.recordAsInbound }
+          : undefined,
+      );
+    } catch (error) {
+      savingRef.current = false;
+      setError(`저장에 실패했습니다. ${describeError(error)}`);
+      return false;
+    }
 
     savingRef.current = false;
 
@@ -210,7 +218,10 @@ export default function EditableProductCell({
           inputMode={formatAsPrice ? "numeric" : undefined}
           value={draft}
           min={inputType === "number" && !formatAsPrice ? 0 : undefined}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            if (error) setError(null);
+          }}
           onBlur={() => {
             if (tabbingRef.current || inboundPrompt) {
               tabbingRef.current = false;
@@ -255,8 +266,19 @@ export default function EditableProductCell({
               })();
             }
           }}
-          className={`${inputClass} touch-manipulation ${className}`}
+          className={`${inputClass} touch-manipulation ${error ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""} ${className}`}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${productId}-${field}-error` : undefined}
         />
+
+        {error ? (
+          <p
+            id={`${productId}-${field}-error`}
+            className="mt-0.5 text-[11px] leading-tight text-red-600 dark:text-red-400"
+          >
+            {error}
+          </p>
+        ) : null}
 
         {inboundPrompt ? (
           <ConfirmDialog

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
 import KeyStockFilterCombobox from "@/components/key-stock-filter-combobox";
@@ -102,6 +103,7 @@ export default function ProductsPageClient({
   readOnly = false,
   initialLoadError = null,
 }: ProductsPageClientProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const loadRequestRef = useRef(0);
   const [products, setProducts] = useState(initialProducts);
@@ -141,6 +143,40 @@ export default function ProductsPageClient({
   useEffect(() => {
     setPageWindowStart(clampPageWindowStart(currentPage, totalPages));
   }, [currentPage, totalPages]);
+
+  // 전체 수정 후 돌아오거나 router.refresh()로 서버 props가 바뀌면
+  // 클라이언트 목록 state를 맞춥니다. (페이지·필터가 어긋난 경우는 건너뜀)
+  useEffect(() => {
+    if (
+      initialCurrentPage !== currentPage ||
+      initialSearchQuery !== searchQuery ||
+      initialCategoryFilter !== categoryFilter ||
+      initialBrandFilter !== brandFilter ||
+      initialPageSize !== pageSize
+    ) {
+      return;
+    }
+
+    setProducts(initialProducts);
+    setReservationsByProductId(initialReservationsByProductId);
+    setListStats(initialListStats);
+    setTotalPages(initialTotalPages);
+  }, [
+    initialProducts,
+    initialReservationsByProductId,
+    initialListStats,
+    initialTotalPages,
+    initialCurrentPage,
+    initialSearchQuery,
+    initialCategoryFilter,
+    initialBrandFilter,
+    initialPageSize,
+    currentPage,
+    searchQuery,
+    categoryFilter,
+    brandFilter,
+    pageSize,
+  ]);
 
   const visiblePageStart = clampPageWindowStart(pageWindowStart, totalPages);
   const visiblePageEnd = Math.min(
@@ -392,8 +428,9 @@ export default function ProductsPageClient({
             : product,
         ),
       );
+      router.refresh();
     },
-    [],
+    [router],
   );
 
   return (

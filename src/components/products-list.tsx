@@ -576,7 +576,11 @@ export default function ProductsList({
     }, 200);
   }
 
-  function handleCellDoubleClick(event: React.MouseEvent, product: Product) {
+  function handleCellDoubleClick(
+    event: React.MouseEvent,
+    product: Product,
+    field?: ProductInlineField,
+  ) {
     const target = event.target as HTMLElement;
     if (target.closest("button, a, input, textarea, select, [data-editable-cell]")) {
       return;
@@ -589,6 +593,12 @@ export default function ProductsList({
 
     event.preventDefault();
     event.stopPropagation();
+
+    if (field && !readOnly) {
+      setFocusTarget({ kind: "field", productId: product.id, field, editing: true });
+      return;
+    }
+
     setSelectedProduct(product);
   }
 
@@ -756,7 +766,7 @@ export default function ProductsList({
         return (
           <td
             className={narrowScrollCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "supplier")}
           >
             <EditableProductCell
               productId={product.id}
@@ -770,7 +780,7 @@ export default function ProductsList({
         return (
           <td
             className={narrowScrollCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "category")}
           >
             <EditableProductCell
               productId={product.id}
@@ -785,7 +795,7 @@ export default function ProductsList({
         return (
           <td
             className={narrowScrollCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "brand")}
           >
             <EditableProductCell
               productId={product.id}
@@ -800,7 +810,7 @@ export default function ProductsList({
         return (
           <td
             className={narrowScrollProductCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "product_name")}
           >
             <div className="flex items-center gap-1.5 truncate">
               <EditableProductCell
@@ -822,7 +832,7 @@ export default function ProductsList({
         return (
           <td
             className={truncateCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "model_name")}
           >
             <EditableProductCell
               productId={product.id}
@@ -836,7 +846,7 @@ export default function ProductsList({
         return (
           <td
             className={truncateCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "sku")}
           >
             <EditableProductCell
               productId={product.id}
@@ -850,7 +860,7 @@ export default function ProductsList({
         return (
           <td
             className={nowrapCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "purchase_price")}
           >
             <EditableProductCell
               productId={product.id}
@@ -867,7 +877,7 @@ export default function ProductsList({
         return (
           <td
             className={standardCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_floor3")}
             onContextMenu={(event) => event.stopPropagation()}
           >
             <EditableProductCell
@@ -883,7 +893,7 @@ export default function ProductsList({
         return (
           <td
             className={standardCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_b1")}
             onContextMenu={(event) => event.stopPropagation()}
           >
             <EditableProductCell
@@ -899,7 +909,7 @@ export default function ProductsList({
         return (
           <td
             className={standardCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "stock_display")}
             onContextMenu={(event) => event.stopPropagation()}
           >
             <EditableProductCell
@@ -948,7 +958,7 @@ export default function ProductsList({
         return (
           <td
             className={nowrapCellClass}
-            onDoubleClick={(event) => handleCellDoubleClick(event, product)}
+            onDoubleClick={(event) => handleCellDoubleClick(event, product, "sale_price")}
           >
             <EditableProductCell
               productId={product.id}
