@@ -57,7 +57,10 @@ export async function importProductsFromExcel(
 
   let successCount = 0;
   const errors: string[] = [];
-  const registrationContext = await createRegistrationSkuContext(supabase);
+  const registrationContext = await createRegistrationSkuContext(
+    supabase,
+    rows.map((row) => row.sku),
+  );
 
   for (let index = 0; index < rows.length; index++) {
     const rowNumber = index + 2;

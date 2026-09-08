@@ -43,6 +43,17 @@ export function toPostgrestIlikePattern(searchQuery: string) {
   return pattern;
 }
 
+/** PostgREST `.or("sku.like.<pattern>")`용 접두사 패턴 (`SKU-1`, `SKU-2` 같은 계열 조회) */
+export function toPostgrestLikePrefixPattern(prefix: string) {
+  const pattern = `${escapeIlike(prefix.trim())}*`;
+
+  if (/[,\.:()"\\]/.test(pattern)) {
+    return `"${escapePostgrestQuotedValue(pattern)}"`;
+  }
+
+  return pattern;
+}
+
 export function buildProductSearchOrFilter(searchQuery: string) {
   const pattern = toPostgrestIlikePattern(searchQuery);
 
