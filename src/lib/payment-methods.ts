@@ -3,6 +3,15 @@ import type { PaymentMethod } from "@/types/sale";
 
 export const DEFAULT_PAYMENT_METHOD_NAME = "현금영수증";
 
+/** 세금계산서 발행 대상 결제 수단명 */
+export const TAX_INVOICE_PAYMENT_METHOD_NAME = "세금계산서";
+
+export function isTaxInvoicePaymentMethod(
+  paymentMethodName: string | null | undefined,
+) {
+  return paymentMethodName?.trim() === TAX_INVOICE_PAYMENT_METHOD_NAME;
+}
+
 export function getDefaultPaymentMethodId(
   methods: PaymentMethod[],
 ): string {

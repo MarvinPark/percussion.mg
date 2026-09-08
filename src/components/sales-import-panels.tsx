@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { PaymentMethod, SaleProductOption } from "@/types/sale";
+import type { PaymentMethod } from "@/types/sale";
 
 const Cafe24ExcelImportPanel = dynamic(
   () => import("@/components/cafe24-excel-import-panel"),
@@ -17,14 +17,12 @@ const Cafe24ExcelImportPanel = dynamic(
 
 type SalesImportPanelsProps = {
   canImport: boolean;
-  products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
 };
 
 export default function SalesImportPanels({
   canImport,
-  products,
   paymentMethods,
   saleCategories,
 }: SalesImportPanelsProps) {
@@ -34,7 +32,6 @@ export default function SalesImportPanels({
     <div className="mt-6 space-y-4">
       <Cafe24ExcelImportPanel
         canImport={canImport}
-        products={products}
         paymentMethods={paymentMethods}
         saleCategories={saleCategories}
       />

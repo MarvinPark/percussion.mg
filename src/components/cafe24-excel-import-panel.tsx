@@ -36,7 +36,6 @@ import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 type Cafe24ExcelImportPanelProps = {
   canImport: boolean;
-  products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
 };
@@ -223,7 +222,6 @@ function resolveDefaultSaleCategory(categories: readonly string[]) {
 
 export default function Cafe24ExcelImportPanel({
   canImport,
-  products,
   paymentMethods,
   saleCategories,
 }: Cafe24ExcelImportPanelProps) {
@@ -234,7 +232,9 @@ export default function Cafe24ExcelImportPanel({
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsedRows, setParsedRows] = useState<ParsedCafe24OrderRow[]>([]);
   const [items, setItems] = useState<Cafe24ExcelImportPreviewItem[]>([]);
-  const [localProducts, setLocalProducts] = useState(products);
+  // 자동 매칭 정보는 서버 미리보기가 함께 내려주므로, 여기에는 이번 작업 중
+  // 직접 고르거나 새로 등록한 제품만 쌓입니다.
+  const [localProducts, setLocalProducts] = useState<SaleProductOption[]>([]);
   const [schemaReady, setSchemaReady] = useState(true);
   const [autoCreateProducts, setAutoCreateProducts] = useState(true);
   const [hideImported, setHideImported] = useState(true);
@@ -282,22 +282,10 @@ export default function Cafe24ExcelImportPanel({
   const [copiedSql, setCopiedSql] = useState(false);
 
   useEffect(() => {
-    setLocalProducts(products);
-  }, [products]);
-
-  useEffect(() => {
     if (!message) return;
     const timer = window.setTimeout(() => setMessage(null), 5000);
     return () => window.clearTimeout(timer);
   }, [message]);
-
-  const sortedProducts = useMemo(
-    () =>
-      [...localProducts].sort((a, b) =>
-        a.product_name.localeCompare(b.product_name, "ko"),
-      ),
-    [localProducts],
-  );
 
   const visibleItems = useMemo(
     () => (hideImported ? items.filter((item) => !item.alreadyImported) : items),
@@ -971,7 +959,7 @@ export default function Cafe24ExcelImportPanel({
                                 item.matchedProductName ?? "—"
                               ) : (
                                 <MarketplaceProductCombobox
-                                  products={sortedProducts}
+                                  products={localProducts}
                                   selectedProductId={linkedProductId}
                                   autoMatchedProductId={item.matchedProductId}
                                   linkedProductLabel={linkedProductLabel}

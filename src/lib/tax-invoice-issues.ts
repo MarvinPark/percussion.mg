@@ -71,6 +71,29 @@ export async function fetchTaxInvoiceIssues(
   };
 }
 
+/** 취소되지 않은 세금계산서에 포함된 매출 ID */
+export async function fetchActiveInvoicedSaleIds(supabase: SupabaseClient) {
+  const { data, error } = await supabase
+    .from("tax_invoice_issues")
+    .select("sale_ids")
+    .is("cancelled_at", null);
+
+  if (error) {
+    return { saleIds: [] as string[], error: error.message };
+  }
+
+  const saleIds = new Set<string>();
+  for (const row of data ?? []) {
+    const ids = row.sale_ids;
+    if (!Array.isArray(ids)) continue;
+    for (const id of ids) {
+      if (id) saleIds.add(String(id));
+    }
+  }
+
+  return { saleIds: [...saleIds], error: null };
+}
+
 export function formatTaxInvoiceDateLabel(value: string | null | undefined) {
   if (!value) return "-";
   const normalized = value.slice(0, 10);

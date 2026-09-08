@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getSaleProductById } from "@/app/(main)/products/actions";
 import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
+import { getSaleProductById } from "@/app/(main)/products/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
 import ProductSearchSelect from "@/components/product-search-select";
@@ -30,7 +31,6 @@ const labelClass =
 
 type SaleEditModalProps = {
   sale: SaleWithProduct;
-  products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   staffOptions: StaffOption[];
@@ -43,7 +43,6 @@ function soldAtInputValue(value: string) {
 
 export default function SaleEditModal({
   sale,
-  products,
   paymentMethods,
   saleCategories,
   staffOptions,
@@ -51,7 +50,6 @@ export default function SaleEditModal({
 }: SaleEditModalProps) {
   const router = useRouter();
   const livePaymentMethods = useLivePaymentMethods(paymentMethods);
-  const initialProduct = products.find((item) => item.id === sale.product_id);
 
   const sellerNameOptions = useMemo(() => {
     const names = staffOptions.map((staff) => staff.full_name);
@@ -63,7 +61,7 @@ export default function SaleEditModal({
   }, [staffOptions, sale.created_by_name]);
 
   const [selectedProduct, setSelectedProduct] = useState<SaleProductOption | null>(
-    initialProduct ?? null,
+    null,
   );
   const [selectedProductId, setSelectedProductId] = useState(sale.product_id);
 
@@ -132,6 +130,23 @@ export default function SaleEditModal({
     }
     return saleCategories;
   }, [sale.sale_category, saleCategories]);
+
+  // 매출 목록은 제품 전체를 들고 있지 않으므로, 지금 연결된 제품만 따로 읽어옵니다.
+  useEffect(() => {
+    if (!sale.product_id) return;
+
+    let cancelled = false;
+
+    void getSaleProductById(sale.product_id).then((result) => {
+      if (cancelled || !result.product) return;
+      // 조회를 기다리는 동안 사용자가 다른 제품을 골랐다면 그대로 둡니다.
+      setSelectedProduct((current) => current ?? result.product);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sale.product_id]);
 
   useEffect(() => {
     if (paymentMethodId) return;

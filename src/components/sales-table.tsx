@@ -17,6 +17,10 @@ import { useSalesColumnWidths } from "@/hooks/use-sales-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
 import { calculateSaleAmounts, formatKRW, marginAmountClass } from "@/lib/sales-calculator";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
+import {
+  isTaxInvoicePaymentMethod,
+  TAX_INVOICE_PAYMENT_METHOD_NAME,
+} from "@/lib/payment-methods";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import {
   getDefaultSalesColumnOrder,
@@ -30,7 +34,7 @@ import {
   getTableHeaderPaddingClass,
   getTableRowPaddingClass,
 } from "@/lib/table-row-preferences";
-import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
+import type { PaymentMethod, SaleWithProduct } from "@/types/sale";
 import {
   loadSalesEmphasizedIds,
   saveSalesEmphasizedIds,
@@ -57,6 +61,17 @@ const bulkDeleteButtonClass =
 
 const bulkEditButtonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] leading-none font-normal text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+
+const taxInvoiceBadgeClass =
+  "ml-1 inline-flex shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+
+function TaxInvoiceIssuedBadge() {
+  return (
+    <span className={taxInvoiceBadgeClass} title="세금계산서 발행 완료">
+      계산서
+    </span>
+  );
+}
 
 const taxInvoiceButtonClass =
   "inline-flex h-[26px] shrink-0 items-center rounded border border-blue-300 bg-blue-600 px-2 py-1 text-[12px] leading-none font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400";
@@ -244,13 +259,13 @@ function SaleInlinePriceCell({
 type SalesTableProps = {
   userId: string;
   sales: SaleWithProduct[];
-  products: SaleProductOption[];
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   staffOptions: StaffOption[];
   rowFontSize?: number;
   emptyMessage?: string;
   canManageSales?: boolean;
+  invoicedSaleIds?: string[];
   sectionTitle?: string;
   sectionTotalCount?: number;
   /** 체크 합계 계산용 — 페이지를 넘긴 선택도 포함 */
@@ -270,13 +285,13 @@ type SalesTableProps = {
 export default function SalesTable({
   userId,
   sales,
-  products,
   paymentMethods,
   saleCategories,
   staffOptions,
   rowFontSize = 12,
   emptyMessage,
   canManageSales = true,
+  invoicedSaleIds = [],
   sectionTitle,
   sectionTotalCount,
   sectionSales,
@@ -289,6 +304,10 @@ export default function SalesTable({
 }: SalesTableProps) {
   const router = useRouter();
   const livePaymentMethods = useLivePaymentMethods(paymentMethods);
+  const invoicedSaleIdSet = useMemo(
+    () => new Set(invoicedSaleIds),
+    [invoicedSaleIds],
+  );
   const [editingSale, setEditingSale] = useState<SaleWithProduct | null>(null);
   const [deletingSale, setDeletingSale] = useState<SaleWithProduct | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -448,6 +467,41 @@ export default function SalesTable({
       purchaseTotal,
     };
   }, [sales, sectionSales, selectedIds, overrides]);
+
+  const taxInvoiceEligibility = useMemo(() => {
+    if (selectedIds.size === 0) {
+      return { enabled: false, reason: null as string | null };
+    }
+
+    const sourceSales = sectionSales ?? sales;
+    const selectedSales = sourceSales.filter((sale) => selectedIds.has(sale.id));
+
+    const nonTaxInvoicePayment = selectedSales.filter((sale) => {
+      const displaySale = overrides[sale.id]
+        ? { ...sale, ...overrides[sale.id] }
+        : sale;
+      return !isTaxInvoicePaymentMethod(displaySale.payment_method);
+    });
+
+    if (nonTaxInvoicePayment.length > 0) {
+      return {
+        enabled: false,
+        reason: `결제 수단이 "${TAX_INVOICE_PAYMENT_METHOD_NAME}"인 매출만 발행할 수 있습니다.`,
+      };
+    }
+
+    const alreadyInvoiced = selectedSales.filter((sale) =>
+      invoicedSaleIdSet.has(sale.id),
+    );
+    if (alreadyInvoiced.length > 0) {
+      return {
+        enabled: false,
+        reason: "이미 세금계산서가 발행된 매출이 포함되어 있습니다.",
+      };
+    }
+
+    return { enabled: true, reason: null };
+  }, [sales, sectionSales, selectedIds, overrides, invoicedSaleIdSet]);
 
   function toggleAll(checked: boolean) {
     setSelectedIds(
@@ -670,34 +724,38 @@ export default function SalesTable({
           displaySale.payment_method,
           livePaymentMethods,
         );
+        const isInvoiced = invoicedSaleIdSet.has(sale.id);
 
         return (
           <td
             className={`${cellClass} text-zinc-700 dark:text-zinc-300`}
             onDoubleClick={(event) => event.stopPropagation()}
           >
-            {canManageSales && livePaymentMethods.length > 0 ? (
-              <PaymentMethodCombobox
-                paymentMethods={livePaymentMethods}
-                value={paymentMethodId}
-                onChange={(nextPaymentMethodId) => {
-                  if (
-                    savingPaymentMethodId === sale.id ||
-                    !nextPaymentMethodId ||
-                    nextPaymentMethodId === paymentMethodId
-                  ) {
-                    return;
-                  }
-                  void savePaymentMethod(sale.id, nextPaymentMethodId);
-                }}
-                showFeeInLabel={false}
-                placeholder="결제"
-                className={`${inlineInputClass} min-w-[5.5rem] px-1 py-0.5 text-left text-inherit disabled:opacity-60`}
-                aria-label={`${sale.products?.product_name ?? "매출"} 결제 방식`}
-              />
-            ) : (
-              displaySale.payment_method
-            )}
+            <div className="flex min-w-0 items-center">
+              {canManageSales && livePaymentMethods.length > 0 ? (
+                <PaymentMethodCombobox
+                  paymentMethods={livePaymentMethods}
+                  value={paymentMethodId}
+                  onChange={(nextPaymentMethodId) => {
+                    if (
+                      savingPaymentMethodId === sale.id ||
+                      !nextPaymentMethodId ||
+                      nextPaymentMethodId === paymentMethodId
+                    ) {
+                      return;
+                    }
+                    void savePaymentMethod(sale.id, nextPaymentMethodId);
+                  }}
+                  showFeeInLabel={false}
+                  placeholder="결제"
+                  className={`${inlineInputClass} min-w-[5.5rem] px-1 py-0.5 text-left text-inherit disabled:opacity-60`}
+                  aria-label={`${sale.products?.product_name ?? "매출"} 결제 방식`}
+                />
+              ) : (
+                <span className="truncate">{displaySale.payment_method}</span>
+              )}
+              {isInvoiced ? <TaxInvoiceIssuedBadge /> : null}
+            </div>
           </td>
         );
       }
@@ -962,7 +1020,8 @@ export default function SalesTable({
                 </button>
                 <button
                   type="button"
-                  disabled={selectedIds.size === 0}
+                  disabled={!taxInvoiceEligibility.enabled}
+                  title={taxInvoiceEligibility.reason ?? undefined}
                   onClick={() => setTaxInvoiceOpen(true)}
                   className={taxInvoiceButtonClass}
                 >
@@ -1150,7 +1209,6 @@ export default function SalesTable({
         <SaleEditModal
           key={editingSale.id}
           sale={editingSale}
-          products={products}
           paymentMethods={paymentMethods}
           saleCategories={saleCategories}
           staffOptions={staffOptions}
