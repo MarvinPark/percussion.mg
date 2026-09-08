@@ -3,6 +3,7 @@
 import { getCurrentUserProfile, getModifierInfo, requirePermission } from "@/lib/profile";
 import {
   fetchProductsListView,
+  fetchSaleProductById,
   PRODUCT_PAGE_SIZE,
   searchProductsForDropdown,
   searchSaleProductsForDropdown,
@@ -1550,6 +1551,20 @@ export async function searchProductsForSaleDropdown(query: string) {
 
   const products = await searchSaleProductsForDropdown(supabase, query);
   return { products, error: null };
+}
+
+export async function getSaleProductById(productId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { product: null, error: "로그인이 필요합니다." as const };
+  }
+
+  const product = await fetchSaleProductById(supabase, productId);
+  return { product, error: null };
 }
 
 export async function createProductForSaleLink(input: {
