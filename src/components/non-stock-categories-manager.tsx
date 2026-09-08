@@ -7,7 +7,9 @@ import {
   deleteNonStockCategoryOption,
   updateNonStockCategoryOption,
 } from "@/app/(main)/settings/users/actions";
+import ModelNameAutocomplete from "@/components/model-name-autocomplete";
 import type { NonStockCategoryOption } from "@/lib/non-stock-category-options";
+import type { QuoteProductOption } from "@/types/quote";
 
 const compactBtnClass =
   "rounded border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
@@ -20,9 +22,6 @@ const compactInputClass =
 
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
-
-const inputClass =
-  "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
 
 type NonStockCategoriesManagerProps = {
   options: NonStockCategoryOption[];
@@ -41,6 +40,8 @@ export default function NonStockCategoriesManager({
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedCategoryName, setSelectedCategoryName] = useState("");
 
   function refresh() {
     startTransition(() => {
@@ -48,16 +49,50 @@ export default function NonStockCategoriesManager({
     });
   }
 
-  async function handleCreate(formData: FormData) {
+  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError(null);
     setMessage(null);
+
+    if (!selectedCategoryName) {
+      setError("제품을 검색해 선택해 주세요.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("name", selectedCategoryName);
+
     const result = await createNonStockCategoryOption(formData);
     if (result?.error) {
       setError(result.error);
       return;
     }
+
+    setProductSearch("");
+    setSelectedCategoryName("");
     setMessage("품목이 추가되었습니다.");
     refresh();
+  }
+
+  function handleProductSelect(product: QuoteProductOption) {
+    const category = product.category?.trim();
+    if (!category) {
+      setSelectedCategoryName("");
+      setError(
+        "선택한 제품에 품목(카테고리)이 없습니다. 제품 등록에서 품목을 입력해 주세요.",
+      );
+      return;
+    }
+
+    if (options.some((option) => option.name === category)) {
+      setSelectedCategoryName("");
+      setError(`"${category}" 품목은 이미 등록되어 있습니다.`);
+      return;
+    }
+
+    setSelectedCategoryName(category);
+    setError(null);
+    setMessage(null);
   }
 
   async function handleUpdate(id: string) {
@@ -120,24 +155,38 @@ export default function NonStockCategoriesManager({
       ) : null}
 
       {!readOnly ? (
-        <form action={handleCreate} className="grid gap-3">
+        <form onSubmit={handleCreate} className="grid gap-3">
           <div>
-            <label htmlFor="non_stock_category_name" className={labelClass}>
+            <label htmlFor="non_stock_category_search" className={labelClass}>
               품목 추가
             </label>
-            <input
-              id="non_stock_category_name"
-              name="name"
-              required
-              placeholder="예: 배송비, A/S"
-              className={inputClass}
+            <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+              견적과 동일하게 제품을 검색해 선택하면 해당 제품의 품목이 추가됩니다.
+            </p>
+            <ModelNameAutocomplete
+              value={productSearch}
+              onChange={(value) => {
+                setProductSearch(value);
+                setSelectedCategoryName("");
+                setError(null);
+              }}
+              onSelectProduct={handleProductSelect}
+              placeholder="모델명·SKU 검색"
             />
+            {selectedCategoryName ? (
+              <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+                추가할 품목:{" "}
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  {selectedCategoryName}
+                </span>
+              </p>
+            ) : null}
           </div>
           <div className="flex items-end">
             <button
               type="submit"
-              disabled={isPending}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 dark:bg-blue-500"
+              disabled={isPending || !selectedCategoryName}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500"
             >
               추가
             </button>
