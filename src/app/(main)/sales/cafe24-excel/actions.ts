@@ -17,6 +17,7 @@ import {
 } from "@/lib/marketplace-product-match";
 import {
   isStoreFulfillment,
+  isNonStockServiceItem,
   parseFulfillmentLocation,
   DEFAULT_FULFILLMENT_LOCATION,
   type FulfillmentLocation,
@@ -383,8 +384,9 @@ export async function importCafe24ExcelOrders(
 
       const lineNote = buildImportNote(order, fulfillmentLocation);
       const stockNote = `판매 출고${order.customerName ? ` — ${order.customerName}` : ""}`;
+      const skipStock = isNonStockServiceItem(matched);
 
-      if (fromStore) {
+      if (fromStore && !skipStock) {
         const stockResult = await recordStockOutForSale(
           supabase,
           matched.id,

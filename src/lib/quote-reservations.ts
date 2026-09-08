@@ -1,6 +1,6 @@
 import { getModifierInfo } from "@/lib/profile";
 import {
-  isShippingFeeQuoteItem,
+  isNonStockServiceItem,
   isStoreFulfillment,
 } from "@/lib/quote-fulfillment";
 import {
@@ -34,7 +34,7 @@ export function getReservableQuoteItems(items: QuoteItemForReservation[]) {
     (item) =>
       item.product_id &&
       isStoreFulfillment(item.fulfillment_location) &&
-      !isShippingFeeQuoteItem(item) &&
+      !isNonStockServiceItem(item) &&
       Math.round(Number(item.quantity) || 0) > 0,
   );
 }

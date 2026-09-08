@@ -1,4 +1,4 @@
-import { isShippingFeeQuoteItem } from "@/lib/quote-fulfillment";
+import { isNonStockServiceItem } from "@/lib/quote-fulfillment";
 import { SUPPLIER_INFO } from "@/types/quote";
 
 const ORDER_SUPPLIER_LABEL = "CJ";
@@ -24,7 +24,7 @@ function getOrderManagerName() {
 
 export function buildQuoteOrderCopyText(quote: QuoteOrderCopySource): string {
   const orderItems = quote.quote_items.filter(
-    (item) => !isShippingFeeQuoteItem(item),
+    (item) => !isNonStockServiceItem(item),
   );
 
   const itemLines = orderItems.map(

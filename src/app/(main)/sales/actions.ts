@@ -5,6 +5,7 @@ import { calculateSaleAmounts } from "@/lib/sales-calculator";
 import { resolveSaleCategory } from "@/lib/sale-category-options";
 import {
   isStoreFulfillment,
+  isNonStockServiceItem,
   parseFulfillmentLocation,
 } from "@/lib/quote-fulfillment";
 import { requirePermission } from "@/lib/profile";
@@ -87,7 +88,31 @@ async function applySaleStockChange(
   newQuantity: number,
   note: string,
 ) {
+  const productIds = [...new Set([oldProductId, newProductId])];
+  const { data: productRows } = await supabase
+    .from("products")
+    .select("id, product_name, model_name, category")
+    .in("id", productIds);
+
+  const productsById = new Map(
+    (productRows ?? []).map((row) => [
+      row.id as string,
+      {
+        product_name: String(row.product_name ?? ""),
+        model_name: String(row.model_name ?? ""),
+        category: (row.category as string | null) ?? null,
+      },
+    ]),
+  );
+
+  const oldProduct = productsById.get(oldProductId);
+  const newProduct = productsById.get(newProductId);
+  const skipOld = oldProduct ? isNonStockServiceItem(oldProduct) : false;
+  const skipNew = newProduct ? isNonStockServiceItem(newProduct) : false;
+
   if (oldProductId === newProductId) {
+    if (skipOld) return { ok: true as const };
+
     const delta = newQuantity - oldQuantity;
     if (delta === 0) return { ok: true as const };
     if (delta > 0) {
@@ -96,13 +121,19 @@ async function applySaleStockChange(
     return recordStockIn(supabase, newProductId, -delta, `${note} (수량 감소)`);
   }
 
-  const restoreResult = await recordStockIn(
-    supabase,
-    oldProductId,
-    oldQuantity,
-    `${note} — 제품 변경 반환`,
-  );
-  if ("error" in restoreResult) return restoreResult;
+  if (!skipOld) {
+    const restoreResult = await recordStockIn(
+      supabase,
+      oldProductId,
+      oldQuantity,
+      `${note} — 제품 변경 반환`,
+    );
+    if ("error" in restoreResult) return restoreResult;
+  }
+
+  if (skipNew || newQuantity <= 0) {
+    return { ok: true as const };
+  }
 
   return recordStockOutForSale(
     supabase,
@@ -239,7 +270,7 @@ async function prepareCreateSaleLines(
 
     const { data: product } = await supabase
       .from("products")
-      .select("product_name, stock_quantity, stock_location")
+      .select("product_name, model_name, category, stock_quantity, stock_location")
       .eq("id", line.product_id)
       .single();
 
@@ -248,6 +279,11 @@ async function prepareCreateSaleLines(
     }
 
     const fromStore = isStoreFulfillment(line.fulfillment_location);
+    const skipStock = isNonStockServiceItem({
+      product_name: product.product_name,
+      model_name: product.model_name,
+      category: product.category,
+    });
 
     const { data: paymentMethod } = await supabase
       .from("payment_methods")
@@ -272,11 +308,10 @@ async function prepareCreateSaleLines(
     const lineNote =
       [note || null, fulfillmentNote].filter(Boolean).join(" / ") || null;
 
-    const stockOutQuantity = fromStore ? line.quantity : 0;
-    const purchaseInQuantity = Math.max(
-      0,
-      Math.round(Number(purchaseQuantities[index]) || 0),
-    );
+    const stockOutQuantity = fromStore && !skipStock ? line.quantity : 0;
+    const purchaseInQuantity = skipStock
+      ? 0
+      : Math.max(0, Math.round(Number(purchaseQuantities[index]) || 0));
 
     prepared.push({
       line,
@@ -855,7 +890,7 @@ export async function deleteSales(
   for (const sale_id of uniqueIds) {
     const { data: existingSale } = await supabase
       .from("sales")
-      .select("id, product_id, quantity, customer_name")
+      .select("id, product_id, quantity, customer_name, products(product_name, model_name, category)")
       .eq("id", sale_id)
       .single();
 
@@ -865,16 +900,33 @@ export async function deleteSales(
     }
 
     const stockNote = `판매 삭제${existingSale.customer_name ? ` — ${existingSale.customer_name}` : ""}`;
-    const stockResult = await recordStockIn(
-      supabase,
-      existingSale.product_id,
-      existingSale.quantity,
-      stockNote,
-    );
+    const linkedProduct = existingSale.products as
+      | { product_name?: string | null; model_name?: string | null; category?: string | null }
+      | { product_name?: string | null; model_name?: string | null; category?: string | null }[]
+      | null;
+    const productInfo = Array.isArray(linkedProduct)
+      ? linkedProduct[0]
+      : linkedProduct;
 
-    if ("error" in stockResult) {
-      errors.push(stockResult.error ?? "재고 복구에 실패했습니다.");
-      continue;
+    if (
+      !productInfo ||
+      !isNonStockServiceItem({
+        product_name: productInfo.product_name,
+        model_name: productInfo.model_name,
+        category: productInfo.category,
+      })
+    ) {
+      const stockResult = await recordStockIn(
+        supabase,
+        existingSale.product_id,
+        existingSale.quantity,
+        stockNote,
+      );
+
+      if ("error" in stockResult) {
+        errors.push(stockResult.error ?? "재고 복구에 실패했습니다.");
+        continue;
+      }
     }
 
     const { error: deleteError } = await supabase
@@ -917,7 +969,7 @@ export async function deleteSale(
 
   const { data: existingSale } = await supabase
     .from("sales")
-    .select("id, product_id, quantity, customer_name")
+    .select("id, product_id, quantity, customer_name, products(product_name, model_name, category)")
     .eq("id", sale_id)
     .single();
 
@@ -925,15 +977,32 @@ export async function deleteSale(
 
   const stockNote = `판매 삭제${existingSale.customer_name ? ` — ${existingSale.customer_name}` : ""}`;
 
-  const stockResult = await recordStockIn(
-    supabase,
-    existingSale.product_id,
-    existingSale.quantity,
-    stockNote,
-  );
+  const linkedProduct = existingSale.products as
+    | { product_name?: string | null; model_name?: string | null; category?: string | null }
+    | { product_name?: string | null; model_name?: string | null; category?: string | null }[]
+    | null;
+  const productInfo = Array.isArray(linkedProduct)
+    ? linkedProduct[0]
+    : linkedProduct;
 
-  if ("error" in stockResult) {
-    return { error: stockResult.error };
+  if (
+    !productInfo ||
+    !isNonStockServiceItem({
+      product_name: productInfo.product_name,
+      model_name: productInfo.model_name,
+      category: productInfo.category,
+    })
+  ) {
+    const stockResult = await recordStockIn(
+      supabase,
+      existingSale.product_id,
+      existingSale.quantity,
+      stockNote,
+    );
+
+    if ("error" in stockResult) {
+      return { error: stockResult.error };
+    }
   }
 
   const { error: deleteError } = await supabase.from("sales").delete().eq("id", sale_id);

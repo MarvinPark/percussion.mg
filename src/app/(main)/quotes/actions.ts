@@ -4,6 +4,7 @@ import { calculateQuoteLine, calculateQuoteTotals } from "@/lib/quote-calculator
 import {
   parseFulfillmentLocation,
   isStoreFulfillment,
+  isNonStockServiceItem,
 } from "@/lib/quote-fulfillment";
 import {
   buildSaleAmountsForLine,
@@ -696,10 +697,13 @@ export async function convertQuoteToSale(
         : baseUnitSalePrice;
     const unit_purchase_price = Math.round(Number(item.purchase_price) || 0);
     const fromStore = isStoreFulfillment(item.fulfillment_location);
-    const purchaseInQuantity = Math.max(
-      0,
-      Math.round(Number(options?.purchaseQuantities?.[item.id]) || 0),
-    );
+    const skipStock = isNonStockServiceItem(item);
+    const purchaseInQuantity = skipStock
+      ? 0
+      : Math.max(
+          0,
+          Math.round(Number(options?.purchaseQuantities?.[item.id]) || 0),
+        );
 
     if (quantity <= 0) {
       return {
@@ -784,7 +788,7 @@ export async function convertQuoteToSale(
       }
     }
 
-    const stockOutQuantity = fromStore ? quantity : 0;
+    const stockOutQuantity = fromStore && !skipStock ? quantity : 0;
 
     if (stockOutQuantity > 0) {
       const stockResult = await recordStockOutForSale(
