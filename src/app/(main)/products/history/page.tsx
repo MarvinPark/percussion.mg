@@ -1,6 +1,7 @@
 import Link from "next/link";
 import StockHistoryListPageClient from "@/components/stock-history-list-page-client";
 import { createPageMetadata } from "@/lib/document-titles";
+import { fetchAllRows } from "@/lib/supabase-paginate";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { StockMovementWithProduct } from "@/types/stock-movement";
@@ -15,14 +16,18 @@ export default async function StockHistoryPage() {
 
   if (!user) redirect("/login");
 
-  const { data: movements, error } = await supabase
-    .from("stock_movements")
-    .select("*, products(product_name, model_name, sku, supplier)")
-    .or(
-      "movement_type.eq.out,movement_type.eq.adjust,and(movement_type.eq.in,or(note.is.null,note.not.ilike.목록에서%입고))",
-    )
-    .order("created_at", { ascending: false })
-    .limit(5000);
+  const { rows: movements, error } = await fetchAllRows<StockMovementWithProduct>(
+    (from, to) =>
+      supabase
+        .from("stock_movements")
+        .select("*, products(product_name, model_name, sku, supplier)")
+        .or(
+          "movement_type.eq.out,movement_type.eq.adjust,and(movement_type.eq.in,or(note.is.null,note.not.ilike.목록에서%입고))",
+        )
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+  );
 
   return (
     <main className="mx-auto max-w-app px-4 py-8">
