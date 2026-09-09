@@ -2,6 +2,10 @@
 
 import { forwardRef } from "react";
 import { formatKRW } from "@/lib/sales-calculator";
+import {
+  TAX_INVOICE_PREVIEW_WIDTH_PX,
+  taxInvoicePreviewClassName,
+} from "@/lib/tax-invoice-preview-layout";
 import type { TaxInvoicePreviewData } from "@/lib/tax-invoice-preview-data";
 
 type TaxInvoicePreviewProps = {
@@ -158,9 +162,10 @@ const TaxInvoicePreview = forwardRef<HTMLDivElement, TaxInvoicePreviewProps>(
     return (
       <div
         ref={ref}
-        className={`tax-invoice-preview mx-auto w-full max-w-[820px] bg-white p-2 text-zinc-900 ${className}`}
+        className={`${taxInvoicePreviewClassName} ${className}`}
+        style={{ width: TAX_INVOICE_PREVIEW_WIDTH_PX, minWidth: TAX_INVOICE_PREVIEW_WIDTH_PX }}
       >
-        <table className={`w-full border-collapse ${outerBorder}`}>
+        <table className={`w-full table-fixed border-collapse ${outerBorder}`}>
           <tbody>
             <tr>
               <td className={`${border} px-2 py-2 text-center`} colSpan={10}>

@@ -10,6 +10,7 @@ import TaxInvoicePreview from "@/components/tax-invoice-preview";
 import TaxInvoicePreviewActions from "@/components/tax-invoice-preview-actions";
 import { formatKRW } from "@/lib/sales-calculator";
 import { buildTaxInvoicePreviewDataFromIssue } from "@/lib/tax-invoice-preview-data";
+import { taxInvoicePreviewFrameClassName } from "@/lib/tax-invoice-preview-layout";
 import { formatTaxInvoiceDateLabel } from "@/lib/tax-invoice-issues";
 import type { TaxInvoiceIssue } from "@/types/tax-invoice";
 
@@ -123,7 +124,7 @@ export default function TaxInvoiceDetailDialog({
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
+          <div className={taxInvoicePreviewFrameClassName}>
             <TaxInvoicePreview data={previewData} />
           </div>
 

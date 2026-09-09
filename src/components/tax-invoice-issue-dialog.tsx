@@ -10,7 +10,7 @@ import {
 } from "@/app/(main)/sales/invoice-actions";
 import PopbillStatusPanel from "@/components/popbill-status-panel";
 import TaxInvoicePartnerFields, {
-  createPartnerDraft,
+  createTaxInvoicePartnerDraft,
   draftToPartnerForValidation,
   draftToPartnerInput,
   type TaxInvoicePartnerDraft,
@@ -26,6 +26,7 @@ import {
   buildTaxInvoicePreviewData,
   createTaxInvoiceItemId,
 } from "@/lib/tax-invoice-preview-data";
+import { taxInvoicePreviewFrameClassName } from "@/lib/tax-invoice-preview-layout";
 import {
   getTodayIsoDate,
   validateTaxInvoiceIsoDate,
@@ -112,7 +113,7 @@ export default function TaxInvoiceIssueDialog({
         return;
       }
 
-      const draft = createPartnerDraft(
+      const draft = createTaxInvoicePartnerDraft(
         contextResult.context.partner,
         contextResult.context.displayName,
       );
@@ -319,7 +320,7 @@ export default function TaxInvoiceIssueDialog({
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {successState && successPreview ? (
             <div className="space-y-4">
-              <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
+              <div className={taxInvoicePreviewFrameClassName}>
                 <TaxInvoicePreview data={successPreview} />
               </div>
               <TaxInvoicePreviewActions
@@ -343,7 +344,7 @@ export default function TaxInvoiceIssueDialog({
                 <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                   세금계산서 미리보기
                 </p>
-                <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
+                <div className={taxInvoicePreviewFrameClassName}>
                   <TaxInvoicePreview data={previewData} />
                 </div>
                 <TaxInvoicePreviewActions

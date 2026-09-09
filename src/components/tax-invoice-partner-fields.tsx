@@ -37,16 +37,29 @@ function isMissing(missing: string[], labels: string[]) {
   return labels.some((label) => missing.includes(label));
 }
 
+function syncCorpNameWithDisplayName(
+  displayName: string,
+  corpName?: string | null,
+) {
+  const trimmedDisplayName = displayName.trim();
+  const trimmedCorpName = corpName?.trim() ?? "";
+  return trimmedCorpName || trimmedDisplayName;
+}
+
 export function createPartnerDraft(
   partner: BusinessPartner | null,
   displayName: string,
 ): TaxInvoicePartnerDraft {
+  const resolvedDisplayName = partner?.display_name ?? displayName;
   return {
     partnerId: partner?.id ?? null,
-    displayName: partner?.display_name ?? displayName,
+    displayName: resolvedDisplayName,
     partner_type: partner?.partner_type ?? "business",
     corp_num: partner?.corp_num ?? "",
-    corp_name: partner?.corp_name ?? "",
+    corp_name: syncCorpNameWithDisplayName(
+      resolvedDisplayName,
+      partner?.corp_name,
+    ),
     ceo_name: partner?.ceo_name ?? "",
     biz_type: partner?.biz_type ?? "",
     biz_class: partner?.biz_class ?? "",
@@ -56,15 +69,30 @@ export function createPartnerDraft(
   };
 }
 
+export function createTaxInvoicePartnerDraft(
+  partner: BusinessPartner | null,
+  displayName: string,
+): TaxInvoicePartnerDraft {
+  const draft = createPartnerDraft(partner, displayName);
+  return {
+    ...draft,
+    partner_type: "business",
+    corp_name: syncCorpNameWithDisplayName(draft.displayName, draft.corp_name),
+  };
+}
+
 export function createPartnerDraftFromSuggestion(
   partner: BusinessPartnerSuggestion,
 ): TaxInvoicePartnerDraft {
   return {
     partnerId: partner.id,
     displayName: partner.display_name,
-    partner_type: partner.partner_type,
+    partner_type: "business",
     corp_num: partner.corp_num ?? "",
-    corp_name: partner.corp_name ?? "",
+    corp_name: syncCorpNameWithDisplayName(
+      partner.display_name,
+      partner.corp_name,
+    ),
     ceo_name: partner.ceo_name ?? "",
     biz_type: partner.biz_type ?? "",
     biz_class: partner.biz_class ?? "",
@@ -156,6 +184,7 @@ export default function TaxInvoicePartnerFields({
             patch({
               displayName,
               partnerId: null,
+              corp_name: displayName,
             })
           }
           onPartnerIdChange={(partnerId) =>
@@ -233,9 +262,14 @@ export default function TaxInvoicePartnerFields({
           <input
             id="ti_corp_name"
             value={draft.corp_name}
-            onChange={(event) => patch({ corp_name: event.target.value })}
+            onChange={(event) =>
+              patch({
+                corp_name: event.target.value,
+                displayName: event.target.value,
+              })
+            }
             disabled={disabled}
-            placeholder="비우면 거래처명 사용"
+            placeholder="거래처명과 동일"
             className={`${inputClass} ${
               isMissing(missing, ["상호"]) ? missingFieldClass : ""
             }`}

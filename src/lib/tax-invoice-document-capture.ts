@@ -1,5 +1,6 @@
 import { toCanvas } from "html-to-image";
 import { A4_CAPTURE_PIXEL_RATIO, fitCanvasToA4Portrait } from "@/lib/quote-document-a4";
+import { TAX_INVOICE_PREVIEW_WIDTH_PX } from "@/lib/tax-invoice-preview-layout";
 
 const CAPTURE_OPTIONS = {
   pixelRatio: A4_CAPTURE_PIXEL_RATIO,
@@ -8,13 +9,84 @@ const CAPTURE_OPTIONS = {
   skipFonts: true,
 };
 
+type SavedStyle = {
+  element: HTMLElement;
+  overflow: string;
+  maxHeight: string;
+  height: string;
+  maxWidth: string;
+  width: string;
+};
+
+function unlockCaptureLayout(source: HTMLElement) {
+  const saved: SavedStyle[] = [];
+  let current: HTMLElement | null = source;
+
+  while (current) {
+    saved.push({
+      element: current,
+      overflow: current.style.overflow,
+      maxHeight: current.style.maxHeight,
+      height: current.style.height,
+      maxWidth: current.style.maxWidth,
+      width: current.style.width,
+    });
+    current.style.overflow = "visible";
+    current.style.maxHeight = "none";
+    current.style.height = "auto";
+    current.style.maxWidth = "none";
+    current.style.width = "auto";
+    current = current.parentElement;
+  }
+
+  return () => {
+    for (const item of saved) {
+      item.element.style.overflow = item.overflow;
+      item.element.style.maxHeight = item.maxHeight;
+      item.element.style.height = item.height;
+      item.element.style.maxWidth = item.maxWidth;
+      item.element.style.width = item.width;
+    }
+  };
+}
+
+async function captureTaxInvoicePreviewFull(source: HTMLElement) {
+  const restoreLayout = unlockCaptureLayout(source);
+  const savedSourceMaxWidth = source.style.maxWidth;
+  const savedSourceMinWidth = source.style.minWidth;
+  const savedSourceWidth = source.style.width;
+
+  try {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+
+    source.style.maxWidth = "none";
+    source.style.minWidth = `${TAX_INVOICE_PREVIEW_WIDTH_PX}px`;
+    source.style.width = `${TAX_INVOICE_PREVIEW_WIDTH_PX}px`;
+
+    const captureHeight = Math.max(source.scrollHeight, source.clientHeight);
+
+    return await toCanvas(source, {
+      ...CAPTURE_OPTIONS,
+      width: TAX_INVOICE_PREVIEW_WIDTH_PX,
+      height: captureHeight,
+    });
+  } finally {
+    source.style.maxWidth = savedSourceMaxWidth;
+    source.style.minWidth = savedSourceMinWidth;
+    source.style.width = savedSourceWidth;
+    restoreLayout();
+  }
+}
+
 export async function captureTaxInvoicePreview(source: HTMLElement) {
-  const canvas = await toCanvas(source, CAPTURE_OPTIONS);
+  const canvas = await captureTaxInvoicePreviewFull(source);
   return fitCanvasToA4Portrait(canvas, A4_CAPTURE_PIXEL_RATIO);
 }
 
 export async function copyTaxInvoicePreviewToClipboard(source: HTMLElement) {
-  const canvas = await captureTaxInvoicePreview(source);
+  const canvas = await captureTaxInvoicePreviewFull(source);
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob((value) => resolve(value), "image/png");
   });
@@ -53,7 +125,7 @@ export async function downloadTaxInvoicePreviewPng(
   source: HTMLElement,
   fileName: string,
 ) {
-  const canvas = await captureTaxInvoicePreview(source);
+  const canvas = await captureTaxInvoicePreviewFull(source);
   const link = document.createElement("a");
   link.download = fileName;
   link.href = canvas.toDataURL("image/png");
