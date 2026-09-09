@@ -3,13 +3,23 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteQuote, convertQuoteToSale, cancelQuoteConversion, pasteQuote, reserveQuote, releaseQuote } from "@/app/(main)/quotes/actions";
+import {
+  deleteQuote,
+  convertQuoteToSale,
+  cancelQuoteConversion,
+  pasteQuote,
+  reserveQuote,
+  releaseQuote,
+  previewQuoteConvertStockApproval,
+} from "@/app/(main)/quotes/actions";
 import ConfirmDialog from "@/components/confirm-dialog";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import QuoteConvertDialog, {
   defaultCardFeePercentFromPayment,
   type QuoteConvertConfirmPayload,
 } from "@/components/quote-convert-dialog";
+import SaleStockApprovalDialog from "@/components/sale-stock-approval-dialog";
+import type { SaleStockApprovalItem } from "@/lib/sale-stock-approval";
 import QuoteForm from "@/components/quote-form";
 import TablePageSizeSelect from "@/components/table-page-size-select";
 import TablePagination from "@/components/table-pagination";
@@ -248,13 +258,19 @@ export default function QuotesList({
     quote: QuoteListItem;
     mode: "quote" | "invoice";
   } | null>(null);
+  const [stockApprovalItems, setStockApprovalItems] = useState<
+    SaleStockApprovalItem[] | null
+  >(null);
+  const [pendingConvertPayload, setPendingConvertPayload] =
+    useState<QuoteConvertConfirmPayload | null>(null);
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
 
   function handleEditSaved() {
     setEditingQuote(null);
     router.refresh();
   }
 
-  function handleConfirmConvert(payload: QuoteConvertConfirmPayload) {
+  function executeConvert(payload: QuoteConvertConfirmPayload) {
     if (!convertingQuote) return;
 
     startConvert(async () => {
@@ -271,11 +287,53 @@ export default function QuotesList({
       if (result.error) {
         setActionError(result.error);
         setConvertingQuote(null);
+        setStockApprovalItems(null);
+        setPendingConvertPayload(null);
         return;
       }
       setConvertingQuote(null);
+      setStockApprovalItems(null);
+      setPendingConvertPayload(null);
       router.refresh();
     });
+  }
+
+  async function handleConfirmConvert(payload: QuoteConvertConfirmPayload) {
+    if (!convertingQuote || isCheckingStock || isConverting) return;
+
+    setActionError(null);
+    setIsCheckingStock(true);
+
+    try {
+      const preview = await previewQuoteConvertStockApproval({
+        quoteId: convertingQuote.id,
+        purchaseQuantities: payload.purchaseQuantities,
+      });
+
+      if ("error" in preview) {
+        setActionError(preview.error);
+        return;
+      }
+
+      if (preview.items.length > 0) {
+        setPendingConvertPayload(payload);
+        setStockApprovalItems(preview.items);
+        return;
+      }
+
+      executeConvert(payload);
+    } finally {
+      setIsCheckingStock(false);
+    }
+  }
+
+  function handleStockApprovalConfirm() {
+    if (!pendingConvertPayload) return;
+
+    const payload = pendingConvertPayload;
+    setStockApprovalItems(null);
+    setPendingConvertPayload(null);
+    executeConvert(payload);
   }
 
   function isOthersQuote(quote: QuoteListItem) {
@@ -778,10 +836,31 @@ export default function QuotesList({
               : currentUserName || staffOptions[0]?.full_name || ""
           }
           showSellerPicker={isOthersQuote(convertingQuote)}
-          isPending={isConverting}
+          isPending={isConverting || isCheckingStock}
           onConfirm={handleConfirmConvert}
           onCancel={() => {
-            if (!isConverting) setConvertingQuote(null);
+            if (!isConverting && !isCheckingStock) {
+              setConvertingQuote(null);
+              setStockApprovalItems(null);
+              setPendingConvertPayload(null);
+            }
+          }}
+        />
+      ) : null}
+
+      {stockApprovalItems ? (
+        <SaleStockApprovalDialog
+          title="마이너스 재고 승인"
+          description="매장 출고 시 재고가 부족합니다. 품목별 재고를 확인한 뒤 매출 전환을 진행해 주세요."
+          items={stockApprovalItems}
+          confirmLabel="승인 후 매출 전환"
+          isPending={isConverting}
+          onConfirm={handleStockApprovalConfirm}
+          onCancel={() => {
+            if (!isConverting) {
+              setStockApprovalItems(null);
+              setPendingConvertPayload(null);
+            }
           }}
         />
       ) : null}

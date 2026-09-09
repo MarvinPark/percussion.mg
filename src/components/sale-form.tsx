@@ -27,7 +27,12 @@ import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
+import {
+  computeNegativeStockApprovals,
+  type SaleStockApprovalItem,
+} from "@/lib/sale-stock-approval";
 import { isSaleFormDirty } from "@/lib/unsaved-form-dirty";
+import SaleStockApprovalDialog from "@/components/sale-stock-approval-dialog";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -58,6 +63,7 @@ type SaleFormProps = {
   paymentMethods: PaymentMethod[];
   contactSuggestions: SaleContactSuggestions;
   saleCategories: string[];
+  nonStockCategories: string[];
 };
 
 type SaleLineDraft = {
@@ -144,6 +150,7 @@ export default function SaleForm({
   paymentMethods,
   contactSuggestions,
   saleCategories,
+  nonStockCategories,
 }: SaleFormProps) {
   const router = useRouter();
   const livePaymentMethods = useLivePaymentMethods(paymentMethods);
@@ -172,6 +179,10 @@ export default function SaleForm({
   );
   const [note, setNote] = useState("");
   const [clientError, setClientError] = useState<string | null>(null);
+  const [stockApprovalItems, setStockApprovalItems] = useState<
+    SaleStockApprovalItem[] | null
+  >(null);
+  const stockApprovalBypassRef = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [focusTarget, setFocusTarget] = useState<{
     lineId: string;
@@ -245,11 +256,50 @@ export default function SaleForm({
     isDirty && !isPending && !state?.success,
   );
 
+  function buildStockApprovalLines() {
+    return lines
+      .filter((line) => line.productId)
+      .map((line) => {
+        const product = selectedProductsByLine[line.id];
+
+        return {
+          id: line.id,
+          product_id: line.productId,
+          model_name: product?.model_name ?? "",
+          product_name: product?.product_name ?? "",
+          category: product?.category,
+          quantity: line.quantity,
+          fulfillment_location: line.fulfillmentLocation,
+          stock_quantity: product?.stock_quantity,
+          stock_yangjae: product?.stock_yangjae,
+          stock_uiwang: product?.stock_uiwang,
+          reserved_quantity: product?.reserved_quantity,
+        };
+      });
+  }
+
   function submitSaleForm() {
     const form = formRef.current;
     if (!form) return;
 
     formAction(new FormData(form));
+  }
+
+  function attemptSubmitSaleForm() {
+    if (!stockApprovalBypassRef.current) {
+      const approvalItems = computeNegativeStockApprovals(
+        buildStockApprovalLines(),
+        nonStockCategories,
+      );
+
+      if (approvalItems.length > 0) {
+        setStockApprovalItems(approvalItems);
+        return;
+      }
+    }
+
+    stockApprovalBypassRef.current = false;
+    submitSaleForm();
   }
 
   useEffect(() => {
@@ -389,7 +439,7 @@ export default function SaleForm({
           }
 
           setClientError(null);
-          submitSaleForm();
+          attemptSubmitSaleForm();
         }}
         className="space-y-5"
       >
@@ -980,6 +1030,24 @@ export default function SaleForm({
           onCreated={(product) =>
             handleSaleProductCreated(toSaleProductOption(product))
           }
+        />
+      ) : null}
+
+      {stockApprovalItems ? (
+        <SaleStockApprovalDialog
+          title="마이너스 재고 승인"
+          description="매장 출고 시 재고가 부족합니다. 품목별 재고를 확인한 뒤 진행해 주세요."
+          items={stockApprovalItems}
+          confirmLabel="승인 후 등록"
+          isPending={isSubmitting}
+          onConfirm={() => {
+            stockApprovalBypassRef.current = true;
+            setStockApprovalItems(null);
+            submitSaleForm();
+          }}
+          onCancel={() => {
+            if (!isSubmitting) setStockApprovalItems(null);
+          }}
         />
       ) : null}
 

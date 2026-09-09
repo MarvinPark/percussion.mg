@@ -47,6 +47,10 @@ import { redirect } from "next/navigation";
 import { formatSaleCategoryDbError } from "@/lib/sale-categories";
 import { resolveSaleCategory } from "@/lib/sale-category-options";
 import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
+import {
+  computeNegativeStockApprovals,
+  type SaleStockApprovalItem,
+} from "@/lib/sale-stock-approval";
 import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
@@ -560,6 +564,65 @@ export async function updateQuote(formData: FormData) {
 
   revalidatePath("/quotes");
   return { success: true };
+}
+
+export async function previewQuoteConvertStockApproval(input: {
+  quoteId: string;
+  purchaseQuantities?: Record<string, number>;
+}): Promise<{ items: SaleStockApprovalItem[] } | { error: string }> {
+  if (!input.quoteId) return { error: "견적 ID가 없습니다." };
+
+  const supabase = await createClient();
+  const auth = await requirePermission("manageQuotes");
+  if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
+
+  const { data: quote, error: quoteError } = await supabase
+    .from("quotes")
+    .select("quote_items(*, products(stock_quantity, stock_yangjae, stock_uiwang, reserved_quantity))")
+    .eq("id", input.quoteId)
+    .single();
+
+  if (quoteError || !quote?.quote_items?.length) {
+    return { error: "견적을 찾을 수 없습니다." };
+  }
+
+  const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+  const purchaseQuantities = input.purchaseQuantities ?? {};
+
+  const items = computeNegativeStockApprovals(
+    quote.quote_items.map((item) => {
+      const product = item.products as
+        | {
+            stock_quantity?: number | null;
+            stock_yangjae?: number | null;
+            stock_uiwang?: number | null;
+            reserved_quantity?: number | null;
+          }
+        | null
+        | undefined;
+
+      return {
+        id: String(item.id),
+        product_id: String(item.product_id ?? ""),
+        model_name: String(item.model_name ?? ""),
+        product_name: String(item.product_name ?? ""),
+        category: item.category as string | null | undefined,
+        quantity: Math.round(Number(item.quantity) || 0),
+        fulfillment_location: String(item.fulfillment_location ?? "매장"),
+        purchase_quantity: Math.max(
+          0,
+          Math.round(Number(purchaseQuantities[String(item.id)]) || 0),
+        ),
+        stock_quantity: product?.stock_quantity,
+        stock_yangjae: product?.stock_yangjae,
+        stock_uiwang: product?.stock_uiwang,
+        reserved_quantity: product?.reserved_quantity,
+      };
+    }),
+    nonStockCategories,
+  );
+
+  return { items };
 }
 
 export async function convertQuoteToSale(

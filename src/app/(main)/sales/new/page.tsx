@@ -3,6 +3,7 @@ import SaleForm from "@/components/sale-form";
 import { createPageMetadata } from "@/lib/document-titles";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { fetchPaymentMethods } from "@/lib/payment-methods";
+import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
 import { fetchSaleCategoryOptions } from "@/lib/sale-category-options";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -22,6 +23,7 @@ export default async function NewSalePage() {
     { paymentMethods, error: paymentMethodsError },
     { data: salesContacts },
     { names: saleCategories },
+    nonStockCategories,
   ] = await Promise.all([
     supabase.from("products").select("*", { count: "exact", head: true }),
     fetchPaymentMethods(supabase),
@@ -33,6 +35,7 @@ export default async function NewSalePage() {
       .order("sold_at", { ascending: false })
       .limit(1000),
     fetchSaleCategoryOptions(supabase),
+    fetchNonStockCategoryNames(supabase),
   ]);
 
   const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
@@ -89,6 +92,7 @@ export default async function NewSalePage() {
               paymentMethods={paymentMethods}
               contactSuggestions={contactSuggestions}
               saleCategories={saleCategories}
+              nonStockCategories={nonStockCategories}
             />
           </div>
         )}
