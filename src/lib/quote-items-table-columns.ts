@@ -38,6 +38,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 72,
       defaultWidth: 88,
       resizable: true,
+      align: "center",
     },
     {
       id: "supplier",
@@ -45,6 +46,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 80,
       defaultWidth: 104,
       resizable: true,
+      align: "center",
     },
     {
       id: "purchase_source",
@@ -52,6 +54,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 80,
       defaultWidth: 104,
       resizable: true,
+      align: "center",
     },
     {
       id: "model_name",
@@ -59,6 +62,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 96,
       defaultWidth: 128,
       resizable: true,
+      align: "center",
     },
     {
       id: "product_name",
@@ -66,6 +70,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 120,
       defaultWidth: 180,
       resizable: true,
+      align: "center",
     },
     {
       id: "quantity",
@@ -81,7 +86,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 88,
       defaultWidth: 112,
       resizable: true,
-      align: "right",
+      align: "center",
     },
     {
       id: "line_total",
@@ -89,7 +94,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 88,
       defaultWidth: 112,
       resizable: true,
-      align: "right",
+      align: "center",
     },
     {
       id: "purchase_price",
@@ -97,7 +102,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 88,
       defaultWidth: 112,
       resizable: true,
-      align: "right",
+      align: "center",
     },
     {
       id: "margin",
@@ -105,7 +110,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 80,
       defaultWidth: 96,
       resizable: true,
-      align: "right",
+      align: "center",
     },
     {
       id: "margin_rate",
@@ -113,7 +118,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       minWidth: 64,
       defaultWidth: 72,
       resizable: true,
-      align: "right",
+      align: "center",
     },
     {
       id: "actions",

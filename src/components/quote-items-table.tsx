@@ -2,7 +2,14 @@
 
 import { Fragment } from "react";
 import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
-import PriceInput from "@/components/price-input";
+import {
+  QUOTE_CELL_HEIGHT_CLASS,
+  QUOTE_CELL_TEXT_CLASS,
+  QuoteInlineNumberCell,
+  QuoteInlinePriceCell,
+  QuoteInlineSelectCell,
+  QuoteInlineTextCell,
+} from "@/components/quote-inline-cells";
 import { useConfigurableTableColumns } from "@/hooks/use-configurable-table-columns";
 import { isReorderableConfigurableColumn } from "@/lib/configurable-table-columns";
 import {
@@ -23,7 +30,6 @@ import type { QuoteItemInput } from "@/types/quote";
 type QuoteItemsTableProps = {
   userId: string;
   items: QuoteItemInput[];
-  mobileInputClass: string;
   discountAmount: number;
   onDiscountChange: (value: number) => void;
   draggingItemIndex: number | null;
@@ -43,19 +49,41 @@ type QuoteItemsTableProps = {
   onRemoveItem: (index: number) => void;
 };
 
-const tableClassName = "w-full table-fixed text-xs whitespace-nowrap";
+const tableClassName = `w-full table-fixed border-collapse ${QUOTE_CELL_TEXT_CLASS}`;
 
-const mobileFieldLabelClass =
-  "mb-1 block text-[10px] font-semibold text-zinc-500 dark:text-zinc-400";
+const rowDividerClass = "border-b border-slate-200 dark:border-slate-700";
+
+const bodyRowClass = "bg-[#f1f5f9] dark:bg-slate-900/50";
+
+const headerCellClass =
+  "relative bg-slate-800 px-2 py-3 text-center text-xs font-bold tracking-wide text-white dark:bg-slate-900";
+
+const headerCellDividerClass =
+  "after:pointer-events-none after:absolute after:right-0 after:top-[15%] after:h-[70%] after:w-px after:bg-white/50 after:transition-[width,background-color] after:content-[''] hover:after:w-0.5 hover:after:bg-white/90";
+
+const readOnlyCellClass = `px-2 py-1.5 align-middle ${QUOTE_CELL_HEIGHT_CLASS} ${QUOTE_CELL_TEXT_CLASS} ${rowDividerClass} text-slate-800 dark:text-slate-200`;
+
+const editableCellClass = `px-1 py-1 align-middle ${QUOTE_CELL_HEIGHT_CLASS} ${rowDividerClass} bg-white dark:bg-slate-800/70`;
+
+const deleteButtonClass =
+  "inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60";
 
 type QuoteItemsTableBodyProps = Omit<
   QuoteItemsTableProps,
   "userId" | "draggingItemIndex" | "dragOverItemIndex" | "onItemDragStart" | "onItemDragEnd" | "onItemDragOver" | "onItemDrop"
 >;
 
+const mobileFieldLabelClass =
+  "mb-1 block text-[10px] font-semibold text-zinc-500 dark:text-zinc-400";
+
+const mobileValueClass =
+  "text-sm text-zinc-800 dark:text-zinc-200";
+
+const mobileMetaClass =
+  "text-sm text-zinc-600 dark:text-zinc-400";
+
 function QuoteItemsMobileList({
   items,
-  mobileInputClass,
   discountAmount,
   onDiscountChange,
   onMoveItemUp,
@@ -81,7 +109,7 @@ function QuoteItemsMobileList({
       {items.map((item, index) => (
         <article
           key={`${item.product_id}-${index}`}
-          className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-xl border border-zinc-200/80 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
           <div className="mb-3 flex items-start gap-2">
             <div className="flex shrink-0 flex-col">
@@ -123,103 +151,78 @@ function QuoteItemsMobileList({
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className={mobileFieldLabelClass}>제품 설명</label>
-              <textarea
+              <QuoteInlineTextCell
                 value={item.product_name}
-                onChange={(event) =>
-                  onProductNameChange(index, event.target.value)
-                }
-                rows={2}
-                className={`${mobileInputClass} w-full resize-y whitespace-pre-wrap`}
+                placeholder="제품 설명"
+                onChange={(value) => onProductNameChange(index, value)}
               />
             </div>
 
-            <div className="col-span-2">
+            <div>
               <label className={mobileFieldLabelClass}>출고지</label>
-              <select
+              <QuoteInlineSelectCell
                 value={item.fulfillment_location}
-                onChange={(event) =>
-                  onFulfillmentChange(
-                    index,
-                    event.target.value as FulfillmentLocation,
-                  )
+                options={FULFILLMENT_LOCATIONS}
+                onChange={(location) =>
+                  onFulfillmentChange(index, location as FulfillmentLocation)
                 }
-                className={`${mobileInputClass} w-full`}
-              >
-                {FULFILLMENT_LOCATIONS.map((location) => (
-                  <option key={location} value={location}>
-                    {location}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
               <label className={mobileFieldLabelClass}>공급처</label>
-              <p className="truncate text-sm text-zinc-700 dark:text-zinc-300">
+              <p className={`${mobileMetaClass} truncate`}>
                 {item.supplier || "-"}
               </p>
             </div>
 
-            <div>
+            <div className="col-span-2">
               <label className={mobileFieldLabelClass}>매입처</label>
-              <input
-                type="text"
+              <QuoteInlineTextCell
                 value={item.purchase_source}
-                onChange={(event) =>
-                  onPurchaseSourceChange(index, event.target.value)
-                }
                 placeholder="매입처"
-                className={`${mobileInputClass} w-full`}
+                onChange={(value) => onPurchaseSourceChange(index, value)}
               />
             </div>
 
             <div>
               <label className={mobileFieldLabelClass}>수량</label>
-              <input
-                type="number"
-                min={1}
+              <QuoteInlineNumberCell
                 value={item.quantity}
-                onChange={(event) =>
-                  onQuantityChange(index, Number(event.target.value) || 1)
-                }
-                className={`${mobileInputClass} w-full text-center tabular-nums`}
+                onChange={(quantity) => onQuantityChange(index, quantity)}
               />
             </div>
 
             <div>
               <label className={mobileFieldLabelClass}>판매단가</label>
-              <PriceInput
-                min={0}
+              <QuoteInlinePriceCell
                 value={item.sale_unit_price}
                 onChange={(saleUnitPrice) =>
                   onSalePriceChange(index, saleUnitPrice)
                 }
-                className={`${mobileInputClass} w-full`}
               />
             </div>
 
             <div>
               <label className={mobileFieldLabelClass}>매입가</label>
-              <PriceInput
-                min={0}
+              <QuoteInlinePriceCell
                 value={item.purchase_price}
                 onChange={(purchasePrice) =>
                   onPurchasePriceChange(index, purchasePrice)
                 }
-                className={`${mobileInputClass} w-full`}
               />
             </div>
 
             <div>
               <label className={mobileFieldLabelClass}>마진</label>
-              <p className="text-sm font-semibold text-green-700 dark:text-green-300">
+              <p className={`${mobileValueClass} font-semibold text-green-700 dark:text-green-300`}>
                 {formatKRW(item.margin)}
               </p>
             </div>
 
             <div>
               <label className={mobileFieldLabelClass}>마진율</label>
-              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              <p className={mobileValueClass}>
                 {(item.margin_rate * 100).toFixed(1)}%
               </p>
             </div>
@@ -242,11 +245,9 @@ function QuoteItemsMobileList({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={mobileFieldLabelClass}>할인 금액</label>
-            <PriceInput
-              min={0}
+            <QuoteInlinePriceCell
               value={discountAmount}
               onChange={onDiscountChange}
-              className={`${mobileInputClass} w-full`}
             />
           </div>
           <div>
@@ -264,7 +265,6 @@ function QuoteItemsMobileList({
 export default function QuoteItemsTable({
   userId,
   items,
-  mobileInputClass,
   discountAmount,
   onDiscountChange,
   draggingItemIndex,
@@ -331,7 +331,7 @@ export default function QuoteItemsTable({
     switch (columnId) {
       case "reorder":
         return (
-          <td className="px-1 py-2 text-center">
+          <td className={`${readOnlyCellClass} px-0.5 text-center`}>
             <div className="flex items-center justify-center gap-0.5">
               <div className="flex flex-col md:hidden">
                 <button
@@ -368,127 +368,113 @@ export default function QuoteItemsTable({
         );
       case "fulfillment":
         return (
-          <td className="px-2 py-2">
-            <select
+          <td className={`${editableCellClass} text-center`}>
+            <QuoteInlineSelectCell
               value={item.fulfillment_location}
-              onChange={(event) =>
-                onFulfillmentChange(
-                  index,
-                  event.target.value as FulfillmentLocation,
-                )
+              options={FULFILLMENT_LOCATIONS}
+              onChange={(location) =>
+                onFulfillmentChange(index, location as FulfillmentLocation)
               }
-              className={`${mobileInputClass} w-24 sm:w-20`}
-            >
-              {FULFILLMENT_LOCATIONS.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
+            />
           </td>
         );
       case "supplier":
         return (
-          <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">
-            {item.supplier || "-"}
+          <td className={`${readOnlyCellClass} text-left`}>
+            <span className="block w-full truncate">{item.supplier || "-"}</span>
           </td>
         );
       case "purchase_source":
         return (
-          <td className="px-2 py-2">
-            <input
-              type="text"
+          <td className={editableCellClass}>
+            <QuoteInlineTextCell
               value={item.purchase_source}
-              onChange={(event) =>
-                onPurchaseSourceChange(index, event.target.value)
-              }
               placeholder="매입처"
-              className={`${mobileInputClass} w-28 sm:w-24`}
+              align="left"
+              onChange={(value) => onPurchaseSourceChange(index, value)}
             />
           </td>
         );
       case "model_name":
         return (
-          <td className="max-w-0 truncate px-2 py-2 font-medium">
-            {item.model_name}
+          <td className={`${readOnlyCellClass} text-left font-medium`}>
+            <span className="block w-full truncate">{item.model_name}</span>
           </td>
         );
       case "product_name":
         return (
-          <td className="px-2 py-2 align-top">
-            <textarea
+          <td className={editableCellClass}>
+            <QuoteInlineTextCell
               value={item.product_name}
-              onChange={(event) =>
-                onProductNameChange(index, event.target.value)
-              }
-              rows={2}
-              className={`${mobileInputClass} w-full min-w-[8rem] resize-y whitespace-pre-wrap`}
+              placeholder="제품 설명"
+              align="left"
+              onChange={(value) => onProductNameChange(index, value)}
             />
           </td>
         );
       case "quantity":
         return (
-          <td className="px-2 py-2">
-            <input
-              type="number"
-              min={1}
+          <td className={editableCellClass}>
+            <QuoteInlineNumberCell
               value={item.quantity}
-              onChange={(event) =>
-                onQuantityChange(index, Number(event.target.value) || 1)
-              }
-              className={`${mobileInputClass} w-32 text-center tabular-nums sm:w-16`}
+              align="right"
+              onChange={(quantity) => onQuantityChange(index, quantity)}
             />
           </td>
         );
       case "unit_sale_price":
         return (
-          <td className="px-2 py-2">
-            <PriceInput
-              min={0}
+          <td className={editableCellClass}>
+            <QuoteInlinePriceCell
               value={item.sale_unit_price}
+              align="right"
               onChange={(saleUnitPrice) => onSalePriceChange(index, saleUnitPrice)}
-              className={`${mobileInputClass} w-32 sm:w-28`}
             />
           </td>
         );
       case "line_total":
         return (
-          <td className="px-2 py-2 font-semibold">
+          <td className={`${readOnlyCellClass} text-right font-bold tabular-nums`}>
             {formatKRW(item.line_total)}
           </td>
         );
       case "purchase_price":
         return (
-          <td className="px-2 py-2">
-            <PriceInput
-              min={0}
+          <td className={editableCellClass}>
+            <QuoteInlinePriceCell
               value={item.purchase_price}
+              align="right"
               onChange={(purchasePrice) =>
                 onPurchasePriceChange(index, purchasePrice)
               }
-              className={`${mobileInputClass} w-32 sm:w-28`}
             />
           </td>
         );
       case "margin":
         return (
-          <td className="px-2 py-2 font-semibold text-green-700 dark:text-green-300">
+          <td
+            className={`${readOnlyCellClass} text-right font-semibold tabular-nums ${
+              item.margin >= 0
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
             {formatKRW(item.margin)}
           </td>
         );
       case "margin_rate":
         return (
-          <td className="px-2 py-2">
+          <td className={`${readOnlyCellClass} text-right tabular-nums`}>
             {(item.margin_rate * 100).toFixed(1)}%
           </td>
         );
       case "actions":
         return (
-          <td className="px-2 py-2">
+          <td className={`${readOnlyCellClass} text-center`}>
             <button
               type="button"
               onClick={() => onRemoveItem(index)}
-              className="text-red-600 hover:underline"
+              className={deleteButtonClass}
             >
               삭제
             </button>
@@ -502,40 +488,39 @@ export default function QuoteItemsTable({
   function renderDiscountCell(columnId: QuoteItemsTableColumnId) {
     switch (columnId) {
       case "reorder":
-        return <td className="px-1 py-2" />;
+        return <td className={readOnlyCellClass} />;
       case "fulfillment":
       case "supplier":
       case "purchase_source":
       case "product_name":
         return (
-          <td className="px-2 py-2 text-zinc-400 dark:text-zinc-500">-</td>
+          <td className={`${readOnlyCellClass} text-zinc-400 dark:text-zinc-500`}>-</td>
         );
       case "model_name":
         return (
-          <td className="px-2 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+          <td className={`${readOnlyCellClass} font-medium`}>
             할인
           </td>
         );
       case "quantity":
         return (
-          <td className="px-2 py-2 text-center text-zinc-400 dark:text-zinc-500">
+          <td className={`${readOnlyCellClass} text-zinc-400 dark:text-zinc-500`}>
             -
           </td>
         );
       case "unit_sale_price":
         return (
-          <td className="px-2 py-2">
-            <PriceInput
-              min={0}
+          <td className={editableCellClass}>
+            <QuoteInlinePriceCell
               value={discountAmount}
+              align="right"
               onChange={onDiscountChange}
-              className={`${mobileInputClass} w-32 sm:w-28`}
             />
           </td>
         );
       case "line_total":
         return (
-          <td className="px-2 py-2 font-semibold text-red-600 dark:text-red-400">
+          <td className={`${readOnlyCellClass} text-right font-bold tabular-nums text-red-600 dark:text-red-400`}>
             {discountAmount > 0 ? `-${formatKRW(discountAmount)}` : formatKRW(0)}
           </td>
         );
@@ -543,10 +528,10 @@ export default function QuoteItemsTable({
       case "margin":
       case "margin_rate":
         return (
-          <td className="px-2 py-2 text-zinc-400 dark:text-zinc-500">-</td>
+          <td className={`${readOnlyCellClass} text-zinc-400 dark:text-zinc-500`}>-</td>
         );
       case "actions":
-        return <td className="px-2 py-2" />;
+        return <td className={readOnlyCellClass} />;
       default:
         return null;
     }
@@ -564,7 +549,6 @@ export default function QuoteItemsTable({
     <>
       <QuoteItemsMobileList
         items={items}
-        mobileInputClass={mobileInputClass}
         discountAmount={discountAmount}
         onDiscountChange={onDiscountChange}
         onMoveItemUp={onMoveItemUp}
@@ -578,16 +562,21 @@ export default function QuoteItemsTable({
         onRemoveItem={onRemoveItem}
       />
 
-      <section className="hidden overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700 md:block">
+      <section className="hidden overflow-x-auto md:block">
         <table className={tableClassName} style={{ minWidth: tableMinWidth }}>
         {colGroup}
-        <thead className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+        <thead>
           <tr>
-            {orderedColumns.map((column) =>
-              column.id === "reorder" ? (
+            {orderedColumns.map((column, columnIndex) => {
+              const showHeaderDivider =
+                columnIndex < orderedColumns.length - 1;
+
+              return column.id === "reorder" ? (
                 <th
                   key={column.id}
-                  className="px-1 py-2"
+                  className={`${headerCellClass} px-1 ${
+                    showHeaderDivider ? headerCellDividerClass : ""
+                  }`}
                   aria-label="순서"
                   style={{ width: `${widths[column.id]}px` }}
                 />
@@ -596,22 +585,30 @@ export default function QuoteItemsTable({
                   key={column.id}
                   columnId={column.id}
                   label={column.label}
-                  align={column.align ?? "left"}
-                  className="px-2 py-2 font-semibold"
+                  align="center"
+                  tone="dark"
+                  className={`${headerCellClass} ${
+                    showHeaderDivider && !column.resizable
+                      ? headerCellDividerClass
+                      : ""
+                  }`}
                   resizable={column.resizable}
+                  resizeHandleVariant={
+                    column.resizable ? "light-divider" : "default"
+                  }
                   onResizeStart={startResize}
                   {...getHeaderDragProps(column.id)}
                 />
-              ),
-            )}
+              );
+            })}
           </tr>
         </thead>
         <tbody>
           {items.length === 0 ? (
-            <tr>
+            <tr className={bodyRowClass}>
               <td
                 colSpan={orderedColumns.length}
-                className="px-4 py-8 text-center text-sm text-zinc-500"
+                className={`${readOnlyCellClass} px-4 py-10 text-center text-sm text-slate-500`}
               >
                 제품을 추가해 주세요.
               </td>
@@ -625,11 +622,11 @@ export default function QuoteItemsTable({
                   event.preventDefault();
                   onItemDrop(index);
                 }}
-                className={`border-t border-zinc-200 dark:border-zinc-700 ${
+                className={`${bodyRowClass} transition-colors hover:bg-[#e8edf3] dark:hover:bg-slate-800/70 ${
                   draggingItemIndex === index ? "opacity-50" : ""
                 } ${
                   dragOverItemIndex === index
-                    ? "bg-blue-50 dark:bg-blue-950/30"
+                    ? "!bg-blue-50 dark:!bg-blue-950/30"
                     : ""
                 }`}
               >
@@ -642,7 +639,7 @@ export default function QuoteItemsTable({
             ))
           )}
           {items.length > 0 ? (
-            <tr className="border-t border-zinc-200 bg-zinc-50/80 dark:border-zinc-700 dark:bg-zinc-900/50">
+            <tr className={`${bodyRowClass} font-medium`}>
               {orderedColumns.map((column) => (
                 <Fragment key={`discount-${column.id}`}>
                   {renderDiscountCell(column.id)}

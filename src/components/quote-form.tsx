@@ -41,12 +41,21 @@ import type {
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 
 const inputClass =
-  "w-full rounded border border-zinc-400 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
-
-const mobileInputClass =
-  "w-full rounded border border-zinc-400 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none focus:border-blue-500 sm:px-2 sm:py-1.5 sm:text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+  "w-full rounded border border-transparent bg-transparent px-2 py-1.5 text-sm text-zinc-900 outline-none transition-colors hover:bg-zinc-100/80 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:text-zinc-100 dark:hover:bg-zinc-800/60 dark:focus:border-blue-500 dark:focus:bg-zinc-900";
 
 const labelClass = "text-xs font-semibold text-zinc-700 dark:text-zinc-300";
+
+const fieldBoxClass =
+  "flex min-h-[2.25rem] items-center gap-2 rounded-md border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-600 dark:bg-white";
+
+const fieldBoxLabelClass =
+  "w-[4.5rem] shrink-0 text-xs font-semibold text-zinc-600 dark:text-zinc-600";
+
+const fieldBoxInputClass =
+  "min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm text-zinc-900 outline-none focus:ring-0 dark:text-zinc-900";
+
+const addProductInputClass =
+  "w-full rounded border border-zinc-200/70 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:px-2 sm:py-1.5 sm:text-sm dark:border-zinc-600/50 dark:bg-white dark:text-zinc-900 dark:focus:border-blue-500";
 
 type QuoteEditInitial = {
   quote_date: string;
@@ -517,27 +526,27 @@ export default function QuoteForm({
         <h3 className="text-center text-2xl font-bold tracking-[0.3em] text-zinc-900 dark:text-zinc-100">
           견 적 서
         </h3>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <label className={labelClass}>담당</label>
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className={fieldBoxClass}>
+            <label className={fieldBoxLabelClass}>담당</label>
             <input
               value={editableManagerName}
               onChange={(event) => setEditableManagerName(event.target.value)}
               placeholder="예: 홍길동 실장"
-              className={inputClass}
+              className={fieldBoxInputClass}
             />
           </div>
-          <div>
-            <label className={labelClass}>견적일</label>
+          <div className={fieldBoxClass}>
+            <label className={fieldBoxLabelClass}>견적일</label>
             <input
               type="date"
               value={quoteDate}
               onChange={(event) => setQuoteDate(event.target.value)}
-              className={inputClass}
+              className={fieldBoxInputClass}
             />
           </div>
-          <div>
-            <label htmlFor="quote_sale_category" className={labelClass}>
+          <div className={fieldBoxClass}>
+            <label htmlFor="quote_sale_category" className={fieldBoxLabelClass}>
               구분 *
             </label>
             <SaleCategorySelect
@@ -547,7 +556,7 @@ export default function QuoteForm({
               onChange={(value) =>
                 setSaleCategory(displaySaleCategoryFromList(value, saleCategories))
               }
-              className={inputClass}
+              className={fieldBoxInputClass}
             />
           </div>
         </div>
@@ -557,55 +566,59 @@ export default function QuoteForm({
         <p className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
           고객 정보
         </p>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="quote_business_partner" className={labelClass}>
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className={fieldBoxClass}>
+              <label htmlFor="quote_business_partner" className={fieldBoxLabelClass}>
                 거래처명
               </label>
-              <BusinessPartnerAutocomplete
-                id="quote_business_partner"
-                name="business_partner"
-                value={businessPartner}
-                partnerId={partnerId}
-                onChange={setBusinessPartner}
-                onPartnerIdChange={setPartnerId}
-                openOnFocus={false}
-                minCharsToOpen={2}
-                onSelectPartner={(partner) => {
-                  const fields = getPartnerCustomerFields(partner);
-                  if (fields.customerName) setCustomerName(fields.customerName);
-                  if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
-                  if (fields.customerAddress) {
-                    setCustomerAddress(fields.customerAddress);
-                  }
-                }}
-                placeholder="입력"
-                className={inputClass}
-              />
+              <div className="min-w-0 flex-1">
+                <BusinessPartnerAutocomplete
+                  id="quote_business_partner"
+                  name="business_partner"
+                  value={businessPartner}
+                  partnerId={partnerId}
+                  onChange={setBusinessPartner}
+                  onPartnerIdChange={setPartnerId}
+                  openOnFocus={false}
+                  minCharsToOpen={2}
+                  onSelectPartner={(partner) => {
+                    const fields = getPartnerCustomerFields(partner);
+                    if (fields.customerName) setCustomerName(fields.customerName);
+                    if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
+                    if (fields.customerAddress) {
+                      setCustomerAddress(fields.customerAddress);
+                    }
+                  }}
+                  placeholder="입력"
+                  className={fieldBoxInputClass}
+                />
+              </div>
             </div>
-            <div>
-              <label htmlFor="quote_customer_name" className={labelClass}>
+            <div className={fieldBoxClass}>
+              <label htmlFor="quote_customer_name" className={fieldBoxLabelClass}>
                 고객명 *
               </label>
-              <SaleCustomerAutocomplete
-                id="quote_customer_name"
-                name="customer_name"
-                value={customerName}
-                onChange={setCustomerName}
-                suggestions={contactSuggestions.customers}
-                onSelectCustomer={(customer) => {
-                  setCustomerPhone(customer.phone);
-                  setCustomerAddress(customer.address);
-                }}
-                placeholder="입력"
-                className={inputClass}
-              />
+              <div className="min-w-0 flex-1">
+                <SaleCustomerAutocomplete
+                  id="quote_customer_name"
+                  name="customer_name"
+                  value={customerName}
+                  onChange={setCustomerName}
+                  suggestions={contactSuggestions.customers}
+                  onSelectCustomer={(customer) => {
+                    setCustomerPhone(customer.phone);
+                    setCustomerAddress(customer.address);
+                  }}
+                  placeholder="입력"
+                  className={fieldBoxInputClass}
+                />
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
-            <div>
-              <label htmlFor="quote_customer_phone" className={labelClass}>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <div className={fieldBoxClass}>
+              <label htmlFor="quote_customer_phone" className={fieldBoxLabelClass}>
                 연락처
               </label>
               <PhoneInput
@@ -613,36 +626,36 @@ export default function QuoteForm({
                 name="customer_phone"
                 value={customerPhone}
                 onChange={setCustomerPhone}
-                className={inputClass}
+                className={fieldBoxInputClass}
               />
             </div>
-            <div>
-              <label htmlFor="quote_customer_address" className={labelClass}>
+            <div className={fieldBoxClass}>
+              <label htmlFor="quote_customer_address" className={fieldBoxLabelClass}>
                 주소
               </label>
               <input
                 id="quote_customer_address"
                 value={customerAddress}
                 onChange={(event) => setCustomerAddress(event.target.value)}
-                className={inputClass}
+                className={fieldBoxInputClass}
               />
             </div>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
-            <div>
-              <label className={labelClass}>이메일</label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <div className={fieldBoxClass}>
+              <label className={fieldBoxLabelClass}>이메일</label>
               <input
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
-                className={inputClass}
+                className={fieldBoxInputClass}
               />
             </div>
-            <div>
-              <label className={labelClass}>비고</label>
+            <div className={fieldBoxClass}>
+              <label className={fieldBoxLabelClass}>비고</label>
               <input
                 value={customerNote}
                 onChange={(e) => setCustomerNote(e.target.value)}
-                className={inputClass}
+                className={fieldBoxInputClass}
               />
             </div>
           </div>
@@ -687,7 +700,7 @@ export default function QuoteForm({
               min={1}
               value={addQuantity}
               onChange={(e) => setAddQuantity(Number(e.target.value) || 1)}
-              className={`${mobileInputClass} text-center tabular-nums`}
+              className={`${addProductInputClass} text-center tabular-nums`}
             />
           </div>
           <div className="w-36 sm:w-32">
@@ -702,7 +715,7 @@ export default function QuoteForm({
                   void addItem();
                 }
               }}
-              className={mobileInputClass}
+              className={addProductInputClass}
             />
           </div>
           <div className="w-28 shrink-0 sm:w-32">
@@ -717,7 +730,7 @@ export default function QuoteForm({
                   void addItem();
                 }
               }}
-              className={mobileInputClass}
+              className={addProductInputClass}
             />
           </div>
           <button
@@ -734,7 +747,6 @@ export default function QuoteForm({
       <QuoteItemsTable
         userId={userId}
         items={items}
-        mobileInputClass={mobileInputClass}
         discountAmount={discountAmount}
         onDiscountChange={setDiscountAmount}
         draggingItemIndex={draggingItemIndex}
