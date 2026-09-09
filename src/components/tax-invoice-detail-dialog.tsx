@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   cancelTaxInvoiceIssue,
   deleteTaxInvoiceIssue,
+  getTaxInvoiceIssuePartner,
   getTaxInvoicePdfUrl,
 } from "@/app/(main)/sales/invoice-actions";
 import TaxInvoicePreview from "@/components/tax-invoice-preview";
@@ -12,6 +13,7 @@ import { formatKRW } from "@/lib/sales-calculator";
 import { buildTaxInvoicePreviewDataFromIssue } from "@/lib/tax-invoice-preview-data";
 import { taxInvoicePreviewFrameClassName } from "@/lib/tax-invoice-preview-layout";
 import { formatTaxInvoiceDateLabel } from "@/lib/tax-invoice-issues";
+import type { BusinessPartner } from "@/types/business-partner";
 import type { TaxInvoiceIssue } from "@/types/tax-invoice";
 
 const buttonClass =
@@ -32,12 +34,31 @@ export default function TaxInvoiceDetailDialog({
 }: TaxInvoiceDetailDialogProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [partner, setPartner] = useState<BusinessPartner | null>(null);
   const [isCancelling, startCancel] = useTransition();
   const [isDeleting, startDelete] = useTransition();
 
+  useEffect(() => {
+    if (!issue.partner_id) {
+      setPartner(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void getTaxInvoiceIssuePartner(issue.partner_id).then((result) => {
+      if (cancelled) return;
+      setPartner("error" in result ? null : result.partner);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [issue.partner_id]);
+
   const previewData = useMemo(
-    () => buildTaxInvoicePreviewDataFromIssue(issue),
-    [issue],
+    () => buildTaxInvoicePreviewDataFromIssue(issue, partner),
+    [issue, partner],
   );
 
   const isCancelled = Boolean(issue.cancelled_at);

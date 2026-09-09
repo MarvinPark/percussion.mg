@@ -8,6 +8,70 @@ import type { BusinessPartner } from "@/types/business-partner";
 import type { TaxInvoiceIssue, TaxInvoicePurposeType } from "@/types/tax-invoice";
 import { SUPPLIER_INFO } from "@/types/quote";
 
+function emptyPartnerFields(): Omit<
+  BusinessPartner,
+  "id" | "partner_type" | "display_name" | "corp_num" | "corp_name"
+> {
+  return {
+    contact_name: null,
+    contact_phone: null,
+    contact_email: null,
+    contact_address: null,
+    ceo_name: null,
+    biz_type: null,
+    biz_class: null,
+    invoice_address: null,
+    invoice_email: null,
+    invoice_tax_reg_id: null,
+    invoice_contact_name: null,
+    invoice_contact_dept: null,
+    invoice_contact_tel: null,
+    invoice_contact_hp: null,
+    invoice_contact_name2: null,
+    invoice_contact_dept2: null,
+    invoice_contact_tel2: null,
+    invoice_contact_hp2: null,
+    invoice_contact_email2: null,
+    memo: null,
+    invoice_ready: false,
+    source: "manual",
+    last_used_at: null,
+    created_at: "",
+    updated_at: "",
+  };
+}
+
+export function resolvePartnerForIssuePreview(
+  issue: TaxInvoiceIssue,
+  partner?: BusinessPartner | null,
+): BusinessPartner | null {
+  if (partner) {
+    return {
+      ...partner,
+      display_name: partner.display_name || issue.partner_name,
+      corp_num: partner.corp_num ?? issue.partner_corp_num,
+      corp_name: partner.corp_name?.trim() || partner.display_name || issue.partner_name,
+      invoice_email: partner.invoice_email ?? issue.partner_email,
+      contact_email: partner.contact_email ?? issue.partner_email,
+    };
+  }
+
+  if (!issue.partner_name && !issue.partner_corp_num) {
+    return null;
+  }
+
+  return {
+    id: issue.partner_id ?? "",
+    partner_type: "business",
+    display_name: issue.partner_name,
+    corp_num: issue.partner_corp_num,
+    corp_name: issue.partner_name,
+    ...emptyPartnerFields(),
+    invoice_email: issue.partner_email,
+    contact_email: issue.partner_email,
+  };
+}
+
 export type TaxInvoicePreviewParty = {
   corpNum: string;
   corpName: string;
@@ -165,7 +229,7 @@ export function buildTaxInvoicePreviewDataFromIssue(
       : [issue.item_name || "악기"];
 
   const preview = buildTaxInvoicePreviewData({
-    partner: partner ?? null,
+    partner: resolvePartnerForIssuePreview(issue, partner),
     displayName: issue.partner_name,
     totalAmount: issue.total_amount,
     itemNames,

@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  fetchBusinessPartnerById,
   normalizeBusinessPartnerInput,
   missingInvoiceFields,
   mapBusinessPartnerRow,
@@ -161,6 +162,24 @@ export async function getTaxInvoiceIssueContext(input: {
       invoiceReady: partnerContext.invoiceReady,
     },
   };
+}
+
+export async function getTaxInvoiceIssuePartner(partnerId: string) {
+  const id = partnerId.trim();
+  if (!id) {
+    return { error: "거래처 ID가 없습니다." };
+  }
+
+  const auth = await requirePermission("manageSales");
+  if ("error" in auth) return { error: auth.error ?? "권한이 없습니다." };
+
+  const supabase = await createClient();
+  const { partner, error } = await fetchBusinessPartnerById(supabase, id);
+  if (error || !partner) {
+    return { error: error ?? "거래처 정보를 찾을 수 없습니다." };
+  }
+
+  return { partner };
 }
 
 export async function savePartnerForTaxInvoiceIssue(input: {

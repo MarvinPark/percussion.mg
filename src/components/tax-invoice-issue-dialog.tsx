@@ -220,11 +220,6 @@ export default function TaxInvoiceIssueDialog({
     }
 
     startIssue(async () => {
-      const shouldSavePartner =
-        !context.invoiceReady ||
-        partnerDraft.partnerId !== context.partnerId ||
-        !draftValidation.invoiceReady;
-
       const result = await issueTaxInvoiceFromSales({
         saleIds: lockedSaleIds,
         itemNames,
@@ -232,12 +227,10 @@ export default function TaxInvoiceIssueDialog({
         writeDate,
         itemPurchaseDate,
         recipientEmail,
-        partner: shouldSavePartner
-          ? {
-              ...draftToPartnerInput(partnerDraft),
-              partnerId: partnerDraft.partnerId,
-            }
-          : null,
+        partner: {
+          ...draftToPartnerInput(partnerDraft),
+          partnerId: partnerDraft.partnerId,
+        },
       });
 
       if ("error" in result) {
