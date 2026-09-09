@@ -4,6 +4,12 @@ export const SALES_SECTION_ONLINE = "온라인";
 export const SALES_SECTION_WHOLESALE = "도매";
 export const SALES_SECTION_OTHER_LABEL = "그외";
 
+/** 온라인 섹션에 포함되는 구분 (섹션 제목은 SALES_SECTION_ONLINE 유지) */
+export const SALES_SECTION_ONLINE_CATEGORIES = [
+  SALES_SECTION_ONLINE,
+  "울교",
+] as const;
+
 export type SalesSectionId = "online" | "wholesale" | "other";
 
 export type SalesCategorySection = {
@@ -15,7 +21,8 @@ export type SalesCategorySection = {
 export function isPrimarySalesSectionCategory(category: string | null | undefined) {
   const normalized = category?.trim() ?? "";
   return (
-    normalized === SALES_SECTION_ONLINE || normalized === SALES_SECTION_WHOLESALE
+    (SALES_SECTION_ONLINE_CATEGORIES as readonly string[]).includes(normalized) ||
+    normalized === SALES_SECTION_WHOLESALE
   );
 }
 
@@ -53,7 +60,7 @@ export function groupSalesByCategorySection(
 
   for (const sale of sales) {
     const category = sale.sale_category?.trim() ?? "";
-    if (category === SALES_SECTION_ONLINE) {
+    if ((SALES_SECTION_ONLINE_CATEGORIES as readonly string[]).includes(category)) {
       online.push(sale);
     } else if (category === SALES_SECTION_WHOLESALE) {
       wholesale.push(sale);
