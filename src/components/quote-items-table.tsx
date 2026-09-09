@@ -571,6 +571,7 @@ export default function QuoteItemsTable({
         onMoveItemDown={onMoveItemDown}
         onFulfillmentChange={onFulfillmentChange}
         onPurchaseSourceChange={onPurchaseSourceChange}
+        onProductNameChange={onProductNameChange}
         onQuantityChange={onQuantityChange}
         onSalePriceChange={onSalePriceChange}
         onPurchasePriceChange={onPurchasePriceChange}
