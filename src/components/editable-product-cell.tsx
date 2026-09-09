@@ -78,6 +78,7 @@ export default function EditableProductCell({
   const [inboundPrompt, setInboundPrompt] = useState<InboundPromptState | null>(
     null,
   );
+  const [isInboundSaving, setIsInboundSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const savingRef = useRef(false);
   const tabbingRef = useRef(false);
@@ -183,12 +184,17 @@ export default function EditableProductCell({
   }
 
   async function handleInboundChoice(recordAsInbound: boolean) {
-    if (!inboundPrompt) return;
+    if (!inboundPrompt || isInboundSaving) return;
 
-    setInboundPrompt(null);
-    const saved = await save({ recordAsInbound });
-    if (saved) {
-      finishEdit();
+    setIsInboundSaving(true);
+    try {
+      const saved = await save({ recordAsInbound });
+      setInboundPrompt(null);
+      if (saved) {
+        finishEdit();
+      }
+    } finally {
+      setIsInboundSaving(false);
     }
   }
 
@@ -284,6 +290,8 @@ export default function EditableProductCell({
             description={`${locationLabel} 재고가 ${inboundPrompt.delta}개 증가합니다. 입고 기록으로 남길까요?`}
             confirmLabel="입고로 기록"
             cancelLabel="수량만 변경"
+            isPending={isInboundSaving}
+            pendingLabel="저장 중..."
             onConfirm={() => void handleInboundChoice(true)}
             onCancel={() => void handleInboundChoice(false)}
           />

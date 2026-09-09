@@ -271,6 +271,8 @@ export default function SaleEditModal({
   }
 
   function handleDeleteConfirm() {
+    if (isDeleting) return;
+
     setDeleteError(null);
     startDeleteTransition(async () => {
       const result = await deleteSale(sale.id);
@@ -604,6 +606,7 @@ export default function SaleEditModal({
         {showDeleteConfirm ? (
           <DeleteConfirmDialog
             count={1}
+            isPending={isDeleting}
             onCancel={() => {
               if (!isDeleting) setShowDeleteConfirm(false);
             }}

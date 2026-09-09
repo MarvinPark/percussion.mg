@@ -211,7 +211,7 @@ export default function StockInList({
   }
 
   function handleDeleteConfirm() {
-    if (!deleteTargetIds?.length) return;
+    if (isDeleting || !deleteTargetIds?.length) return;
 
     startDelete(async () => {
       setError(null);
@@ -550,6 +550,7 @@ export default function StockInList({
       {deleteTargetIds ? (
         <DeleteConfirmDialog
           count={deleteTargetIds.length}
+          isPending={isDeleting}
           onCancel={() => {
             if (!isDeleting) setDeleteTargetIds(null);
           }}

@@ -935,7 +935,10 @@ export default function QuoteForm({
           title="예약 수량을 변경하시겠습니까?"
           description="견적 품목·수량이 바뀌면 예약 재고도 함께 조정됩니다. (재고 부족 시 마이너스 허용)"
           confirmLabel="변경 후 저장"
+          isPending={isPending}
+          pendingLabel="저장 중..."
           onConfirm={() => {
+            if (isPending) return;
             setReserveEditConfirmOpen(false);
             skipReserveConfirmRef.current = true;
             submitFormRef.current?.requestSubmit();
@@ -943,7 +946,9 @@ export default function QuoteForm({
               skipReserveConfirmRef.current = false;
             }, 0);
           }}
-          onCancel={() => setReserveEditConfirmOpen(false)}
+          onCancel={() => {
+            if (!isPending) setReserveEditConfirmOpen(false);
+          }}
         />
       ) : null}
 

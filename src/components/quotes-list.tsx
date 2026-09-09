@@ -343,7 +343,7 @@ export default function QuotesList({
   }
 
   function handleConfirmCancel() {
-    if (!cancellingQuote) return;
+    if (!cancellingQuote || isCancelling) return;
 
     startCancel(async () => {
       setActionError(null);
@@ -359,7 +359,7 @@ export default function QuotesList({
   }
 
   function handleConfirmDelete() {
-    if (!deletingQuote) return;
+    if (!deletingQuote || isDeleting) return;
 
     startDelete(async () => {
       setActionError(null);
@@ -386,7 +386,7 @@ export default function QuotesList({
   }
 
   function handleConfirmRelease() {
-    if (!releasingQuote) return;
+    if (!releasingQuote || isReserving) return;
 
     startReserve(async () => {
       setActionError(null);
@@ -803,7 +803,7 @@ export default function QuotesList({
         />
       ) : null}
 
-      {convertingQuote ? (
+      {convertingQuote && !stockApprovalItems ? (
         <QuoteConvertDialog
           title="매출기록하겠습니까?"
           description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
@@ -869,6 +869,8 @@ export default function QuotesList({
         <ConfirmDialog
           title="매출을 취소하시겠습니까?"
           description={`${cancellingQuote.customer_name} 견적의 매출 기록을 삭제하고 재고를 복구합니다.`}
+          isPending={isCancelling}
+          pendingLabel="취소 중..."
           onConfirm={handleConfirmCancel}
           onCancel={() => {
             if (!isCancelling) setCancellingQuote(null);
@@ -880,6 +882,8 @@ export default function QuotesList({
         <ConfirmDialog
           title="예약을 해제하시겠습니까?"
           description={`${releasingQuote.customer_name} 견적의 재고 예약을 해제합니다.`}
+          isPending={isReserving}
+          pendingLabel="해제 중..."
           onConfirm={handleConfirmRelease}
           onCancel={() => {
             if (!isReserving) setReleasingQuote(null);
@@ -890,6 +894,7 @@ export default function QuotesList({
       {deletingQuote ? (
         <DeleteConfirmDialog
           count={1}
+          isPending={isDeleting}
           onConfirm={handleConfirmDelete}
           onCancel={() => {
             if (!isDeleting) setDeletingQuote(null);

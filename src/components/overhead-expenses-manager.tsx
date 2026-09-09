@@ -569,9 +569,12 @@ export default function OverheadExpensesManager({
           description={`${deletingExpense.category.group_name} · ${deletingExpense.category.item_name} (${formatKRW(deletingExpense.amount)}원) 내역을 삭제할까요?`}
           confirmLabel="삭제"
           confirmClassName="rounded-lg bg-red-600 px-4 py-2 text-sm font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400"
+          isPending={isDeleting}
+          pendingLabel="삭제 중..."
           onConfirm={() => {
+            if (isDeleting || !deletingExpense) return;
+
             const expense = deletingExpense;
-            setDeletingExpense(null);
             setMessage(null);
             startDelete(async () => {
               const formData = new FormData();
@@ -582,10 +585,13 @@ export default function OverheadExpensesManager({
                 return;
               }
               if (editingId === expense.id) cancelEditing();
+              setDeletingExpense(null);
               router.refresh();
             });
           }}
-          onCancel={() => setDeletingExpense(null)}
+          onCancel={() => {
+            if (!isDeleting) setDeletingExpense(null);
+          }}
         />
       ) : null}
     </div>

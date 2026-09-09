@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
   applyKeyStockToProducts,
   deleteProductsByIds,
@@ -78,6 +78,7 @@ export default function ProductsWorkspace({
   const [toast, setToast] = useState<string | null>(null);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Product[] | null>(null);
+  const [isDeleting, startDelete] = useTransition();
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isApplyingKeyStock, setIsApplyingKeyStock] = useState(false);
   const pendingHighlightRef = useRef<string[]>([]);
@@ -161,12 +162,14 @@ export default function ProductsWorkspace({
   }, []);
 
   const handleConfirmDelete = useCallback(() => {
-    if (!pendingDelete?.length) return;
+    if (!pendingDelete?.length || isDeleting) return;
 
     const targets = pendingDelete;
-    setPendingDelete(null);
-    void handleDeleteProducts(targets);
-  }, [handleDeleteProducts, pendingDelete]);
+    startDelete(async () => {
+      await handleDeleteProducts(targets);
+      setPendingDelete(null);
+    });
+  }, [handleDeleteProducts, isDeleting, pendingDelete]);
 
   const handleDeleteSelected = useCallback(() => {
     const selected = products.filter((product) => selectedIds.has(product.id));
@@ -262,8 +265,11 @@ export default function ProductsWorkspace({
       {pendingDelete ? (
         <DeleteConfirmDialog
           count={pendingDelete.length}
+          isPending={isDeleting}
           onConfirm={handleConfirmDelete}
-          onCancel={() => setPendingDelete(null)}
+          onCancel={() => {
+            if (!isDeleting) setPendingDelete(null);
+          }}
         />
       ) : null}
 
@@ -310,10 +316,10 @@ export default function ProductsWorkspace({
               <button
                 type="button"
                 onClick={handleDeleteSelected}
-                disabled={selectedIds.size === 0}
+                disabled={selectedIds.size === 0 || isDeleting}
                 className={toolbarButtonClass}
               >
-                삭제
+                {isDeleting ? "삭제 중..." : "삭제"}
               </button>
               <button
                 type="button"

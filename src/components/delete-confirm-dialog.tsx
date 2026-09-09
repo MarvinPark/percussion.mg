@@ -4,12 +4,16 @@ import { useEffect, useRef } from "react";
 
 type DeleteConfirmDialogProps = {
   count: number;
+  isPending?: boolean;
+  pendingLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
 
 export default function DeleteConfirmDialog({
   count,
+  isPending = false,
+  pendingLabel = "삭제 중...",
   onConfirm,
   onCancel,
 }: DeleteConfirmDialogProps) {
@@ -17,9 +21,19 @@ export default function DeleteConfirmDialog({
 
   useEffect(() => {
     yesButtonRef.current?.focus();
+  }, []);
 
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (isPending) return;
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+
       if (event.key === "Enter") {
+        if (isPending) return;
         event.preventDefault();
         onConfirm();
       }
@@ -27,15 +41,21 @@ export default function DeleteConfirmDialog({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onConfirm, onCancel]);
+  }, [isPending, onConfirm, onCancel]);
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
+      onClick={() => {
+        if (!isPending) onCancel();
+      }}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-confirm-title"
         className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        onClick={(event) => event.stopPropagation()}
       >
         <h3
           id="delete-confirm-title"
@@ -53,7 +73,8 @@ export default function DeleteConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-normal text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            disabled={isPending}
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-normal text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             아니오
           </button>
@@ -61,9 +82,10 @@ export default function DeleteConfirmDialog({
             ref={yesButtonRef}
             type="button"
             onClick={onConfirm}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-normal text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400"
+            disabled={isPending}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-normal text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-400"
           >
-            네
+            {isPending ? pendingLabel : "네"}
           </button>
         </div>
       </div>

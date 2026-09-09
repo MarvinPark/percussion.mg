@@ -946,9 +946,9 @@ export default function SalesTable({
   }
 
   function handleBulkDeleteConfirm() {
-    const ids = [...selectedIds];
-    if (ids.length === 0) return;
+    if (isBulkDeleting || selectedIds.size === 0) return;
 
+    const ids = [...selectedIds];
     setError(null);
     startBulkDeleteTransition(async () => {
       const result = await deleteSales(ids);
@@ -972,7 +972,7 @@ export default function SalesTable({
   }
 
   function handleDeleteConfirm() {
-    if (!deletingSale) return;
+    if (!deletingSale || isDeleting) return;
 
     setError(null);
     startDeleteTransition(async () => {
@@ -1244,6 +1244,7 @@ export default function SalesTable({
       {deletingSale ? (
         <DeleteConfirmDialog
           count={1}
+          isPending={isDeleting}
           onCancel={() => {
             if (!isDeleting) setDeletingSale(null);
           }}
@@ -1254,6 +1255,7 @@ export default function SalesTable({
       {bulkDeleteOpen ? (
         <DeleteConfirmDialog
           count={selectedIds.size}
+          isPending={isBulkDeleting}
           onCancel={() => {
             if (!isBulkDeleting) setBulkDeleteOpen(false);
           }}

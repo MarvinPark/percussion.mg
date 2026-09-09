@@ -8,19 +8,23 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   confirmClassName?: string;
+  isPending?: boolean;
+  pendingLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
 
 const cancelButtonClass =
-  "rounded-lg border border-zinc-300 px-4 py-2 text-sm font-normal text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:focus-visible:ring-offset-zinc-900";
+  "rounded-lg border border-zinc-300 px-4 py-2 text-sm font-normal text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:focus-visible:ring-offset-zinc-900";
 
 export default function ConfirmDialog({
   title,
   description,
   confirmLabel = "네",
   cancelLabel = "아니오",
-  confirmClassName = "rounded-lg bg-blue-600 px-4 py-2 text-sm font-normal text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:bg-blue-500 dark:hover:bg-blue-400 dark:focus-visible:ring-offset-zinc-900",
+  confirmClassName = "rounded-lg bg-blue-600 px-4 py-2 text-sm font-normal text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400 dark:focus-visible:ring-offset-zinc-900",
+  isPending = false,
+  pendingLabel = "처리 중...",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -29,15 +33,19 @@ export default function ConfirmDialog({
 
   useEffect(() => {
     yesButtonRef.current?.focus();
+  }, []);
 
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (isPending) return;
         event.preventDefault();
         onCancel();
         return;
       }
 
       if (event.key === "Enter") {
+        if (isPending) return;
         event.preventDefault();
         onConfirm();
         return;
@@ -63,12 +71,14 @@ export default function ConfirmDialog({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onConfirm, onCancel]);
+  }, [isPending, onConfirm, onCancel]);
 
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
-      onClick={onCancel}
+      onClick={() => {
+        if (!isPending) onCancel();
+      }}
     >
       <div
         role="dialog"
@@ -93,6 +103,7 @@ export default function ConfirmDialog({
             ref={cancelButtonRef}
             type="button"
             onClick={onCancel}
+            disabled={isPending}
             className={cancelButtonClass}
           >
             {cancelLabel}
@@ -101,9 +112,10 @@ export default function ConfirmDialog({
             ref={yesButtonRef}
             type="button"
             onClick={onConfirm}
+            disabled={isPending}
             className={confirmClassName}
           >
-            {confirmLabel}
+            {isPending ? pendingLabel : confirmLabel}
           </button>
         </div>
       </div>
