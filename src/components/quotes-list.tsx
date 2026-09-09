@@ -278,6 +278,7 @@ export default function QuotesList({
       const result = await convertQuoteToSale(convertingQuote.id, {
         sellerUserId: payload.seller.userId,
         sellerName: payload.seller.name,
+        soldAt: payload.soldAt,
         cardFeePercent: payload.cardFeePercent,
         actualFeeRate: payload.actualFeeRate,
         roundingUnit: payload.roundingUnit,
@@ -826,6 +827,7 @@ export default function QuotesList({
               (method) => method.id === convertingQuote.payment_method_id,
             )?.fee_rate ?? 0
           }
+          defaultSoldAt={convertingQuote.quote_date}
           staffOptions={staffOptions}
           defaultSellerName={
             isOthersQuote(convertingQuote)

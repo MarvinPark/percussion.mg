@@ -635,6 +635,7 @@ export async function convertQuoteToSale(
     roundingUnit?: AmountRoundingUnit;
     roundingMode?: AmountRoundingMode;
     purchaseQuantities?: Record<string, number>;
+    soldAt?: string;
   },
 ) {
   if (!quoteId) return { error: "견적 ID가 없습니다." };
@@ -705,7 +706,11 @@ export async function convertQuoteToSale(
 
   const nonStockCategories = await fetchNonStockCategoryNames(supabase);
 
-  const soldAt = new Date().toISOString().slice(0, 10);
+  const soldAtInput = options?.soldAt?.trim();
+  if (soldAtInput !== undefined && !soldAtInput) {
+    return { error: "판매 날짜를 입력해 주세요." };
+  }
+  const soldAt = soldAtInput || new Date().toISOString().slice(0, 10);
   const stockNote = `견적 매출전환${quote.customer_name ? ` — ${quote.customer_name}` : ""}`;
   const quoteItems = quote.quote_items ?? [];
   const cardFeePercent = options?.cardFeePercent ?? 0;

@@ -29,6 +29,7 @@ type StaffOption = {
 
 export type QuoteConvertConfirmPayload = {
   seller: { userId: string; name: string };
+  soldAt: string;
   cardFeePercent: CardFeePercent;
   actualFeeRate: number;
   roundingUnit: AmountRoundingUnit;
@@ -44,6 +45,7 @@ type QuoteConvertDialogProps = {
   nonStockCategories: string[];
   defaultCardFeePercent?: CardFeePercent;
   defaultActualFeeRate?: number;
+  defaultSoldAt?: string;
   staffOptions: StaffOption[];
   defaultSellerName: string;
   showSellerPicker: boolean;
@@ -80,6 +82,14 @@ function formatFeeRate(value: number) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function todayString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function QuoteConvertDialog({
   title,
   description,
@@ -88,6 +98,7 @@ export default function QuoteConvertDialog({
   nonStockCategories,
   defaultCardFeePercent,
   defaultActualFeeRate = 0,
+  defaultSoldAt,
   staffOptions,
   defaultSellerName,
   showSellerPicker,
@@ -97,6 +108,7 @@ export default function QuoteConvertDialog({
 }: QuoteConvertDialogProps) {
   const yesButtonRef = useRef<HTMLButtonElement>(null);
   const sellerNames = staffOptions.map((staff) => staff.full_name);
+  const [soldAt, setSoldAt] = useState(() => defaultSoldAt?.slice(0, 10) || todayString());
   const [selectedSellerName, setSelectedSellerName] = useState(defaultSellerName);
   const [purchaseQuantities, setPurchaseQuantities] = useState<
     Record<string, string>
@@ -169,6 +181,7 @@ export default function QuoteConvertDialog({
       null;
 
     if (showSellerPicker && !selectedStaff) return;
+    if (!soldAt.trim()) return;
 
     onConfirm({
       seller: {
@@ -177,6 +190,7 @@ export default function QuoteConvertDialog({
           selectedStaff?.full_name ??
           (selectedSellerName.trim() || defaultSellerName),
       },
+      soldAt: soldAt.trim(),
       cardFeePercent,
       actualFeeRate: clampActualFeeRate(actualFeeRate),
       roundingUnit,
@@ -217,6 +231,21 @@ export default function QuoteConvertDialog({
             {description}
           </p>
         ) : null}
+
+        <div className="mt-4">
+          <label htmlFor="quote_convert_sold_at" className={labelClass}>
+            매출 날짜 <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="quote_convert_sold_at"
+            type="date"
+            value={soldAt}
+            onChange={(event) => setSoldAt(event.target.value)}
+            disabled={isPending}
+            required
+            className={controlSelectClass}
+          />
+        </div>
 
         <div className="mt-4">
           <QuoteCardPricingControls
@@ -400,7 +429,7 @@ export default function QuoteConvertDialog({
             ref={yesButtonRef}
             type="button"
             onClick={handleConfirm}
-            disabled={isPending || (showSellerPicker && !selectedSellerName)}
+            disabled={isPending || !soldAt.trim() || (showSellerPicker && !selectedSellerName)}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-normal text-white hover:bg-blue-700 disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
           >
             {isPending ? "처리 중..." : "네"}
