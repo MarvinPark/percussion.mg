@@ -427,6 +427,14 @@ export default function QuoteForm({
     );
   }
 
+  function updateItemProductName(index: number, productName: string) {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === index ? { ...item, product_name: productName } : item,
+      ),
+    );
+  }
+
   function updateItemPurchasePrice(index: number, purchasePrice: number) {
     setItems((prev) =>
       prev.map((item, i) =>
@@ -739,6 +747,7 @@ export default function QuoteForm({
         onMoveItemDown={moveItemDown}
         onFulfillmentChange={updateItemFulfillmentLocation}
         onPurchaseSourceChange={updateItemPurchaseSource}
+        onProductNameChange={updateItemProductName}
         onQuantityChange={updateItemQuantity}
         onSalePriceChange={updateItemSalePrice}
         onPurchasePriceChange={updateItemPurchasePrice}

@@ -48,6 +48,7 @@ const A4_PAGE_STYLE = {
 } as const;
 const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
+const TABLE_COL_WIDTH_CATEGORY = "6em";
 const TABLE_COL_WIDTH_4_KOR = "4em";
 const TABLE_COL_WIDTH_16_KOR = "16em";
 const TABLE_COL_WIDTH_6_KOR = "6em";
@@ -96,7 +97,7 @@ function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
 function DocumentTableColGroup({ mode }: { mode: PreviewMode }) {
   return (
     <colgroup>
-      <col style={{ width: TABLE_COL_WIDTH_4_KOR }} />
+      <col style={{ width: TABLE_COL_WIDTH_CATEGORY }} />
       <col style={{ width: TABLE_COL_WIDTH_4_KOR }} />
       <col style={{ width: TABLE_COL_WIDTH_16_KOR }} />
       <col style={{ width: TABLE_COL_WIDTH_6_KOR }} />
@@ -138,6 +139,7 @@ function DocumentTable({
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
   const bodyCellClass = "border-y border-zinc-400 px-1 py-1";
   const narrowTextCellClass = `${bodyCellClass} overflow-hidden text-ellipsis whitespace-nowrap`;
+  const categoryCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug align-top`;
   const descriptionCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug`;
   const priceCellClass = `${bodyCellClass} tabular-nums text-right whitespace-nowrap`;
 
@@ -177,7 +179,7 @@ function DocumentTable({
 
           return (
           <tr key={lineKey(item, globalIndex)}>
-            <td className={narrowTextCellClass}>{item.category}</td>
+            <td className={categoryCellClass}>{item.category}</td>
             <td className={narrowTextCellClass}>{item.brand}</td>
             <td className={descriptionCellClass}>
               <ProductDescriptionCell item={item} />

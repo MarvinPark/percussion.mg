@@ -36,6 +36,7 @@ type QuoteItemsTableProps = {
   onMoveItemDown: (index: number) => void;
   onFulfillmentChange: (index: number, location: FulfillmentLocation) => void;
   onPurchaseSourceChange: (index: number, value: string) => void;
+  onProductNameChange: (index: number, value: string) => void;
   onQuantityChange: (index: number, quantity: number) => void;
   onSalePriceChange: (index: number, saleUnitPrice: number) => void;
   onPurchasePriceChange: (index: number, purchasePrice: number) => void;
@@ -61,6 +62,7 @@ function QuoteItemsMobileList({
   onMoveItemDown,
   onFulfillmentChange,
   onPurchaseSourceChange,
+  onProductNameChange,
   onQuantityChange,
   onSalePriceChange,
   onPurchasePriceChange,
@@ -107,9 +109,6 @@ function QuoteItemsMobileList({
               <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 {item.model_name}
               </p>
-              <p className="mt-0.5 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">
-                {item.product_name}
-              </p>
             </div>
 
             <button
@@ -122,6 +121,18 @@ function QuoteItemsMobileList({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className={mobileFieldLabelClass}>제품 설명</label>
+              <textarea
+                value={item.product_name}
+                onChange={(event) =>
+                  onProductNameChange(index, event.target.value)
+                }
+                rows={2}
+                className={`${mobileInputClass} w-full resize-y whitespace-pre-wrap`}
+              />
+            </div>
+
             <div className="col-span-2">
               <label className={mobileFieldLabelClass}>출고지</label>
               <select
@@ -266,6 +277,7 @@ export default function QuoteItemsTable({
   onMoveItemDown,
   onFulfillmentChange,
   onPurchaseSourceChange,
+  onProductNameChange,
   onQuantityChange,
   onSalePriceChange,
   onPurchasePriceChange,
@@ -403,7 +415,16 @@ export default function QuoteItemsTable({
         );
       case "product_name":
         return (
-          <td className="max-w-0 truncate px-2 py-2">{item.product_name}</td>
+          <td className="px-2 py-2 align-top">
+            <textarea
+              value={item.product_name}
+              onChange={(event) =>
+                onProductNameChange(index, event.target.value)
+              }
+              rows={2}
+              className={`${mobileInputClass} w-full min-w-[8rem] resize-y whitespace-pre-wrap`}
+            />
+          </td>
         );
       case "quantity":
         return (
