@@ -138,10 +138,9 @@ function DocumentTable({
   const headCellClass = "border-y border-zinc-400 px-1 py-1";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
   const bodyCellClass = "border-y border-zinc-400 px-1 py-1";
-  const narrowTextCellClass = `${bodyCellClass} overflow-hidden text-ellipsis whitespace-nowrap`;
-  const categoryCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug align-top`;
-  const descriptionCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug`;
-  const priceCellClass = `${bodyCellClass} tabular-nums text-right whitespace-nowrap`;
+  const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug align-top`;
+  const descriptionCellClass = wrapTextCellClass;
+  const priceCellClass = `${bodyCellClass} tabular-nums text-right whitespace-nowrap align-top`;
 
   function lineKey(item: QuoteItemInput, index: number) {
     return `${item.product_id}-${item.model_name}-${index}`;
@@ -179,15 +178,15 @@ function DocumentTable({
 
           return (
           <tr key={lineKey(item, globalIndex)}>
-            <td className={categoryCellClass}>{item.category}</td>
-            <td className={narrowTextCellClass}>{item.brand}</td>
+            <td className={wrapTextCellClass}>{item.category}</td>
+            <td className={wrapTextCellClass}>{item.brand}</td>
             <td className={descriptionCellClass}>
               <ProductDescriptionCell item={item} />
             </td>
-            <td className={`${narrowTextCellClass} font-medium`}>
+            <td className={`${wrapTextCellClass} font-medium`}>
               {item.model_name}
             </td>
-            <td className={`${bodyCellClass} text-center tabular-nums`}>
+            <td className={`${bodyCellClass} align-top text-center tabular-nums`}>
               {item.quantity}
             </td>
             {mode === "quote" ? (
@@ -206,12 +205,12 @@ function DocumentTable({
         })}
         {showTotal && (discountAmount ?? 0) > 0 ? (
           <tr>
-            <td className={narrowTextCellClass} />
-            <td className={narrowTextCellClass} />
+            <td className={bodyCellClass} />
+            <td className={bodyCellClass} />
             <td className={`${descriptionCellClass} text-red-600`}>
               할인
             </td>
-            <td className={narrowTextCellClass} />
+            <td className={bodyCellClass} />
             <td className={`${bodyCellClass} text-center tabular-nums`} />
             {mode === "quote" ? <td className={priceCellClass} /> : null}
             <td className={priceCellClass} />
