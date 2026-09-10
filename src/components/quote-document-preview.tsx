@@ -80,7 +80,7 @@ function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
   const variantLines = getQuoteItemVariantLines(item);
 
   return (
-    <div>
+    <div className="text-center">
       <div>{item.product_name}</div>
       {variantLines.map((line) => (
         <div
@@ -135,12 +135,14 @@ function DocumentTable({
   itemStartIndex?: number;
 }) {
   const columnCount = mode === "quote" ? 8 : 7;
-  const headCellClass = "border-y border-zinc-400 px-1 py-1";
+  const headCellClass =
+    "border-y border-zinc-400 px-1 py-1 text-center align-middle";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
-  const bodyCellClass = "border-y border-zinc-400 px-1 py-1";
-  const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug align-top`;
+  const bodyCellClass =
+    "border-y border-zinc-400 px-1 py-1 text-center align-middle";
+  const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug`;
   const descriptionCellClass = wrapTextCellClass;
-  const priceCellClass = `${bodyCellClass} tabular-nums text-right whitespace-nowrap align-top`;
+  const priceCellClass = `${bodyCellClass} tabular-nums whitespace-nowrap`;
 
   function lineKey(item: QuoteItemInput, index: number) {
     return `${item.product_id}-${item.model_name}-${index}`;
@@ -186,7 +188,7 @@ function DocumentTable({
             <td className={`${wrapTextCellClass} font-medium`}>
               {item.model_name}
             </td>
-            <td className={`${bodyCellClass} align-top text-center tabular-nums`}>
+            <td className={`${bodyCellClass} tabular-nums`}>
               {item.quantity}
             </td>
             {mode === "quote" ? (
@@ -211,7 +213,7 @@ function DocumentTable({
               할인
             </td>
             <td className={bodyCellClass} />
-            <td className={`${bodyCellClass} text-center tabular-nums`} />
+            <td className={`${bodyCellClass} tabular-nums`} />
             {mode === "quote" ? <td className={priceCellClass} /> : null}
             <td className={priceCellClass} />
             <td className={`${priceCellClass} text-red-600`}>
@@ -235,7 +237,7 @@ function DocumentTable({
                   </td>
                   <td
                     colSpan={2}
-                    className={`total-amount ${priceCellClass} overflow-hidden py-2 text-right text-base font-bold text-red-600`}
+                    className={`total-amount ${priceCellClass} overflow-hidden py-2 text-base font-bold text-red-600`}
                   >
                     {formatKRW(totalAmount)}원
                   </td>
@@ -243,7 +245,7 @@ function DocumentTable({
               ) : (
                 <td
                   colSpan={2}
-                  className={`total-amount ${bodyCellClass} whitespace-nowrap py-2 text-right text-base font-bold text-red-600`}
+                  className={`total-amount ${bodyCellClass} whitespace-nowrap py-2 text-base font-bold text-red-600`}
                 >
                   {formatKRW(totalAmount)}원
                 </td>
@@ -253,7 +255,7 @@ function DocumentTable({
               <tr>
                 <td
                   colSpan={columnCount}
-                  className={`card-fee-row ${bodyCellClass} py-1.5 text-right text-[12px] font-medium text-black`}
+                  className={`card-fee-row ${bodyCellClass} py-1.5 text-[12px] font-medium text-black`}
                 >
                   카드결제+{cardFeePercent}%: {formatKRW(cardPaymentTotal)}원
                 </td>
