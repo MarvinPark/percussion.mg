@@ -49,8 +49,8 @@ const A4_PAGE_STYLE = {
 const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
 const TABLE_COL_WIDTH_CATEGORY = "6em";
-const TABLE_COL_WIDTH_4_KOR = "4em";
-const TABLE_COL_WIDTH_16_KOR = "16em";
+const TABLE_COL_WIDTH_BRAND = "6em";
+const TABLE_COL_WIDTH_PRODUCT_DESC = "14em";
 const TABLE_COL_WIDTH_6_KOR = "6em";
 const TABLE_COL_WIDTH_3_DIGITS = "3ch";
 const TABLE_COL_WIDTH_PRICE = "10ch";
@@ -98,8 +98,8 @@ function DocumentTableColGroup({ mode }: { mode: PreviewMode }) {
   return (
     <colgroup>
       <col style={{ width: TABLE_COL_WIDTH_CATEGORY }} />
-      <col style={{ width: TABLE_COL_WIDTH_4_KOR }} />
-      <col style={{ width: TABLE_COL_WIDTH_16_KOR }} />
+      <col style={{ width: TABLE_COL_WIDTH_BRAND }} />
+      <col style={{ width: TABLE_COL_WIDTH_PRODUCT_DESC }} />
       <col style={{ width: TABLE_COL_WIDTH_6_KOR }} />
       <col style={{ width: TABLE_COL_WIDTH_3_DIGITS }} />
       {mode === "quote" ? (
