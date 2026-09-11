@@ -206,15 +206,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
         {showProductListView ? (
           <ProductsPageClient
-            key={[
-              searchQuery,
-              categoryFilter,
-              brandFilter,
-              currentPage,
-              pageSize,
-              sort.column ?? "",
-              sort.direction,
-            ].join("|")}
             userId={user.id}
             products={products}
             reservationsByProductId={reservationsByProductId}

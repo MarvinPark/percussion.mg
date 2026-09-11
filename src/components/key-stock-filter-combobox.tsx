@@ -72,8 +72,7 @@ export default function KeyStockFilterCombobox({
     setOpen(false);
     const trimmed = query.trim();
     if (!trimmed || (emptyLabel && trimmed === emptyLabel)) {
-      if (value) commitValue("");
-      else setQuery("");
+      setQuery(value);
       return;
     }
 

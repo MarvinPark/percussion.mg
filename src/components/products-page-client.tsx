@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
@@ -45,7 +46,7 @@ function clampPageWindowStart(start: number, totalPages: number) {
   return Math.max(1, Math.min(start, maxStart));
 }
 
-function syncProductsUrl(
+function buildProductsUrl(
   page: number,
   searchQuery: string,
   pageSize: ProductPageSize,
@@ -63,8 +64,7 @@ function syncProductsUrl(
   if (sortParams.sort) params.set("sort", sortParams.sort);
   if (sortParams.order) params.set("order", sortParams.order);
   const query = params.toString();
-  const nextUrl = query ? `/products?${query}` : "/products";
-  window.history.replaceState(null, "", nextUrl);
+  return query ? `/products?${query}` : "/products";
 }
 
 function readProductListParamsFromLocation() {
@@ -119,8 +119,10 @@ export default function ProductsPageClient({
   readOnly = false,
   initialLoadError = null,
 }: ProductsPageClientProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const loadRequestRef = useRef(0);
+  const didHydrateFromUrlRef = useRef(false);
   const [products, setProducts] = useState(initialProducts);
   const [reservationsByProductId, setReservationsByProductId] = useState(
     initialReservationsByProductId,
@@ -153,6 +155,30 @@ export default function ProductsPageClient({
   const draftBrandOptions = useMemo(
     () => buildProductListBrandOptions(filterOptionRows, draftCategoryFilter),
     [draftCategoryFilter, filterOptionRows],
+  );
+
+  const syncProductsUrl = useCallback(
+    (
+      page: number,
+      nextSearchQuery: string,
+      nextPageSize: ProductPageSize,
+      nextSort: ProductListSort,
+      nextCategoryFilter: string,
+      nextBrandFilter: string,
+    ) => {
+      router.replace(
+        buildProductsUrl(
+          page,
+          nextSearchQuery,
+          nextPageSize,
+          nextSort,
+          nextCategoryFilter,
+          nextBrandFilter,
+        ),
+        { scroll: false },
+      );
+    },
+    [router],
   );
 
   useEffect(() => {
@@ -287,8 +313,45 @@ export default function ProductsPageClient({
           }
         });
     },
-    [categoryFilter, brandFilter, pageSize, sort, userId],
+    [categoryFilter, brandFilter, pageSize, sort, syncProductsUrl, userId],
   );
+
+  useEffect(() => {
+    if (didHydrateFromUrlRef.current) return;
+    didHydrateFromUrlRef.current = true;
+
+    const urlParams = readProductListParamsFromLocation();
+    const urlPage = Math.max(
+      1,
+      Number(new URLSearchParams(window.location.search).get("page")) ||
+        initialCurrentPage,
+    );
+    const urlMismatch =
+      urlParams.searchQuery !== initialSearchQuery ||
+      urlParams.categoryFilter !== initialCategoryFilter ||
+      urlParams.brandFilter !== initialBrandFilter ||
+      urlPage !== initialCurrentPage;
+
+    if (!urlMismatch) return;
+
+    loadView(
+      urlPage,
+      urlParams.searchQuery,
+      initialPageSize,
+      initialSort,
+      urlParams.categoryFilter,
+      urlParams.brandFilter,
+      true,
+    );
+  }, [
+    initialBrandFilter,
+    initialCategoryFilter,
+    initialCurrentPage,
+    initialPageSize,
+    initialSearchQuery,
+    initialSort,
+    loadView,
+  ]);
 
   useEffect(() => {
     saveProductPageSize(userId, pageSize);
@@ -317,21 +380,15 @@ export default function ProductsPageClient({
     initialPageSize,
     initialSearchQuery,
     initialSort,
+    syncProductsUrl,
     userId,
   ]);
 
   const applyScopeFilters = useCallback(
     (nextCategoryFilter: string, nextBrandFilter: string) => {
-      const trimmed = draftQuery.trim();
-      if (trimmed.length > 0 && trimmed.length < PRODUCT_SEARCH_MIN_LENGTH) {
-        setDraftCategoryFilter(nextCategoryFilter);
-        setDraftBrandFilter(nextBrandFilter);
-        return;
-      }
-
       loadView(
         1,
-        trimmed,
+        searchQuery,
         pageSize,
         sort,
         nextCategoryFilter,
@@ -339,24 +396,40 @@ export default function ProductsPageClient({
         true,
       );
     },
-    [draftQuery, loadView, pageSize, sort],
+    [loadView, pageSize, searchQuery, sort],
   );
 
   const handleCategoryFilterChange = useCallback(
     (value: string) => {
+      const currentBrand = draftBrandFilter || brandFilter;
+      const nextBrandOptions = buildProductListBrandOptions(
+        filterOptionRows,
+        value,
+      );
+      const keptBrand =
+        currentBrand && nextBrandOptions.includes(currentBrand)
+          ? currentBrand
+          : "";
+
       setDraftCategoryFilter(value);
-      setDraftBrandFilter("");
-      applyScopeFilters(value, "");
+      setDraftBrandFilter(keptBrand);
+      applyScopeFilters(value, keptBrand);
     },
-    [applyScopeFilters],
+    [
+      applyScopeFilters,
+      brandFilter,
+      draftBrandFilter,
+      filterOptionRows,
+    ],
   );
 
   const handleBrandFilterChange = useCallback(
     (value: string) => {
+      const nextCategory = draftCategoryFilter || categoryFilter;
       setDraftBrandFilter(value);
-      applyScopeFilters(draftCategoryFilter, value);
+      applyScopeFilters(nextCategory, value);
     },
-    [applyScopeFilters, draftCategoryFilter],
+    [applyScopeFilters, categoryFilter, draftCategoryFilter],
   );
 
   const applySearch = useCallback(() => {
