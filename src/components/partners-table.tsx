@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { updatePartnerMemo } from "@/app/(main)/partners/actions";
+import { updatePartnerInlineField } from "@/app/(main)/partners/actions";
 import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import TablePageSizeSelect from "@/components/table-page-size-select";
 import { usePartnersColumnWidths } from "@/hooks/use-partners-column-widths";
 import { useTableColumnOrder } from "@/hooks/use-table-column-order";
-import { formatRegNum } from "@/lib/business-partners";
-import { formatPhoneForDisplay } from "@/lib/phone-format";
+import {
+  applyPartnerInlineFieldUpdate,
+  getPartnerInlineDisplayValue,
+  getPartnerInlineEditValue,
+  type PartnerInlineField,
+} from "@/lib/partner-inline-field";
 import {
   loadPartnersEmphasizedIds,
   savePartnersEmphasizedIds,
@@ -23,6 +27,7 @@ import {
   type PartnersTableColumnId,
 } from "@/lib/partners-table-columns";
 import {
+  DEFAULT_PARTNERS_TABLE_ROW_FONT_SIZE,
   getPartnersTableHeaderPaddingClass,
   getPartnersTableRowPaddingClass,
 } from "@/lib/table-row-preferences";
@@ -36,38 +41,44 @@ const emphasizedRowClass =
 
 const tableClassName = "w-full table-fixed text-sm";
 
-const inlineMemoInputClass =
+const inlineInputClass =
   "w-full min-w-0 border-0 bg-transparent px-0 py-0 text-inherit shadow-none outline-none ring-0 focus:border-0 focus:ring-0 dark:bg-transparent";
 
-const editableMemoCellClass =
+const editableCellClass =
   "max-w-0 cursor-text whitespace-nowrap px-3 leading-normal";
 
-function PartnerInlineMemoCell({
-  partnerId,
-  value,
+function PartnerInlineTextCell({
+  partner,
+  field,
   disabled,
   rowFontSize,
   onSaved,
   onSaveError,
 }: {
-  partnerId: string;
-  value: string | null;
+  partner: BusinessPartner;
+  field: PartnerInlineField;
   disabled?: boolean;
   rowFontSize: number;
-  onSaved: (partnerId: string, memo: string | null) => void;
+  onSaved: (
+    partnerId: string,
+    field: PartnerInlineField,
+    value: string | null,
+  ) => void;
   onSaveError: (message: string) => void;
 }) {
+  const displayValue = getPartnerInlineDisplayValue(partner, field);
+  const editValue = getPartnerInlineEditValue(partner, field);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value ?? "");
+  const [draft, setDraft] = useState(editValue);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!editing) {
-      setDraft(value ?? "");
+      setDraft(editValue);
     }
-  }, [editing, value]);
+  }, [editValue, editing]);
 
   useEffect(() => {
     if (!editing) return;
@@ -77,7 +88,7 @@ function PartnerInlineMemoCell({
 
   async function save() {
     const normalized = draft.trim() || null;
-    const original = value?.trim() || null;
+    const original = editValue.trim() || null;
 
     if (normalized === original) {
       setEditing(false);
@@ -86,18 +97,31 @@ function PartnerInlineMemoCell({
 
     setSaving(true);
     setSaveError(null);
-    const result = await updatePartnerMemo(partnerId, normalized);
+    const result = await updatePartnerInlineField(
+      partner.id,
+      field,
+      draft,
+    );
     setSaving(false);
 
-    if (result.error) {
+    if ("error" in result && result.error) {
       setSaveError(result.error);
       onSaveError(result.error);
-      setDraft(value ?? "");
+      setDraft(editValue);
       setEditing(false);
       return;
     }
 
-    onSaved(partnerId, result.memo ?? normalized);
+    if (!("success" in result) || !result.success) {
+      const message = "거래처 저장에 실패했습니다.";
+      setSaveError(message);
+      onSaveError(message);
+      setDraft(editValue);
+      setEditing(false);
+      return;
+    }
+
+    onSaved(partner.id, field, result.value);
     setEditing(false);
   }
 
@@ -116,16 +140,16 @@ function PartnerInlineMemoCell({
             event.currentTarget.blur();
           }
           if (event.key === "Escape") {
-            setDraft(value ?? "");
+            setDraft(editValue);
             setEditing(false);
           }
         }}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
         onDoubleClick={(event) => event.stopPropagation()}
-        className={inlineMemoInputClass}
+        className={inlineInputClass}
         style={{ fontSize: `${rowFontSize}px` }}
-        aria-label="메모"
+        aria-label={field}
       />
     );
   }
@@ -133,7 +157,7 @@ function PartnerInlineMemoCell({
   return (
     <span
       className={`block truncate ${disabled ? "" : "cursor-text"}`}
-      title={value ?? undefined}
+      title={displayValue || undefined}
       onDoubleClick={(event) => {
         event.stopPropagation();
         if (!disabled) {
@@ -147,7 +171,7 @@ function PartnerInlineMemoCell({
           {saveError}
         </span>
       ) : (
-        value || "-"
+        displayValue || "-"
       )}
     </span>
   );
@@ -199,7 +223,7 @@ export default function PartnersTable({
   partners,
   totalCount,
   canManage,
-  rowFontSize = 12,
+  rowFontSize = DEFAULT_PARTNERS_TABLE_ROW_FONT_SIZE,
   emptyMessage,
   pageSize,
   onPageSizeChange,
@@ -209,10 +233,10 @@ export default function PartnersTable({
     () => new Set(),
   );
   const [emphasisLoaded, setEmphasisLoaded] = useState(false);
-  const [memoOverrides, setMemoOverrides] = useState<
-    Record<string, string | null>
+  const [partnerOverrides, setPartnerOverrides] = useState<
+    Record<string, BusinessPartner>
   >({});
-  const [memoSaveError, setMemoSaveError] = useState<string | null>(null);
+  const [inlineSaveError, setInlineSaveError] = useState<string | null>(null);
 
   const partnerIdsKey = useMemo(
     () => partners.map((partner) => partner.id).join("|"),
@@ -220,7 +244,7 @@ export default function PartnersTable({
   );
 
   useEffect(() => {
-    setMemoOverrides({});
+    setPartnerOverrides({});
   }, [partnerIdsKey]);
 
   useEffect(() => {
@@ -259,12 +283,8 @@ export default function PartnersTable({
 
   const displayPartners = useMemo(
     () =>
-      partners.map((partner) => ({
-        ...partner,
-        memo:
-          partner.id in memoOverrides ? memoOverrides[partner.id] : partner.memo,
-      })),
-    [memoOverrides, partners],
+      partners.map((partner) => partnerOverrides[partner.id] ?? partner),
+    [partnerOverrides, partners],
   );
 
   const cellPaddingClass = getPartnersTableRowPaddingClass(rowFontSize);
@@ -309,85 +329,103 @@ export default function PartnersTable({
     });
   }
 
+  function handleInlineSaved(
+    partnerId: string,
+    field: PartnerInlineField,
+    value: string | null,
+  ) {
+    setInlineSaveError(null);
+    setPartnerOverrides((current) => {
+      const base = current[partnerId] ?? partners.find((p) => p.id === partnerId);
+      if (!base) return current;
+      return {
+        ...current,
+        [partnerId]: applyPartnerInlineFieldUpdate(base, field, value),
+      };
+    });
+    router.refresh();
+  }
+
+  function renderEditableCell(
+    partner: BusinessPartner,
+    field: PartnerInlineField,
+    className: string,
+  ) {
+    return (
+      <td
+        className={`${canManage ? editableCellClass : cellClass} ${cellPaddingClass} ${className}`}
+        onDoubleClick={(event) => event.stopPropagation()}
+      >
+        <PartnerInlineTextCell
+          partner={partner}
+          field={field}
+          disabled={!canManage}
+          rowFontSize={rowFontSize}
+          onSaved={handleInlineSaved}
+          onSaveError={setInlineSaveError}
+        />
+      </td>
+    );
+  }
+
   function renderPartnerCell(
     columnId: PartnersTableColumnId,
     partner: BusinessPartner,
   ) {
     switch (columnId) {
       case "display_name":
-        return (
-          <td
-            className={`${cellClass} font-medium text-zinc-900 dark:text-zinc-100`}
-          >
-            {partner.corp_name || partner.display_name}
-          </td>
+        return renderEditableCell(
+          partner,
+          "display_name",
+          "font-medium text-zinc-900 dark:text-zinc-100",
         );
       case "corp_num":
-        return (
-          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
-            {formatRegNum(partner.corp_num, partner.partner_type)}
-          </td>
+        return renderEditableCell(
+          partner,
+          "corp_num",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "ceo_name":
-        return (
-          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
-            {partner.ceo_name || "-"}
-          </td>
+        return renderEditableCell(
+          partner,
+          "ceo_name",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "phone":
-        return (
-          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
-            {formatPhoneForDisplay(partner.contact_phone) || "-"}
-          </td>
+        return renderEditableCell(
+          partner,
+          "phone",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "email":
-        return (
-          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
-            {partner.invoice_email || partner.contact_email || "-"}
-          </td>
+        return renderEditableCell(
+          partner,
+          "email",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "address":
-        return (
-          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
-            {partner.invoice_address || partner.contact_address || "-"}
-          </td>
+        return renderEditableCell(
+          partner,
+          "address",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "biz_type":
-        return (
-          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
-            {partner.biz_type || "-"}
-          </td>
+        return renderEditableCell(
+          partner,
+          "biz_type",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "biz_class":
-        return (
-          <td className={`${cellClass} text-zinc-600 dark:text-zinc-400`}>
-            {partner.biz_class || "-"}
-          </td>
+        return renderEditableCell(
+          partner,
+          "biz_class",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "memo":
-        return (
-          <td
-            className={`${
-              canManage ? editableMemoCellClass : cellClass
-            } ${cellPaddingClass} text-zinc-600 dark:text-zinc-400`}
-            onDoubleClick={(event) => event.stopPropagation()}
-          >
-            <PartnerInlineMemoCell
-              partnerId={partner.id}
-              value={partner.memo}
-              disabled={!canManage}
-              rowFontSize={rowFontSize}
-              onSaved={(partnerId, memo) => {
-                setMemoSaveError(null);
-                setMemoOverrides((current) => ({
-                  ...current,
-                  [partnerId]: memo,
-                }));
-                router.refresh();
-              }}
-              onSaveError={setMemoSaveError}
-            />
-          </td>
+        return renderEditableCell(
+          partner,
+          "memo",
+          "text-zinc-600 dark:text-zinc-400",
         );
       case "actions":
         return (
@@ -424,9 +462,9 @@ export default function PartnersTable({
         </div>
       </div>
 
-      {memoSaveError ? (
+      {inlineSaveError ? (
         <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-          {memoSaveError}
+          {inlineSaveError}
         </div>
       ) : null}
 

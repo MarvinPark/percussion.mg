@@ -2,6 +2,7 @@
 
 import { forwardRef } from "react";
 import { formatKRW } from "@/lib/sales-calculator";
+import { A4_PAGE_PADDING_STYLE } from "@/lib/quote-document-a4";
 import {
   TAX_INVOICE_PREVIEW_WIDTH_PX,
   taxInvoicePreviewClassName,
@@ -163,7 +164,11 @@ const TaxInvoicePreview = forwardRef<HTMLDivElement, TaxInvoicePreviewProps>(
       <div
         ref={ref}
         className={`${taxInvoicePreviewClassName} ${className}`}
-        style={{ width: TAX_INVOICE_PREVIEW_WIDTH_PX, minWidth: TAX_INVOICE_PREVIEW_WIDTH_PX }}
+        style={{
+          width: TAX_INVOICE_PREVIEW_WIDTH_PX,
+          minWidth: TAX_INVOICE_PREVIEW_WIDTH_PX,
+          ...A4_PAGE_PADDING_STYLE,
+        }}
       >
         <table className={`w-full table-fixed border-collapse ${outerBorder}`}>
           <tbody>

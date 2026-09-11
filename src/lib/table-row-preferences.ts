@@ -1,6 +1,7 @@
 export const MIN_TABLE_ROW_FONT_SIZE = 9;
 export const MAX_TABLE_ROW_FONT_SIZE = 16;
 export const DEFAULT_TABLE_ROW_FONT_SIZE = 12;
+export const DEFAULT_PARTNERS_TABLE_ROW_FONT_SIZE = DEFAULT_TABLE_ROW_FONT_SIZE + 2;
 
 export function getTableRowFontSizeStorageKey(prefix: string, userId: string) {
   return `pc-${prefix}-row-font-size-${userId}`;
@@ -13,19 +14,26 @@ export function clampTableRowFontSize(value: number) {
   );
 }
 
+function getDefaultTableRowFontSize(prefix: string) {
+  return prefix === "partners"
+    ? DEFAULT_PARTNERS_TABLE_ROW_FONT_SIZE
+    : DEFAULT_TABLE_ROW_FONT_SIZE;
+}
+
 export function loadTableRowFontSize(prefix: string, userId: string) {
-  if (typeof window === "undefined") return DEFAULT_TABLE_ROW_FONT_SIZE;
+  const defaultSize = getDefaultTableRowFontSize(prefix);
+  if (typeof window === "undefined") return defaultSize;
 
   try {
     const raw = localStorage.getItem(getTableRowFontSizeStorageKey(prefix, userId));
-    if (!raw) return DEFAULT_TABLE_ROW_FONT_SIZE;
+    if (!raw) return defaultSize;
 
     const parsed = Number(raw);
-    if (Number.isNaN(parsed)) return DEFAULT_TABLE_ROW_FONT_SIZE;
+    if (Number.isNaN(parsed)) return defaultSize;
 
     return clampTableRowFontSize(parsed);
   } catch {
-    return DEFAULT_TABLE_ROW_FONT_SIZE;
+    return defaultSize;
   }
 }
 

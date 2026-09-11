@@ -10,7 +10,7 @@ import {
   savePartnersPageSize,
 } from "@/lib/partners-list-preferences";
 import {
-  DEFAULT_TABLE_ROW_FONT_SIZE,
+  DEFAULT_PARTNERS_TABLE_ROW_FONT_SIZE,
   loadTableRowFontSize,
   saveTableRowFontSize,
 } from "@/lib/table-row-preferences";
@@ -51,7 +51,9 @@ export default function PartnersPageClient({
   const [search, setSearch] = useState(initialSearch);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<TablePageSize>(TABLE_PAGE_SIZE);
-  const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
+  const [rowFontSize, setRowFontSize] = useState(
+    DEFAULT_PARTNERS_TABLE_ROW_FONT_SIZE,
+  );
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [pageSizeLoaded, setPageSizeLoaded] = useState(false);
 

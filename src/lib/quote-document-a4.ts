@@ -3,6 +3,19 @@ export const A4_WIDTH_PX = 794;
 export const A4_HEIGHT_PX = 1123;
 export const A4_CAPTURE_PIXEL_RATIO = 2;
 
+export const A4_PAGE_SIZE_STYLE = {
+  width: "210mm",
+  minHeight: "297mm",
+} as const;
+
+/** Shared page margins for quote, invoice, and tax-invoice previews. */
+export const A4_PAGE_PADDING_STYLE = {
+  paddingTop: "12mm",
+  paddingRight: "10mm",
+  paddingBottom: "10mm",
+  paddingLeft: "10mm",
+} as const;
+
 export const A4_CAPTURE_WIDTH_PX = A4_WIDTH_PX * A4_CAPTURE_PIXEL_RATIO;
 export const A4_CAPTURE_HEIGHT_PX = A4_HEIGHT_PX * A4_CAPTURE_PIXEL_RATIO;
 

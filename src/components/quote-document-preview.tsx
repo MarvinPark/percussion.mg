@@ -6,7 +6,11 @@ import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
 } from "@/lib/quote-document-capture";
-import { A4_WIDTH_PX } from "@/lib/quote-document-a4";
+import {
+  A4_PAGE_PADDING_STYLE,
+  A4_PAGE_SIZE_STYLE,
+  A4_WIDTH_PX,
+} from "@/lib/quote-document-a4";
 import QuoteCardPricingControls from "@/components/quote-card-pricing-controls";
 import {
   calculateCardPaymentTotal,
@@ -42,10 +46,6 @@ type QuoteDocumentPreviewProps = {
 };
 
 const DOCUMENT_PREVIEW_WIDTH_PX = A4_WIDTH_PX;
-const A4_PAGE_STYLE = {
-  width: "210mm",
-  minHeight: "297mm",
-} as const;
 const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
 const TABLE_COL_WIDTH_CATEGORY = "6em";
@@ -910,12 +910,12 @@ export default function QuoteDocumentPreview({
               return (
                 <div
                   key={`page-${pageIndex}-${previewLayout}`}
-                  className={`print-page box-border bg-white p-4 ${
+                  className={`print-page box-border bg-white ${
                     isPaginatedView && pageIndex > 0
                       ? "mt-8 border-t-4 border-dashed border-zinc-300 pt-8"
                       : ""
                   }`}
-                  style={A4_PAGE_STYLE}
+                  style={{ ...A4_PAGE_SIZE_STYLE, ...A4_PAGE_PADDING_STYLE }}
                 >
                   {isFirstPage ? (
                     <DocumentHeader mode={mode} data={previewData} />

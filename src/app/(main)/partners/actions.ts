@@ -1,11 +1,14 @@
 "use server";
 
 import {
+  computeInvoiceReady,
   fetchBusinessPartners,
   mapBusinessPartnerSuggestion,
   normalizeBusinessPartnerInput,
   normalizeOptionalText,
+  normalizeRegNum,
 } from "@/lib/business-partners";
+import type { PartnerInlineField } from "@/lib/partner-inline-field";
 import { requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -192,7 +195,11 @@ export async function searchBusinessPartnersForAutocomplete(query: string) {
   return { partners: partners.map(mapBusinessPartnerSuggestion) };
 }
 
-export async function updatePartnerMemo(partnerId: string, memo: string | null) {
+export async function updatePartnerInlineField(
+  partnerId: string,
+  field: PartnerInlineField,
+  value: string,
+) {
   const auth = await requirePermission("managePartners");
   if ("error" in auth) {
     return { error: auth.error ?? "거래처 수정 권한이 없습니다." };
@@ -203,25 +210,127 @@ export async function updatePartnerMemo(partnerId: string, memo: string | null) 
   }
 
   const supabase = await createClient();
+  const { data: partner, error: fetchError } = await supabase
+    .from("business_partners")
+    .select("*")
+    .eq("id", partnerId)
+    .maybeSingle();
+
+  if (fetchError) {
+    return { error: "거래처를 불러오지 못했습니다." };
+  }
+
+  if (!partner) {
+    return { error: "거래처를 찾을 수 없습니다." };
+  }
+
+  const updatePayload: Record<string, string | null | boolean> = {
+    updated_at: new Date().toISOString(),
+  };
+  let savedValue: string | null = null;
+
+  switch (field) {
+    case "display_name": {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return { error: "상호를 입력해 주세요." };
+      }
+      savedValue = trimmed;
+      if (partner.corp_name) {
+        updatePayload.corp_name = trimmed;
+      } else {
+        updatePayload.display_name = trimmed;
+      }
+      break;
+    }
+    case "corp_num": {
+      savedValue = normalizeRegNum(value, partner.partner_type);
+      if (value.trim() && !savedValue) {
+        return { error: "등록번호 형식이 올바르지 않습니다." };
+      }
+      updatePayload.corp_num = savedValue;
+      break;
+    }
+    case "ceo_name":
+      savedValue = normalizeOptionalText(value);
+      updatePayload.ceo_name = savedValue;
+      break;
+    case "phone":
+      savedValue = normalizeOptionalText(value);
+      updatePayload.contact_phone = savedValue;
+      break;
+    case "email": {
+      savedValue = normalizeOptionalText(value);
+      if (partner.invoice_email) {
+        updatePayload.invoice_email = savedValue;
+      } else {
+        updatePayload.contact_email = savedValue;
+      }
+      break;
+    }
+    case "address": {
+      savedValue = normalizeOptionalText(value);
+      if (partner.invoice_address) {
+        updatePayload.invoice_address = savedValue;
+      } else {
+        updatePayload.contact_address = savedValue;
+      }
+      break;
+    }
+    case "biz_type":
+      savedValue = normalizeOptionalText(value);
+      updatePayload.biz_type = savedValue;
+      break;
+    case "biz_class":
+      savedValue = normalizeOptionalText(value);
+      updatePayload.biz_class = savedValue;
+      break;
+    case "memo":
+      savedValue = normalizeOptionalText(value);
+      updatePayload.memo = savedValue;
+      break;
+    default:
+      return { error: "수정할 수 없는 항목입니다." };
+  }
+
+  const nextPartner = {
+    ...partner,
+    ...updatePayload,
+  };
+
+  updatePayload.invoice_ready = computeInvoiceReady({
+    partner_type: nextPartner.partner_type,
+    corp_num: nextPartner.corp_num,
+    corp_name: nextPartner.corp_name,
+    display_name: nextPartner.display_name,
+    ceo_name: nextPartner.ceo_name,
+    biz_type: nextPartner.biz_type,
+    biz_class: nextPartner.biz_class,
+    invoice_address: nextPartner.invoice_address,
+    contact_address: nextPartner.contact_address,
+    invoice_email: nextPartner.invoice_email,
+    contact_email: nextPartner.contact_email,
+  });
+
   const { data, error } = await supabase
     .from("business_partners")
-    .update({
-      memo: normalizeOptionalText(memo ?? ""),
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", partnerId)
     .select("id")
     .maybeSingle();
 
   if (error) {
     const message = error.message ?? "";
-    if (message.includes("memo")) {
+    if (field === "memo" && message.includes("memo")) {
       return {
         error:
           "메모 컬럼이 없습니다. Supabase에서 schema-business-partners-update.sql을 실행해 주세요.",
       };
     }
-    return { error: "메모 저장에 실패했습니다." };
+    if (error.code === "23505") {
+      return { error: "같은 등록번호의 거래처가 이미 있습니다." };
+    }
+    return { error: "거래처 저장에 실패했습니다." };
   }
 
   if (!data) {
@@ -230,5 +339,17 @@ export async function updatePartnerMemo(partnerId: string, memo: string | null) 
 
   revalidatePath("/partners");
   revalidatePath(`/partners/${partnerId}/edit`);
-  return { success: true as const, memo: normalizeOptionalText(memo ?? "") };
+  return { success: true as const, field, value: savedValue };
+}
+
+/** @deprecated use updatePartnerInlineField */
+export async function updatePartnerMemo(partnerId: string, memo: string | null) {
+  const result = await updatePartnerInlineField(partnerId, "memo", memo ?? "");
+  if ("error" in result && result.error) {
+    return { error: result.error };
+  }
+  if (!("success" in result) || !result.success) {
+    return { error: "메모 저장에 실패했습니다." };
+  }
+  return { success: true as const, memo: result.value };
 }
