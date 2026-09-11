@@ -50,7 +50,28 @@ export default function ProductListSearch({
   const [results, setResults] = useState<SaleProductOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [inputValue, setInputValue] = useState(query);
   const searchRequestRef = useRef(0);
+  const isComposingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isComposingRef.current) {
+      setInputValue(query);
+    }
+  }, [query]);
+
+  function notifyQueryChange(value: string) {
+    onQueryChange(value);
+    if (!liveSuggestions) {
+      setIsOpen(false);
+      return;
+    }
+    const hasQuery = value.trim().length > 0;
+    setIsOpen(hasQuery);
+    if (hasQuery) {
+      updateDropdownPosition();
+    }
+  }
 
   function updateDropdownPosition() {
     const input = inputRef.current;
@@ -149,7 +170,7 @@ export default function ProductListSearch({
     setHighlightIndex(-1);
   }
 
-  const trimmedQuery = query.trim();
+  const trimmedQuery = inputValue.trim();
   const showDropdown =
     liveSuggestions && isOpen && trimmedQuery.length > 0;
 
@@ -206,19 +227,21 @@ export default function ProductListSearch({
         placeholder={
           compact ? "제품 검색..." : "공급처, 품목, 브랜드, 제품명, 모델명, SKU, 태그 검색..."
         }
-        value={query}
+        value={inputValue}
+        onCompositionStart={() => {
+          isComposingRef.current = true;
+        }}
+        onCompositionEnd={(event) => {
+          isComposingRef.current = false;
+          const value = event.currentTarget.value;
+          setInputValue(value);
+          notifyQueryChange(value);
+        }}
         onChange={(event) => {
           const value = event.target.value;
-          onQueryChange(value);
-          if (!liveSuggestions) {
-            setIsOpen(false);
-            return;
-          }
-          const hasQuery = value.trim().length > 0;
-          setIsOpen(hasQuery);
-          if (hasQuery) {
-            updateDropdownPosition();
-          }
+          setInputValue(value);
+          if (isComposingRef.current) return;
+          notifyQueryChange(value);
         }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
@@ -283,7 +306,7 @@ export default function ProductListSearch({
           </button>
         </>
       ) : null}
-      {!compact && liveSuggestions && query.trim() ? (
+      {!compact && liveSuggestions && inputValue.trim() ? (
         <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
           {isSearching
             ? "검색 중..."

@@ -29,6 +29,7 @@ export default function KeyStockFilterCombobox({
   const [open, setOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const isComposingRef = useRef(false);
 
   useEffect(() => {
     if (isFocused) return;
@@ -108,8 +109,17 @@ export default function KeyStockFilterCombobox({
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
+        onCompositionStart={() => {
+          isComposingRef.current = true;
+        }}
+        onCompositionEnd={(event) => {
+          isComposingRef.current = false;
+          setQuery(event.currentTarget.value);
+        }}
         onChange={(event) => {
-          setQuery(event.target.value);
+          const nextValue = event.target.value;
+          setQuery(nextValue);
+          if (isComposingRef.current) return;
           setOpen(true);
         }}
         onFocus={() => {
