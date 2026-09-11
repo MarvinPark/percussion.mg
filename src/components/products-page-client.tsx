@@ -31,6 +31,8 @@ import type { SaleProductOption } from "@/types/sale";
 
 const VISIBLE_PAGE_COUNT = 10;
 
+type DraftSyncMode = false | "scope" | "all";
+
 const pageButtonClass =
   "inline-flex h-8 min-w-8 items-center justify-center rounded border px-2 text-sm font-medium";
 
@@ -249,7 +251,7 @@ export default function ProductsPageClient({
       nextSort: ProductListSort = sort,
       nextCategoryFilter: string = categoryFilter,
       nextBrandFilter: string = brandFilter,
-      syncDraftFromResult = false,
+      syncDraft: DraftSyncMode = false,
     ) => {
       const requestId = ++loadRequestRef.current;
       setIsLoading(true);
@@ -288,10 +290,12 @@ export default function ProductsPageClient({
           setBrandFilter(result.brandFilter ?? nextBrandFilter);
           setPageSize(resolvedPageSize);
           setSort(nextSort);
-          if (syncDraftFromResult) {
-            setDraftQuery(result.searchQuery);
+          if (syncDraft === "scope" || syncDraft === "all") {
             setDraftCategoryFilter(result.categoryFilter ?? nextCategoryFilter);
             setDraftBrandFilter(result.brandFilter ?? nextBrandFilter);
+          }
+          if (syncDraft === "all") {
+            setDraftQuery(result.searchQuery);
           }
           saveProductPageSize(userId, resolvedPageSize);
           syncProductsUrl(
@@ -341,7 +345,7 @@ export default function ProductsPageClient({
       initialSort,
       urlParams.categoryFilter,
       urlParams.brandFilter,
-      true,
+      "all",
     );
   }, [
     initialBrandFilter,
@@ -393,7 +397,7 @@ export default function ProductsPageClient({
         sort,
         nextCategoryFilter,
         nextBrandFilter,
-        true,
+        "scope",
       );
     },
     [loadView, pageSize, searchQuery, sort],
@@ -440,12 +444,12 @@ export default function ProductsPageClient({
     }
     loadView(
       1,
-      draftQuery,
+      trimmed,
       pageSize,
       sort,
       draftCategoryFilter,
       draftBrandFilter,
-      true,
+      "all",
     );
   }, [
     draftBrandFilter,
@@ -477,7 +481,7 @@ export default function ProductsPageClient({
     (product: SaleProductOption) => {
       const value = product.sku || product.model_name;
       setDraftQuery(value);
-      loadView(1, value, pageSize, sort, categoryFilter, brandFilter, true);
+      loadView(1, value, pageSize, sort, categoryFilter, brandFilter, "all");
       setHighlightedIds(new Set([product.id]));
 
       requestAnimationFrame(() => {
