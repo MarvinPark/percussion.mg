@@ -54,6 +54,7 @@ const TABLE_COL_WIDTH_PRODUCT_DESC = "14em";
 const TABLE_COL_WIDTH_6_KOR = "6em";
 const TABLE_COL_WIDTH_3_DIGITS = "3ch";
 const TABLE_COL_WIDTH_PRICE = "10ch";
+const QUOTE_PREVIEW_CARD_FEE_PERCENT = 4;
 
 function formatDisplayDate(value: string) {
   if (!value) return "";
@@ -117,8 +118,6 @@ function DocumentTable({
   totalAmount,
   totalConsumerAmount,
   discountAmount,
-  cardFeePercent,
-  cardPaymentTotal,
   showTotal,
   invoiceLinePricing,
   itemStartIndex = 0,
@@ -128,13 +127,14 @@ function DocumentTable({
   totalAmount: number;
   totalConsumerAmount?: number;
   discountAmount?: number;
-  cardFeePercent: CardFeePercent;
-  cardPaymentTotal: number;
   showTotal: boolean;
   invoiceLinePricing?: Map<string, { adjustedUnitPrice: number; adjustedLineTotal: number }>;
   itemStartIndex?: number;
 }) {
-  const columnCount = mode === "quote" ? 8 : 7;
+  const cardPaymentWithFee =
+    totalAmount > 0
+      ? Math.round(totalAmount * (1 + QUOTE_PREVIEW_CARD_FEE_PERCENT / 100))
+      : 0;
   const headCellClass =
     "border-y border-zinc-400 px-1 py-1 text-center align-middle";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
@@ -251,13 +251,14 @@ function DocumentTable({
                 </td>
               )}
             </tr>
-            {mode === "quote" && cardFeePercent > 0 ? (
-              <tr>
-                <td
-                  colSpan={columnCount}
-                  className={`card-fee-row ${bodyCellClass} py-1.5 text-[12px] font-medium text-black`}
-                >
-                  카드결제+{cardFeePercent}%: {formatKRW(cardPaymentTotal)}원
+            {mode === "quote" ? (
+              <tr className="bg-zinc-50 font-semibold">
+                <td colSpan={5} className={bodyCellClass} />
+                <td className={`${priceCellClass} whitespace-nowrap`}>
+                  카드결제시 {QUOTE_PREVIEW_CARD_FEE_PERCENT}%추가 :
+                </td>
+                <td colSpan={2} className={priceCellClass}>
+                  {formatKRW(cardPaymentWithFee)}원
                 </td>
               </tr>
             ) : null}
@@ -935,8 +936,6 @@ export default function QuoteDocumentPreview({
                     totalAmount={documentTotalAmount}
                     totalConsumerAmount={totalConsumerAmount}
                     discountAmount={discountAmount}
-                    cardFeePercent={cardFeePercent}
-                    cardPaymentTotal={cardPaymentTotal}
                     showTotal={isLastPage}
                     invoiceLinePricing={
                       mode === "invoice" ? invoiceLinePricing : undefined
