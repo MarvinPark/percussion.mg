@@ -107,21 +107,6 @@ export default async function DashboardPage() {
         />
 
         <div className={`mt-6 grid gap-4 ${canViewQuotes ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-          <Link href="/products" className={cardInteractive}>
-            <p className="font-medium text-zinc-900 dark:text-zinc-100">
-              재고
-            </p>
-            <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              총 재고 자산 · 매입가 기준
-            </p>
-            <p className="mt-3 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {formatKRW(totalInventoryAsset)}
-              <span className="ml-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                원
-              </span>
-            </p>
-          </Link>
-
           <Link href="/sales" className={cardInteractive}>
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
               매출
@@ -142,21 +127,36 @@ export default async function DashboardPage() {
           </Link>
 
           {canViewQuotes ? (
-          <Link href="/quotes" className={cardInteractive}>
+            <Link href="/quotes" className={cardInteractive}>
+              <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                견적
+              </p>
+              <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                견적서 작성 · 이력
+              </p>
+              <p className="mt-3 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                {quoteCount ?? 0}
+                <span className="ml-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  건
+                </span>
+              </p>
+            </Link>
+          ) : null}
+
+          <Link href="/products" className={cardInteractive}>
             <p className="font-medium text-zinc-900 dark:text-zinc-100">
-              견적
+              재고
             </p>
             <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              견적서 작성 · 이력
+              총 재고 자산 · 매입가 기준
             </p>
             <p className="mt-3 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {quoteCount ?? 0}
+              {formatKRW(totalInventoryAsset)}
               <span className="ml-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                건
+                원
               </span>
             </p>
           </Link>
-          ) : null}
         </div>
 
         {canViewSales ? (
