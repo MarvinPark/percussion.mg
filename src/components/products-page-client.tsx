@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
@@ -31,7 +30,14 @@ import type { SaleProductOption } from "@/types/sale";
 
 const VISIBLE_PAGE_COUNT = 10;
 
-type DraftSyncMode = false | "scope" | "all";
+type ProductListViewParams = {
+  page: number;
+  searchQuery: string;
+  pageSize: ProductPageSize;
+  sort: ProductListSort;
+  categoryFilter: string;
+  brandFilter: string;
+};
 
 const pageButtonClass =
   "inline-flex h-8 min-w-8 items-center justify-center rounded border px-2 text-sm font-medium";
@@ -67,6 +73,27 @@ function buildProductsUrl(
   if (sortParams.order) params.set("order", sortParams.order);
   const query = params.toString();
   return query ? `/products?${query}` : "/products";
+}
+
+function syncProductsUrl(
+  page: number,
+  searchQuery: string,
+  pageSize: ProductPageSize,
+  sort: ProductListSort,
+  categoryFilter: string,
+  brandFilter: string,
+) {
+  const nextUrl = buildProductsUrl(
+    page,
+    searchQuery,
+    pageSize,
+    sort,
+    categoryFilter,
+    brandFilter,
+  );
+  const currentUrl = `${window.location.pathname}${window.location.search}`;
+  if (currentUrl === nextUrl) return;
+  window.history.replaceState(window.history.state, "", nextUrl);
 }
 
 function readProductListParamsFromLocation() {
@@ -121,10 +148,8 @@ export default function ProductsPageClient({
   readOnly = false,
   initialLoadError = null,
 }: ProductsPageClientProps) {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const loadRequestRef = useRef(0);
-  const didHydrateFromUrlRef = useRef(false);
   const [products, setProducts] = useState(initialProducts);
   const [reservationsByProductId, setReservationsByProductId] = useState(
     initialReservationsByProductId,
@@ -138,10 +163,6 @@ export default function ProductsPageClient({
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [sort, setSort] = useState(initialSort);
   const [draftQuery, setDraftQuery] = useState(initialSearchQuery);
-  const [draftCategoryFilter, setDraftCategoryFilter] = useState(
-    initialCategoryFilter,
-  );
-  const [draftBrandFilter, setDraftBrandFilter] = useState(initialBrandFilter);
   const [pageWindowStart, setPageWindowStart] = useState(1);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(
     () => new Set(),
@@ -154,33 +175,29 @@ export default function ProductsPageClient({
     categoryFilter.length > 0 || brandFilter.length > 0;
   const isListFiltered = isSearchActive || isScopeFilterActive;
 
-  const draftBrandOptions = useMemo(
-    () => buildProductListBrandOptions(filterOptionRows, draftCategoryFilter),
-    [draftCategoryFilter, filterOptionRows],
-  );
+  const draftQueryRef = useRef(draftQuery);
+  draftQueryRef.current = draftQuery;
 
-  const syncProductsUrl = useCallback(
-    (
-      page: number,
-      nextSearchQuery: string,
-      nextPageSize: ProductPageSize,
-      nextSort: ProductListSort,
-      nextCategoryFilter: string,
-      nextBrandFilter: string,
-    ) => {
-      router.replace(
-        buildProductsUrl(
-          page,
-          nextSearchQuery,
-          nextPageSize,
-          nextSort,
-          nextCategoryFilter,
-          nextBrandFilter,
-        ),
-        { scroll: false },
-      );
-    },
-    [router],
+  const viewRef = useRef<ProductListViewParams>({
+    page: currentPage,
+    searchQuery,
+    pageSize,
+    sort,
+    categoryFilter,
+    brandFilter,
+  });
+  viewRef.current = {
+    page: currentPage,
+    searchQuery,
+    pageSize,
+    sort,
+    categoryFilter,
+    brandFilter,
+  };
+
+  const brandOptions = useMemo(
+    () => buildProductListBrandOptions(filterOptionRows, categoryFilter),
+    [categoryFilter, filterOptionRows],
   );
 
   useEffect(() => {
@@ -244,26 +261,28 @@ export default function ProductsPageClient({
     : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`;
 
   const loadView = useCallback(
-    (
-      page: number,
-      query: string,
-      nextPageSize: ProductPageSize = pageSize,
-      nextSort: ProductListSort = sort,
-      nextCategoryFilter: string = categoryFilter,
-      nextBrandFilter: string = brandFilter,
-      syncDraft: DraftSyncMode = false,
-    ) => {
+    (overrides: Partial<ProductListViewParams> = {}) => {
+      const current = viewRef.current;
+      const next: ProductListViewParams = {
+        page: overrides.page ?? current.page,
+        searchQuery: overrides.searchQuery ?? current.searchQuery,
+        pageSize: overrides.pageSize ?? current.pageSize,
+        sort: overrides.sort ?? current.sort,
+        categoryFilter: overrides.categoryFilter ?? current.categoryFilter,
+        brandFilter: overrides.brandFilter ?? current.brandFilter,
+      };
+
       const requestId = ++loadRequestRef.current;
       setIsLoading(true);
       setLoadError(null);
 
       void loadProductsListView({
-        page,
-        searchQuery: query,
-        pageSize: nextPageSize,
-        sort: nextSort,
-        categoryFilter: nextCategoryFilter,
-        brandFilter: nextBrandFilter,
+        page: next.page,
+        searchQuery: next.searchQuery,
+        pageSize: next.pageSize,
+        sort: next.sort,
+        categoryFilter: next.categoryFilter,
+        brandFilter: next.brandFilter,
       })
         .then((result) => {
           if (requestId !== loadRequestRef.current) return;
@@ -278,7 +297,9 @@ export default function ProductsPageClient({
             return;
           }
 
-          const resolvedPageSize = (result.pageSize ?? nextPageSize) as ProductPageSize;
+          const resolvedPageSize = (result.pageSize ?? next.pageSize) as ProductPageSize;
+          const resolvedCategory = result.categoryFilter ?? next.categoryFilter;
+          const resolvedBrand = result.brandFilter ?? next.brandFilter;
 
           setProducts(result.products);
           setReservationsByProductId(result.reservationsByProductId ?? {});
@@ -286,25 +307,18 @@ export default function ProductsPageClient({
           setCurrentPage(result.currentPage);
           setTotalPages(result.totalPages);
           setSearchQuery(result.searchQuery);
-          setCategoryFilter(result.categoryFilter ?? nextCategoryFilter);
-          setBrandFilter(result.brandFilter ?? nextBrandFilter);
+          setCategoryFilter(resolvedCategory);
+          setBrandFilter(resolvedBrand);
           setPageSize(resolvedPageSize);
-          setSort(nextSort);
-          if (syncDraft === "scope" || syncDraft === "all") {
-            setDraftCategoryFilter(result.categoryFilter ?? nextCategoryFilter);
-            setDraftBrandFilter(result.brandFilter ?? nextBrandFilter);
-          }
-          if (syncDraft === "all") {
-            setDraftQuery(result.searchQuery);
-          }
+          setSort(next.sort);
           saveProductPageSize(userId, resolvedPageSize);
           syncProductsUrl(
             result.currentPage,
             result.searchQuery,
             resolvedPageSize,
-            nextSort,
-            result.categoryFilter ?? nextCategoryFilter,
-            result.brandFilter ?? nextBrandFilter,
+            next.sort,
+            resolvedCategory,
+            resolvedBrand,
           );
         })
         .catch(() => {
@@ -317,45 +331,8 @@ export default function ProductsPageClient({
           }
         });
     },
-    [categoryFilter, brandFilter, pageSize, sort, syncProductsUrl, userId],
+    [userId],
   );
-
-  useEffect(() => {
-    if (didHydrateFromUrlRef.current) return;
-    didHydrateFromUrlRef.current = true;
-
-    const urlParams = readProductListParamsFromLocation();
-    const urlPage = Math.max(
-      1,
-      Number(new URLSearchParams(window.location.search).get("page")) ||
-        initialCurrentPage,
-    );
-    const urlMismatch =
-      urlParams.searchQuery !== initialSearchQuery ||
-      urlParams.categoryFilter !== initialCategoryFilter ||
-      urlParams.brandFilter !== initialBrandFilter ||
-      urlPage !== initialCurrentPage;
-
-    if (!urlMismatch) return;
-
-    loadView(
-      urlPage,
-      urlParams.searchQuery,
-      initialPageSize,
-      initialSort,
-      urlParams.categoryFilter,
-      urlParams.brandFilter,
-      "all",
-    );
-  }, [
-    initialBrandFilter,
-    initialCategoryFilter,
-    initialCurrentPage,
-    initialPageSize,
-    initialSearchQuery,
-    initialSort,
-    loadView,
-  ]);
 
   useEffect(() => {
     saveProductPageSize(userId, pageSize);
@@ -384,28 +361,12 @@ export default function ProductsPageClient({
     initialPageSize,
     initialSearchQuery,
     initialSort,
-    syncProductsUrl,
     userId,
   ]);
 
-  const applyScopeFilters = useCallback(
-    (nextCategoryFilter: string, nextBrandFilter: string) => {
-      loadView(
-        1,
-        searchQuery,
-        pageSize,
-        sort,
-        nextCategoryFilter,
-        nextBrandFilter,
-        "scope",
-      );
-    },
-    [loadView, pageSize, searchQuery, sort],
-  );
-
   const handleCategoryFilterChange = useCallback(
     (value: string) => {
-      const currentBrand = draftBrandFilter || brandFilter;
+      const currentBrand = viewRef.current.brandFilter;
       const nextBrandOptions = buildProductListBrandOptions(
         filterOptionRows,
         value,
@@ -415,73 +376,63 @@ export default function ProductsPageClient({
           ? currentBrand
           : "";
 
-      setDraftCategoryFilter(value);
-      setDraftBrandFilter(keptBrand);
-      applyScopeFilters(value, keptBrand);
+      setCategoryFilter(value);
+      setBrandFilter(keptBrand);
+      loadView({
+        page: 1,
+        categoryFilter: value,
+        brandFilter: keptBrand,
+      });
     },
-    [
-      applyScopeFilters,
-      brandFilter,
-      draftBrandFilter,
-      filterOptionRows,
-    ],
+    [filterOptionRows, loadView],
   );
 
   const handleBrandFilterChange = useCallback(
     (value: string) => {
-      const nextCategory = draftCategoryFilter || categoryFilter;
-      setDraftBrandFilter(value);
-      applyScopeFilters(nextCategory, value);
+      setBrandFilter(value);
+      loadView({
+        page: 1,
+        brandFilter: value,
+      });
     },
-    [applyScopeFilters, categoryFilter, draftCategoryFilter],
+    [loadView],
   );
 
   const applySearch = useCallback(() => {
-    const trimmed = draftQuery.trim();
+    const trimmed = draftQueryRef.current.trim();
     if (trimmed.length > 0 && trimmed.length < PRODUCT_SEARCH_MIN_LENGTH) {
       setLoadError(`검색어는 ${PRODUCT_SEARCH_MIN_LENGTH}자 이상 입력해 주세요.`);
       return;
     }
-    loadView(
-      1,
-      trimmed,
-      pageSize,
-      sort,
-      draftCategoryFilter,
-      draftBrandFilter,
-      "all",
-    );
-  }, [
-    draftBrandFilter,
-    draftCategoryFilter,
-    draftQuery,
-    loadView,
-    pageSize,
-    sort,
-  ]);
+    setDraftQuery(trimmed);
+    loadView({
+      page: 1,
+      searchQuery: trimmed,
+    });
+  }, [loadView]);
 
   const handlePageSizeChange = useCallback(
     (nextPageSize: ProductPageSize) => {
       setPageSize(nextPageSize);
-      loadView(1, searchQuery, nextPageSize, sort);
+      loadView({ page: 1, pageSize: nextPageSize });
     },
-    [loadView, searchQuery, sort],
+    [loadView],
   );
 
   const handleSortColumn = useCallback(
     (column: ProductSortColumn) => {
-      const nextSort = cycleProductListSort(sort, column);
+      const nextSort = cycleProductListSort(viewRef.current.sort, column);
       setSort(nextSort);
-      loadView(1, searchQuery, pageSize, nextSort);
+      loadView({ page: 1, sort: nextSort });
     },
-    [loadView, pageSize, searchQuery, sort],
+    [loadView],
   );
 
   const handleSelectProduct = useCallback(
     (product: SaleProductOption) => {
       const value = product.sku || product.model_name;
       setDraftQuery(value);
-      loadView(1, value, pageSize, sort, categoryFilter, brandFilter, "all");
+      loadView({ page: 1, searchQuery: value });
       setHighlightedIds(new Set([product.id]));
 
       requestAnimationFrame(() => {
@@ -494,12 +445,12 @@ export default function ProductsPageClient({
         setHighlightedIds(new Set());
       }, 2500);
     },
-    [categoryFilter, brandFilter, loadView, pageSize, sort],
+    [loadView],
   );
 
   const handleProductRegistered = useCallback(
     (productId: string) => {
-      loadView(currentPage, searchQuery, pageSize, sort);
+      loadView();
       setHighlightedIds(new Set([productId]));
 
       requestAnimationFrame(() => {
@@ -512,12 +463,12 @@ export default function ProductsPageClient({
         setHighlightedIds(new Set());
       }, 2500);
     },
-    [currentPage, loadView, pageSize, searchQuery, sort],
+    [loadView],
   );
 
   const reloadList = useCallback(() => {
-    loadView(currentPage, searchQuery, pageSize, sort);
-  }, [currentPage, loadView, pageSize, searchQuery, sort]);
+    loadView();
+  }, [loadView]);
 
   const syncListFromServer = useCallback(() => {
     void loadProductsListView({
@@ -588,7 +539,7 @@ export default function ProductsPageClient({
             <div className="flex flex-wrap items-center gap-1">
               <KeyStockFilterCombobox
                 id="product_list_category_filter"
-                value={draftCategoryFilter}
+                value={categoryFilter}
                 options={filterCategories}
                 emptyLabel="품목"
                 placeholder="품목"
@@ -597,8 +548,8 @@ export default function ProductsPageClient({
               />
               <KeyStockFilterCombobox
                 id="product_list_brand_filter"
-                value={draftBrandFilter}
-                options={draftBrandOptions}
+                value={brandFilter}
+                options={brandOptions}
                 emptyLabel="브랜드"
                 placeholder="브랜드"
                 onChange={handleBrandFilterChange}
@@ -654,7 +605,7 @@ export default function ProductsPageClient({
                   key={page}
                   type="button"
                   aria-current={isActive ? "page" : undefined}
-                  onClick={() => loadView(page, searchQuery, pageSize, sort)}
+                  onClick={() => loadView({ page })}
                   className={`${pageButtonClass} ${
                     isActive
                       ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"

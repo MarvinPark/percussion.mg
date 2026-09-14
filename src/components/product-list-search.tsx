@@ -53,11 +53,11 @@ export default function ProductListSearch({
   const [inputValue, setInputValue] = useState(query);
   const searchRequestRef = useRef(0);
   const isComposingRef = useRef(false);
+  const isFocusedRef = useRef(false);
 
   useEffect(() => {
-    if (!isComposingRef.current) {
-      setInputValue(query);
-    }
+    if (isComposingRef.current || isFocusedRef.current) return;
+    setInputValue(query);
   }, [query]);
 
   function notifyQueryChange(value: string) {
@@ -228,6 +228,12 @@ export default function ProductListSearch({
           compact ? "제품 검색..." : "공급처, 품목, 브랜드, 제품명, 모델명, SKU, 태그 검색..."
         }
         value={inputValue}
+        onFocus={() => {
+          isFocusedRef.current = true;
+        }}
+        onBlur={() => {
+          isFocusedRef.current = false;
+        }}
         onCompositionStart={() => {
           isComposingRef.current = true;
         }}

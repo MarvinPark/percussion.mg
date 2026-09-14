@@ -89,9 +89,11 @@ export default function KeyStockFilterCombobox({
   }
 
   function commitValue(nextValue: string) {
-    onChange(nextValue);
     setQuery(nextValue);
     setOpen(false);
+    if (nextValue !== value) {
+      onChange(nextValue);
+    }
   }
 
   function handleBlur() {
