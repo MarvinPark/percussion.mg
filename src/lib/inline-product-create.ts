@@ -107,6 +107,8 @@ export async function createInlineProduct(
       sale_price: data.sale_price,
       purchase_price: data.purchase_price,
       stock_quantity: data.stock_quantity,
+      stock_yangjae: data.stock_yangjae,
+      stock_uiwang: data.stock_uiwang,
     },
   };
 }

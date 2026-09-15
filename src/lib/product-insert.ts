@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const BASE_PRODUCT_SELECT =
   "id, product_name, model_name, sku, supplier, category, brand, color, product_option, size, sale_price, purchase_price, stock_quantity";
 
-const EXTENDED_PRODUCT_SELECT = `${BASE_PRODUCT_SELECT}, keywords`;
+const EXTENDED_PRODUCT_SELECT = `${BASE_PRODUCT_SELECT}, keywords, stock_yangjae, stock_uiwang`;
 
 export type ProductInsertCore = {
   sku: string;
@@ -36,6 +36,8 @@ export type InsertedProductRow = {
   sale_price: number;
   purchase_price: number;
   stock_quantity: number;
+  stock_yangjae: number;
+  stock_uiwang: number;
 };
 
 export function isMissingProductColumnError(message: string | undefined) {
@@ -67,6 +69,8 @@ function normalizeInsertedRow(
     sale_price: Number(row.sale_price) || 0,
     purchase_price: Number(row.purchase_price) || 0,
     stock_quantity: Number(row.stock_quantity) || 0,
+    stock_yangjae: Number(row.stock_yangjae) || 0,
+    stock_uiwang: Number(row.stock_uiwang) || 0,
   };
 }
 

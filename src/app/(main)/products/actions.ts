@@ -13,9 +13,12 @@ import type { ProductListSort } from "@/lib/product-list-sort";
 import { normalizeProductSearchQuery } from "@/lib/postgrest-search-filter";
 import { createInlineProduct } from "@/lib/inline-product-create";
 import {
+  INSERTED_PRODUCT_SELECT,
+  toInlineCreatedProduct,
   toSaleProductOption,
   type InlineCreatedProduct,
   type InlineProductCreateInput,
+  type InsertedProductRecord,
 } from "@/lib/inline-product-create-shared";
 import {
   createDuplicateSkuContext,
@@ -188,7 +191,7 @@ async function ensureManageProducts(
 
 async function insertProductFromForm(
   formData: FormData,
-): Promise<{ error?: string; productId?: string }> {
+): Promise<{ error?: string; productId?: string; product?: InlineCreatedProduct }> {
   const data = parseProductForm(formData);
   const error = validateProduct(data);
   if (error) return { error };
@@ -211,7 +214,7 @@ async function insertProductFromForm(
   const { data: inserted, error: dbError } = await supabase
     .from("products")
     .insert({ ...productPayload(data), sku: resolved.sku })
-    .select("id")
+    .select(INSERTED_PRODUCT_SELECT)
     .single();
 
   if (dbError) {
@@ -227,7 +230,14 @@ async function insertProductFromForm(
   revalidatePath("/products/key-stock");
   revalidatePath("/dashboard");
 
-  return { productId: inserted?.id as string | undefined };
+  const product = inserted
+    ? toInlineCreatedProduct(inserted as InsertedProductRecord)
+    : undefined;
+
+  return {
+    productId: product?.id,
+    product,
+  };
 }
 
 export async function createProduct(formData: FormData) {
@@ -239,6 +249,22 @@ export async function createProduct(formData: FormData) {
 
 export async function createProductInlineList(formData: FormData) {
   return insertProductFromForm(formData);
+}
+
+export async function createProductFromFormAction(
+  formData: FormData,
+): Promise<{ error: string } | { product: InlineCreatedProduct }> {
+  const result = await insertProductFromForm(formData);
+
+  if (result.error) {
+    return { error: result.error };
+  }
+
+  if (!result.product) {
+    return { error: "제품 등록에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+  }
+
+  return { product: result.product };
 }
 
 export async function createInlineProductAction(
