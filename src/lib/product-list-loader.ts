@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_LIST_SELECT } from "@/lib/product-list-select";
 import {
   DEFAULT_PRODUCT_LIST_SORT,
+  shouldPrioritizeInStockOnSearch,
   type ProductListSort,
 } from "@/lib/product-list-sort";
 import {
@@ -124,6 +125,34 @@ export function applyProductSearchFilter<T extends { or: (filters: string) => T 
   return query.or(buildProductSearchOrFilter(searchQuery));
 }
 
+type ProductListOrderBuilder = {
+  order: (
+    column: string,
+    options: { ascending: boolean },
+  ) => ProductListOrderBuilder;
+};
+
+function applyProductListOrdering<T extends ProductListOrderBuilder>(
+  builder: T,
+  options: { sort: ProductListSort; searchQuery: string },
+): T {
+  const { sort, searchQuery } = options;
+
+  if (sort.column) {
+    return builder
+      .order(sort.column, { ascending: sort.direction === "asc" })
+      .order("created_at", { ascending: false }) as T;
+  }
+
+  if (shouldPrioritizeInStockOnSearch(sort, searchQuery)) {
+    return builder
+      .order("stock_quantity", { ascending: false })
+      .order("created_at", { ascending: false }) as T;
+  }
+
+  return builder.order("created_at", { ascending: false }) as T;
+}
+
 export { toPostgrestIlikePattern };
 
 async function fetchStatsViaRpc(
@@ -206,13 +235,7 @@ export async function fetchProductsPage(
     ? supabase.from("products").select(PRODUCT_LIST_SELECT, { count: "exact" })
     : supabase.from("products").select(PRODUCT_LIST_SELECT);
 
-  if (sort.column) {
-    builder = builder
-      .order(sort.column, { ascending: sort.direction === "asc" })
-      .order("created_at", { ascending: false });
-  } else {
-    builder = builder.order("created_at", { ascending: false });
-  }
+  builder = applyProductListOrdering(builder, { sort, searchQuery });
 
   if (searchQuery) {
     builder = applyProductSearchFilter(builder, searchQuery);
@@ -332,13 +355,7 @@ export async function fetchProductsForExport(
   while (true) {
     let builder = supabase.from("products").select("*");
 
-    if (sort.column) {
-      builder = builder
-        .order(sort.column, { ascending: sort.direction === "asc" })
-        .order("created_at", { ascending: false });
-    } else {
-      builder = builder.order("created_at", { ascending: false });
-    }
+    builder = applyProductListOrdering(builder, { sort, searchQuery });
 
     if (searchQuery) {
       builder = applyProductSearchFilter(builder, searchQuery);

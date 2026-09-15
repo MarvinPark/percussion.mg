@@ -100,3 +100,11 @@ export function productListSortToSearchParams(
     order: sort.direction,
   };
 }
+
+/** 검색 중 기본(등록순) 정렬일 때 재고 있는 제품을 먼저 보여줍니다. */
+export function shouldPrioritizeInStockOnSearch(
+  sort: ProductListSort,
+  searchQuery: string,
+): boolean {
+  return !sort.column && searchQuery.trim().length > 0;
+}
