@@ -346,6 +346,8 @@ export function getPartnerCustomerFields(partner: BusinessPartnerSuggestion) {
     customerName:
       partner.contact_name?.trim() || partner.ceo_name?.trim() || "",
     customerPhone: partner.contact_phone?.trim() || "",
+    customerEmail:
+      partner.invoice_email?.trim() || partner.contact_email?.trim() || "",
     customerAddress:
       partner.contact_address?.trim() ||
       partner.invoice_address?.trim() ||

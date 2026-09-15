@@ -586,6 +586,7 @@ export default function QuoteForm({
                     const fields = getPartnerCustomerFields(partner);
                     if (fields.customerName) setCustomerName(fields.customerName);
                     if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
+                    if (fields.customerEmail) setCustomerEmail(fields.customerEmail);
                     if (fields.customerAddress) {
                       setCustomerAddress(fields.customerAddress);
                     }
