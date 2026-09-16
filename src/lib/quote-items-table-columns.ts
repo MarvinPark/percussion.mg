@@ -4,6 +4,7 @@ export type QuoteItemsTableColumnId =
   | "reorder"
   | "fulfillment"
   | "supplier"
+  | "category"
   | "purchase_source"
   | "model_name"
   | "product_name"
@@ -45,6 +46,14 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
       label: "공급처",
       minWidth: 80,
       defaultWidth: 104,
+      resizable: true,
+      align: "center",
+    },
+    {
+      id: "category",
+      label: "품목",
+      minWidth: 72,
+      defaultWidth: 96,
       resizable: true,
       align: "center",
     },

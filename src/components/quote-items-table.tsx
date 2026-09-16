@@ -42,6 +42,7 @@ type QuoteItemsTableProps = {
   onMoveItemDown: (index: number) => void;
   onFulfillmentChange: (index: number, location: FulfillmentLocation) => void;
   onPurchaseSourceChange: (index: number, value: string) => void;
+  onCategoryChange: (index: number, value: string) => void;
   onProductNameChange: (index: number, value: string) => void;
   onQuantityChange: (index: number, quantity: number) => void;
   onSalePriceChange: (index: number, saleUnitPrice: number) => void;
@@ -90,6 +91,7 @@ function QuoteItemsMobileList({
   onMoveItemDown,
   onFulfillmentChange,
   onPurchaseSourceChange,
+  onCategoryChange,
   onProductNameChange,
   onQuantityChange,
   onSalePriceChange,
@@ -174,6 +176,15 @@ function QuoteItemsMobileList({
               <p className={`${mobileMetaClass} truncate`}>
                 {item.supplier || "-"}
               </p>
+            </div>
+
+            <div>
+              <label className={mobileFieldLabelClass}>품목</label>
+              <QuoteInlineTextCell
+                value={item.category}
+                placeholder="품목"
+                onChange={(value) => onCategoryChange(index, value)}
+              />
             </div>
 
             <div className="col-span-2">
@@ -277,6 +288,7 @@ export default function QuoteItemsTable({
   onMoveItemDown,
   onFulfillmentChange,
   onPurchaseSourceChange,
+  onCategoryChange,
   onProductNameChange,
   onQuantityChange,
   onSalePriceChange,
@@ -382,6 +394,17 @@ export default function QuoteItemsTable({
         return (
           <td className={`${readOnlyCellClass} text-left`}>
             <span className="block w-full truncate">{item.supplier || "-"}</span>
+          </td>
+        );
+      case "category":
+        return (
+          <td className={editableCellClass}>
+            <QuoteInlineTextCell
+              value={item.category}
+              placeholder="품목"
+              align="left"
+              onChange={(value) => onCategoryChange(index, value)}
+            />
           </td>
         );
       case "purchase_source":
@@ -491,6 +514,7 @@ export default function QuoteItemsTable({
         return <td className={readOnlyCellClass} />;
       case "fulfillment":
       case "supplier":
+      case "category":
       case "purchase_source":
       case "product_name":
         return (
@@ -555,6 +579,7 @@ export default function QuoteItemsTable({
         onMoveItemDown={onMoveItemDown}
         onFulfillmentChange={onFulfillmentChange}
         onPurchaseSourceChange={onPurchaseSourceChange}
+        onCategoryChange={onCategoryChange}
         onProductNameChange={onProductNameChange}
         onQuantityChange={onQuantityChange}
         onSalePriceChange={onSalePriceChange}
