@@ -13,6 +13,7 @@ export function matchesSalesTextSearch(
 
   const haystack = [
     sale.customer_name,
+    sale.business_partner,
     sale.products?.product_name,
     sale.products?.model_name,
     sale.products?.sku,

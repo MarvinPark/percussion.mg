@@ -27,6 +27,7 @@ type SalesListSearchProps = {
 function formatSaleDropdownLine(sale: SaleWithProduct) {
   const parts = [
     sale.customer_name,
+    sale.business_partner,
     sale.products?.product_name,
     sale.products?.model_name,
     sale.products?.sku,
@@ -145,7 +146,7 @@ export default function SalesListSearch({
   return (
     <div ref={containerRef} className="relative shrink-0">
       <label htmlFor="sales_list_search" className="sr-only">
-        고객명, 제품명, 모델명, SKU 검색
+        고객명, 거래처명, 제품명, 모델명, SKU 검색
       </label>
       <input
         ref={inputRef}
@@ -154,7 +155,7 @@ export default function SalesListSearch({
         role="combobox"
         aria-expanded={isOpen && query.trim().length > 0}
         aria-autocomplete="list"
-        placeholder="고객명, 제품명, 모델명, SKU 검색..."
+        placeholder="고객명, 거래처명, 제품명, 모델명, SKU 검색..."
         value={query}
         onChange={(event) => {
           const value = event.target.value;
