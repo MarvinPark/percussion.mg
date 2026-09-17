@@ -12,6 +12,7 @@ const EXACT_PAGE_TITLES: Record<string, string> = {
   "/quotes/new": "견적서 작성",
   "/partners": "거래처",
   "/partners/new": "거래처 등록",
+  "/documents": "문서",
   "/products": "재고",
   "/products/new": "제품등록",
   "/products/stock": "입고/출고",
