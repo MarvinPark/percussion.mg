@@ -37,7 +37,7 @@ type QuoteItemsTableProps = {
   onItemDragStart: (index: number) => void;
   onItemDragEnd: () => void;
   onItemDragOver: (event: React.DragEvent, index: number) => void;
-  onItemDrop: (index: number) => void;
+  onItemDrop: (fromIndex: number | null, toIndex: number) => void;
   onMoveItemUp: (index: number) => void;
   onMoveItemDown: (index: number) => void;
   onFulfillmentChange: (index: number, location: FulfillmentLocation) => void;
@@ -345,7 +345,7 @@ export default function QuoteItemsTable({
         return (
           <td className={`${readOnlyCellClass} px-0.5 text-center`}>
             <div className="flex items-center justify-center gap-0.5">
-              <div className="flex flex-col md:hidden">
+              <div className="flex flex-col">
                 <button
                   type="button"
                   disabled={index === 0}
@@ -367,9 +367,13 @@ export default function QuoteItemsTable({
               </div>
               <span
                 draggable
-                onDragStart={() => onItemDragStart(index)}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", String(index));
+                  onItemDragStart(index);
+                }}
                 onDragEnd={onItemDragEnd}
-                className="hidden cursor-grab select-none px-1 text-zinc-400 active:cursor-grabbing md:inline-flex dark:text-zinc-500"
+                className="hidden cursor-grab select-none px-1 text-zinc-400 active:cursor-grabbing lg:inline-flex dark:text-zinc-500"
                 title="드래그하여 순서 변경"
                 aria-label="순서 변경"
               >
@@ -645,8 +649,12 @@ export default function QuoteItemsTable({
                 onDragOver={(event) => onItemDragOver(event, index)}
                 onDrop={(event) => {
                   event.preventDefault();
-                  onItemDrop(index);
+                  const raw = event.dataTransfer.getData("text/plain");
+                  const parsed = Number.parseInt(raw, 10);
+                  const fromIndex = Number.isNaN(parsed) ? draggingItemIndex : parsed;
+                  onItemDrop(fromIndex, index);
                 }}
+                onDragEnd={onItemDragEnd}
                 className={`${bodyRowClass} transition-colors hover:bg-[#e8edf3] dark:hover:bg-slate-800/70 ${
                   draggingItemIndex === index ? "opacity-50" : ""
                 } ${

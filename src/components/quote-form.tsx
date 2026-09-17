@@ -1,7 +1,7 @@
 "use client";
 
 import { btnPrimary, btnSecondary, marginTextLg, marginText, sectionAccent, sectionMuted } from "@/lib/ui-classes";
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
@@ -481,6 +481,7 @@ export default function QuoteForm({
 
   const [draggingItemIndex, setDraggingItemIndex] = useState<number | null>(null);
   const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
+  const draggingItemIndexRef = useRef<number | null>(null);
 
   function reorderItems(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
@@ -494,24 +495,46 @@ export default function QuoteForm({
   }
 
   function handleItemDragStart(index: number) {
+    draggingItemIndexRef.current = index;
     setDraggingItemIndex(index);
   }
 
   function handleItemDragEnd() {
+    draggingItemIndexRef.current = null;
     setDraggingItemIndex(null);
     setDragOverItemIndex(null);
   }
 
+  useEffect(() => {
+    function resetItemDragState() {
+      if (draggingItemIndexRef.current === null) return;
+      draggingItemIndexRef.current = null;
+      setDraggingItemIndex(null);
+      setDragOverItemIndex(null);
+    }
+
+    window.addEventListener("dragend", resetItemDragState);
+    window.addEventListener("drop", resetItemDragState);
+    return () => {
+      window.removeEventListener("dragend", resetItemDragState);
+      window.removeEventListener("drop", resetItemDragState);
+    };
+  }, []);
+
   function handleItemDragOver(event: React.DragEvent, index: number) {
     event.preventDefault();
-    if (draggingItemIndex !== null && draggingItemIndex !== index) {
+    event.dataTransfer.dropEffect = "move";
+    const activeIndex = draggingItemIndexRef.current;
+    if (activeIndex !== null && activeIndex !== index) {
       setDragOverItemIndex(index);
     }
   }
 
-  function handleItemDrop(index: number) {
-    if (draggingItemIndex !== null && draggingItemIndex !== index) {
-      reorderItems(draggingItemIndex, index);
+  function handleItemDrop(fromIndex: number | null, toIndex: number) {
+    const resolvedFromIndex =
+      fromIndex ?? draggingItemIndexRef.current ?? draggingItemIndex;
+    if (resolvedFromIndex !== null && resolvedFromIndex !== toIndex) {
+      reorderItems(resolvedFromIndex, toIndex);
     }
     handleItemDragEnd();
   }
