@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   deleteCompanyDocument,
   uploadCompanyDocument,
@@ -40,6 +40,9 @@ const inputClass =
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
 
+const fileSelectButtonClass =
+  "rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500";
+
 function syncDocumentsSortUrl(sort: CompanyDocumentListSort) {
   const params = new URLSearchParams(window.location.search);
   const sortParams = companyDocumentListSortToSearchParams(sort);
@@ -77,6 +80,8 @@ export default function CompanyDocumentsPageClient({
   const [customTitle, setCustomTitle] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [note, setNote] = useState("");
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sort, setSort] = useState<CompanyDocumentListSort>(() =>
     parseCompanyDocumentListSort(
       searchParams.get("sort"),
@@ -141,6 +146,7 @@ export default function CompanyDocumentsPageClient({
     setCustomTitle("");
     setExpiresAt("");
     setNote("");
+    setSelectedFileName("");
     setMessage("문서를 업로드했습니다.");
     refresh();
   }
@@ -260,17 +266,31 @@ export default function CompanyDocumentsPageClient({
             </div>
 
             <div className="lg:col-span-2">
-              <label htmlFor="document_file" className={labelClass}>
-                파일
-              </label>
-              <input
-                id="document_file"
-                name="file"
-                type="file"
-                required
-                accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
-                className="block w-full text-sm text-zinc-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700 dark:text-zinc-300"
-              />
+              <span className={labelClass}>파일</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  ref={fileInputRef}
+                  id="document_file"
+                  name="file"
+                  type="file"
+                  required
+                  accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(event) =>
+                    setSelectedFileName(event.target.files?.[0]?.name ?? "")
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className={fileSelectButtonClass}
+                >
+                  파일 선택
+                </button>
+                <span className="truncate text-sm text-zinc-600 dark:text-zinc-400">
+                  {selectedFileName || "선택된 파일 없음"}
+                </span>
+              </div>
             </div>
 
             <div className="lg:col-span-2">
