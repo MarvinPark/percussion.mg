@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  COMPANY_DOCUMENT_ALLOWED_MIME_TYPES,
   COMPANY_DOCUMENT_BUCKET,
   COMPANY_DOCUMENT_MAX_BYTES,
   fetchCompanyDocumentById,
+  isAllowedDocumentMimeType,
+  mapCompanyDocumentUploadError,
+  resolveDocumentMimeType,
   sanitizeDocumentFileName,
 } from "@/lib/company-documents";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requirePermission } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -25,17 +28,42 @@ function readOptionalDate(value: FormDataEntryValue | null) {
   return trimmed;
 }
 
+async function ensureCompanyDocumentsBucket(adminClient: SupabaseClient) {
+  const { data } = await adminClient.storage.getBucket(COMPANY_DOCUMENT_BUCKET);
+  if (data) return null;
+
+  const { error: createError } = await adminClient.storage.createBucket(
+    COMPANY_DOCUMENT_BUCKET,
+    {
+      public: false,
+      fileSizeLimit: COMPANY_DOCUMENT_MAX_BYTES,
+    },
+  );
+
+  if (createError) {
+    return mapCompanyDocumentUploadError(createError.message);
+  }
+
+  return null;
+}
+
 function validateUploadFile(file: File) {
   if (!file || file.size <= 0) {
-    return "업로드할 파일을 선택해 주세요.";
+    return { error: "업로드할 파일을 선택해 주세요." as const };
   }
   if (file.size > COMPANY_DOCUMENT_MAX_BYTES) {
-    return "파일 크기는 15MB 이하여야 합니다.";
+    return { error: "파일 크기는 15MB 이하여야 합니다." as const };
   }
-  if (!COMPANY_DOCUMENT_ALLOWED_MIME_TYPES.has(file.type)) {
-    return "PDF 또는 이미지 파일(PNG, JPG, WEBP, GIF)만 업로드할 수 있습니다.";
+
+  const mimeType = resolveDocumentMimeType(file.name, file.type);
+  if (!isAllowedDocumentMimeType(mimeType)) {
+    return {
+      error:
+        "PDF 또는 이미지 파일(PNG, JPG, WEBP, GIF)만 업로드할 수 있습니다." as const,
+    };
   }
-  return null;
+
+  return { mimeType };
 }
 
 export async function uploadCompanyDocument(formData: FormData) {
@@ -60,8 +88,11 @@ export async function uploadCompanyDocument(formData: FormData) {
     return { error: "업로드할 파일을 선택해 주세요." };
   }
 
-  const fileError = validateUploadFile(file);
-  if (fileError) return { error: fileError };
+  const fileValidation = validateUploadFile(file);
+  if ("error" in fileValidation) {
+    return { error: fileValidation.error };
+  }
+  const { mimeType } = fileValidation;
 
   const documentId = crypto.randomUUID();
   const storagePath = `${documentId}/${sanitizeDocumentFileName(file.name)}`;
@@ -78,16 +109,19 @@ export async function uploadCompanyDocument(formData: FormData) {
     };
   }
 
+  const bucketError = await ensureCompanyDocumentsBucket(adminClient);
+  if (bucketError) return { error: bucketError };
+
   const fileBuffer = Buffer.from(await file.arrayBuffer());
   const { error: uploadError } = await adminClient.storage
     .from(COMPANY_DOCUMENT_BUCKET)
     .upload(storagePath, fileBuffer, {
-      contentType: file.type,
+      contentType: mimeType,
       upsert: false,
     });
 
   if (uploadError) {
-    return { error: "파일 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+    return { error: mapCompanyDocumentUploadError(uploadError.message) };
   }
 
   const supabase = await createClient();
@@ -96,7 +130,7 @@ export async function uploadCompanyDocument(formData: FormData) {
     title: resolvedTitle,
     file_name: file.name,
     storage_path: storagePath,
-    mime_type: file.type,
+    mime_type: mimeType,
     file_size: file.size,
     expires_at: expiresAtResult,
     note: note || null,

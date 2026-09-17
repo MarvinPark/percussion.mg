@@ -24,6 +24,69 @@ export const COMPANY_DOCUMENT_ALLOWED_MIME_TYPES = new Set([
   "image/gif",
 ]);
 
+const DOCUMENT_EXTENSION_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+export function resolveDocumentMimeType(
+  fileName: string,
+  reportedType?: string | null,
+) {
+  const normalized = reportedType?.trim().toLowerCase() ?? "";
+  if (normalized === "image/jpg") {
+    return "image/jpeg";
+  }
+  if (
+    normalized &&
+    normalized !== "application/octet-stream" &&
+    COMPANY_DOCUMENT_ALLOWED_MIME_TYPES.has(normalized)
+  ) {
+    return normalized;
+  }
+
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  return DOCUMENT_EXTENSION_MIME[extension] ?? normalized;
+}
+
+export function isAllowedDocumentMimeType(mimeType: string) {
+  return COMPANY_DOCUMENT_ALLOWED_MIME_TYPES.has(mimeType);
+}
+
+export function mapCompanyDocumentUploadError(message: string | undefined) {
+  const detail = message?.trim() ?? "";
+  const lower = detail.toLowerCase();
+
+  if (
+    lower.includes("bucket not found") ||
+    lower.includes("not found") && lower.includes("bucket")
+  ) {
+    return "문서 저장소(bucket)가 없습니다. Supabase SQL Editor에서 supabase/schema-company-documents.sql을 실행해 주세요.";
+  }
+
+  if (
+    lower.includes("mime") ||
+    lower.includes("content type") ||
+    lower.includes("invalid file type")
+  ) {
+    return "파일 형식이 허용되지 않습니다. PDF 또는 이미지(PNG, JPG, WEBP, GIF) 파일인지 확인해 주세요.";
+  }
+
+  if (lower.includes("payload too large") || lower.includes("file size")) {
+    return "파일 크기는 15MB 이하여야 합니다.";
+  }
+
+  if (detail) {
+    return `파일 업로드에 실패했습니다. (${detail})`;
+  }
+
+  return "파일 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
 export function isMissingCompanyDocumentsTable(message: string | undefined) {
   if (!message) return false;
   return (
@@ -91,6 +154,9 @@ export async function fetchCompanyDocumentById(
 }
 
 export function sanitizeDocumentFileName(fileName: string) {
-  const trimmed = fileName.trim().replace(/[/\\]/g, "_");
+  const trimmed = fileName
+    .trim()
+    .replace(/[/\\]/g, "_")
+    .replace(/[^\w.\-가-힣]/g, "_");
   return trimmed.slice(0, 180) || "document";
 }
