@@ -346,7 +346,10 @@ export default function CompanyDocumentsList({
           >
             <tr>
               {orderedColumns.map((column) => {
-                const sortable = isSortableCompanyDocumentColumn(column.id);
+                const sortColumn = isSortableCompanyDocumentColumn(column.id)
+                  ? column.id
+                  : null;
+
                 return (
                   <DraggableTableHeaderCell
                     key={column.id}
@@ -356,24 +359,21 @@ export default function CompanyDocumentsList({
                     className={headerClass}
                     resizable={column.resizable}
                     onResizeStart={startResize}
-                    sortable={sortable}
+                    sortable={sortColumn !== null}
                     sortDirection={
-                      sortable
-                        ? getCompanyDocumentSortDirectionForColumn(
-                            sort,
-                            column.id,
-                          )
+                      sortColumn
+                        ? getCompanyDocumentSortDirectionForColumn(sort, sortColumn)
                         : null
                     }
                     onSortClick={() => {
                       if (
-                        !sortable ||
+                        !sortColumn ||
                         shouldIgnoreSortClick() ||
                         shouldIgnoreHeaderClick()
                       ) {
                         return;
                       }
-                      onSortColumn(column.id);
+                      onSortColumn(sortColumn);
                     }}
                     {...getHeaderDragProps(column.id)}
                   />
