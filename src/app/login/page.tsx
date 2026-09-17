@@ -9,12 +9,16 @@ type LoginPageProps = {
   searchParams: Promise<{ error?: string; register?: string }>;
 };
 
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+  auth: "로그인 처리에 실패했습니다. 다시 시도해 주세요.",
+  suspended: "사용이 정지된 계정입니다. 관리자에게 문의해 주세요.",
+};
+
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
-  const authError =
-    params.error === "auth"
-      ? "로그인 처리에 실패했습니다. 다시 시도해 주세요."
-      : undefined;
+  const authError = params.error
+    ? LOGIN_ERROR_MESSAGES[params.error]
+    : undefined;
   const initialMode = params.register === "1" ? "register" : "login";
 
   return (

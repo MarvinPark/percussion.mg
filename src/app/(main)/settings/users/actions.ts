@@ -13,7 +13,10 @@ import {
 } from "@/lib/role-permission-settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { UserRole } from "@/types/profile";
+import {
+  normalizeAccountStatus,
+  type UserRole,
+} from "@/types/profile";
 
 function revalidateAdminPaths() {
   revalidatePath("/settings/users");
@@ -343,6 +346,132 @@ export async function approveUser(userId: string, jobTitleInput?: string) {
 
   if (error) {
     return { error: "승인 처리에 실패했습니다." };
+  }
+
+  revalidateAdminPaths();
+  invalidateAuthProfileCache(userId);
+  return { success: true as const };
+}
+
+function mapAccountStatusUpdateError(message: string) {
+  if (
+    message.includes("profiles_account_status_check") ||
+    message.includes("account_status") ||
+    message.includes("23514")
+  ) {
+    return "사용 정지 기능이 DB에 없습니다. Supabase SQL Editor에서 supabase/schema-profile-account-suspended.sql을 실행해 주세요.";
+  }
+  return "계정 상태 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+async function assertCanChangeAccountStatus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  callerUserId: string,
+  targetUserId: string,
+) {
+  if (targetUserId === callerUserId) {
+    return { error: "본인 계정은 이 메뉴에서 변경할 수 없습니다." };
+  }
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("role, account_status")
+    .eq("id", targetUserId)
+    .maybeSingle();
+
+  if (!target) {
+    return { error: "사용자를 찾을 수 없습니다." };
+  }
+
+  if (target.role === "admin") {
+    const { count: adminCount } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+
+    if ((adminCount ?? 0) <= 1) {
+      return { error: "마지막 관리자는 사용 정지할 수 없습니다." };
+    }
+  }
+
+  return { target };
+}
+
+export async function suspendUser(userId: string) {
+  const supabase = await createClient();
+  const auth = await requirePermission("manageUsers");
+
+  if ("error" in auth) {
+    return { error: auth.error };
+  }
+
+  const guard = await assertCanChangeAccountStatus(
+    supabase,
+    auth.userId,
+    userId,
+  );
+  if ("error" in guard) {
+    return { error: guard.error };
+  }
+
+  const status = normalizeAccountStatus(guard.target.account_status);
+  if (status === "suspended") {
+    return { error: "이미 사용 정지된 계정입니다." };
+  }
+  if (status !== "active") {
+    return { error: "사용 중인 계정만 사용 정지할 수 있습니다." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      account_status: "suspended",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (error) {
+    return { error: mapAccountStatusUpdateError(error.message) };
+  }
+
+  revalidateAdminPaths();
+  invalidateAuthProfileCache(userId);
+  return { success: true as const };
+}
+
+export async function reactivateUser(userId: string) {
+  const supabase = await createClient();
+  const auth = await requirePermission("manageUsers");
+
+  if ("error" in auth) {
+    return { error: auth.error };
+  }
+
+  const { data: target, error: fetchError } = await supabase
+    .from("profiles")
+    .select("account_status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (fetchError || !target) {
+    return { error: "사용자를 찾을 수 없습니다." };
+  }
+
+  const status = normalizeAccountStatus(target.account_status);
+  if (status !== "suspended") {
+    return { error: "사용 정지된 계정만 다시 활성화할 수 있습니다." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      account_status: "active",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (error) {
+    return { error: mapAccountStatusUpdateError(error.message) };
   }
 
   revalidateAdminPaths();

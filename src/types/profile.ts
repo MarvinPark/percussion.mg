@@ -1,6 +1,10 @@
 export type UserRole = "admin" | "manager" | "employee";
 
-export type AccountStatus = "pending_setup" | "pending_approval" | "active";
+export type AccountStatus =
+  | "pending_setup"
+  | "pending_approval"
+  | "active"
+  | "suspended";
 
 export type Profile = {
   id: string;
@@ -22,11 +26,18 @@ export function normalizeAccountStatus(
   if (
     value === "pending_setup" ||
     value === "pending_approval" ||
-    value === "active"
+    value === "active" ||
+    value === "suspended"
   ) {
     return value;
   }
   return "active";
+}
+
+export function isAccountSuspended(
+  profile: Pick<Profile, "account_status"> | null | undefined,
+) {
+  return normalizeAccountStatus(profile?.account_status) === "suspended";
 }
 
 export function isProfileComplete(
@@ -76,4 +87,5 @@ export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
   pending_setup: "정보 입력 대기",
   pending_approval: "승인 대기",
   active: "사용 중",
+  suspended: "사용 정지",
 };

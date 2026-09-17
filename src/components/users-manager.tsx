@@ -5,6 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 import {
   approveUser,
   inviteUser,
+  reactivateUser,
+  suspendUser,
   updateUserJobTitle,
   updateUserRole,
 } from "@/app/(main)/settings/users/actions";
@@ -108,6 +110,40 @@ export default function UsersManager({
         return;
       }
       setMessage("직함이 변경되었습니다.");
+      refresh();
+    });
+  }
+
+  function handleSuspend(userId: string, displayName: string) {
+    const confirmed = window.confirm(
+      `${displayName} 사용자를 사용 정지하시겠습니까?\n로그인할 수 없으며 목록에서 비활성 상태로 표시됩니다.`,
+    );
+    if (!confirmed) return;
+
+    startTransition(async () => {
+      const result = await suspendUser(userId);
+      if ("error" in result && result.error) {
+        window.alert(result.error);
+        return;
+      }
+      setMessage("사용자를 사용 정지했습니다.");
+      refresh();
+    });
+  }
+
+  function handleReactivate(userId: string, displayName: string) {
+    const confirmed = window.confirm(
+      `${displayName} 사용자를 다시 사용할 수 있게 하시겠습니까?`,
+    );
+    if (!confirmed) return;
+
+    startTransition(async () => {
+      const result = await reactivateUser(userId);
+      if ("error" in result && result.error) {
+        window.alert(result.error);
+        return;
+      }
+      setMessage("사용자를 다시 활성화했습니다.");
       refresh();
     });
   }
@@ -253,11 +289,18 @@ export default function UsersManager({
             ) : null}
             {profiles.map((profile) => {
               const status = normalizeAccountStatus(profile.account_status);
+              const isSuspended = status === "suspended";
+              const isSelf = profile.id === currentUserId;
+              const displayName =
+                profile.full_name === "미등록"
+                  ? profile.email ?? "사용자"
+                  : profile.full_name;
+              const rowClass = isSuspended
+                ? "border-b border-zinc-100 bg-zinc-100/90 text-zinc-500 last:border-0 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400"
+                : "border-b border-zinc-100 last:border-0 dark:border-zinc-800";
+
               return (
-                <tr
-                  key={profile.id}
-                  className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
-                >
+                <tr key={profile.id} className={rowClass}>
                   <td className="px-4 py-3 font-medium">
                     {profile.full_name === "미등록"
                       ? "-"
@@ -277,7 +320,7 @@ export default function UsersManager({
                   <td className="px-4 py-3">
                     <input
                       value={jobTitles[profile.id] ?? ""}
-                      disabled={isPending}
+                      disabled={isPending || isSuspended}
                       onChange={(event) =>
                         setJobTitles((current) => ({
                           ...current,
@@ -300,7 +343,9 @@ export default function UsersManager({
                           ? "text-green-700 dark:text-green-400"
                           : status === "pending_approval"
                             ? "text-amber-700 dark:text-amber-400"
-                            : "text-zinc-600 dark:text-zinc-400"
+                            : status === "suspended"
+                              ? "font-semibold text-zinc-500 dark:text-zinc-400"
+                              : "text-zinc-600 dark:text-zinc-400"
                       }
                     >
                       {ACCOUNT_STATUS_LABELS[status]}
@@ -309,7 +354,7 @@ export default function UsersManager({
                   <td className="px-4 py-3">
                     <select
                       value={roles[profile.id] ?? "employee"}
-                      disabled={isPending}
+                      disabled={isPending || isSuspended}
                       onChange={(event) =>
                         handleRoleChange(
                           profile.id,
@@ -334,6 +379,24 @@ export default function UsersManager({
                         className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                       >
                         승인
+                      </button>
+                    ) : status === "suspended" ? (
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => handleReactivate(profile.id, displayName)}
+                        className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        사용재개
+                      </button>
+                    ) : status === "active" && !isSelf ? (
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => handleSuspend(profile.id, displayName)}
+                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
+                      >
+                        사용정지
                       </button>
                     ) : (
                       <span className="text-xs text-zinc-400">-</span>

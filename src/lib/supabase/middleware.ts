@@ -5,6 +5,7 @@ import { canAccessPath, normalizeRole } from "@/lib/permissions";
 import { fetchRolePermissionMap } from "@/lib/role-permission-settings";
 import {
   canUseApp,
+  isAccountSuspended,
   needsAdminApproval,
   needsProfileSetup,
 } from "@/types/profile";
@@ -67,6 +68,18 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  if (user) {
+    const profile = await loadAuthProfile(supabase, user.id);
+
+    if (isAccountSuspended(profile)) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("error", "suspended");
+      return NextResponse.redirect(url);
+    }
   }
 
   if (user && (isLoginPage || isSignupPage)) {

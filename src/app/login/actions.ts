@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAuthProfile } from "@/lib/profile-auth";
 import {
   canUseApp,
+  isAccountSuspended,
   needsAdminApproval,
   needsProfileSetup,
 } from "@/types/profile";
@@ -28,6 +29,11 @@ async function redirectAfterAuth(supabase: Awaited<ReturnType<typeof createClien
   }
 
   const profile = await fetchAuthProfile(supabase, user.id);
+
+  if (isAccountSuspended(profile)) {
+    await supabase.auth.signOut();
+    redirect("/login?error=suspended");
+  }
 
   if (needsAdminApproval(profile)) {
     redirect("/profile/pending-approval");
@@ -57,6 +63,21 @@ export async function login(formData: FormData) {
 
   if (error) {
     return { error: "이메일 또는 비밀번호가 올바르지 않습니다." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const profile = await fetchAuthProfile(supabase, user.id);
+    if (isAccountSuspended(profile)) {
+      await supabase.auth.signOut();
+      return {
+        error:
+          "사용이 정지된 계정입니다. 관리자에게 문의해 주세요.",
+      };
+    }
   }
 
   revalidatePath("/", "layout");
