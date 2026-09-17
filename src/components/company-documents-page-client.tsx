@@ -8,6 +8,7 @@ import {
 } from "@/app/(main)/documents/actions";
 import {
   COMPANY_DOCUMENT_PRESETS,
+  buildDocumentDownloadPath,
   formatCompanyDocumentExpiry,
   formatCompanyDocumentFileSize,
   isCompanyDocumentExpired,
@@ -36,12 +37,12 @@ function formatCreatedAt(value: string) {
   return value.slice(0, 10);
 }
 
-function getDocumentViewUrl(documentId: string) {
-  return `/api/documents/${documentId}/download`;
-}
-
 function openDocument(document: CompanyDocument) {
-  window.location.assign(getDocumentViewUrl(document.id));
+  window.open(
+    buildDocumentDownloadPath(document.id, document.file_name),
+    "_blank",
+    "noopener,noreferrer",
+  );
 }
 
 type DocumentRowProps = {

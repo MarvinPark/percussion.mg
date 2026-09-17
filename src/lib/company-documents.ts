@@ -160,3 +160,24 @@ export function sanitizeDocumentFileName(fileName: string) {
     .replace(/[^\w.\-가-힣]/g, "_");
   return trimmed.slice(0, 180) || "document";
 }
+
+export function buildDocumentDownloadPath(
+  documentId: string,
+  fileName: string,
+) {
+  return `/api/documents/${documentId}/download/${encodeURIComponent(fileName)}`;
+}
+
+export function buildDocumentContentDisposition(
+  fileName: string,
+  disposition: "inline" | "attachment" = "inline",
+) {
+  const trimmed = fileName.trim() || "document";
+  const asciiFallback =
+    trimmed
+      .replace(/[^\x20-\x7E]/g, "_")
+      .replace(/\\/g, "_")
+      .replace(/"/g, "_") || "document";
+  const encoded = encodeURIComponent(trimmed);
+  return `${disposition}; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}

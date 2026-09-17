@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   COMPANY_DOCUMENT_BUCKET,
+  buildDocumentContentDisposition,
   fetchCompanyDocumentById,
 } from "@/lib/company-documents";
 import { hasPermission, normalizeRole } from "@/lib/permissions";
@@ -10,10 +11,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; filename?: string[] }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const { id } = await context.params;
   const { user, profile } = await getCurrentUserProfile();
 
@@ -54,11 +55,17 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const encodedName = encodeURIComponent(document.file_name);
+  const downloadRequested =
+    new URL(request.url).searchParams.get("download") === "1";
+  const disposition = downloadRequested ? "attachment" : "inline";
+
   return new NextResponse(data, {
     headers: {
       "Content-Type": document.mime_type,
-      "Content-Disposition": `inline; filename*=UTF-8''${encodedName}`,
+      "Content-Disposition": buildDocumentContentDisposition(
+        document.file_name,
+        disposition,
+      ),
       "Cache-Control": "private, no-store",
     },
   });
