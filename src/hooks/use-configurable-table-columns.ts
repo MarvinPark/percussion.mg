@@ -39,6 +39,7 @@ export function useConfigurableTableColumns<T extends string>(
     handleColumnDragEnd,
     handleColumnDragOver,
     handleColumnDrop,
+    shouldIgnoreSortClick,
   } = useTableColumnOrder(orderStorageKey, defaultOrder, columns, {
     fixedStart,
     fixedEnd,
@@ -46,6 +47,7 @@ export function useConfigurableTableColumns<T extends string>(
 
   const [widths, setWidths] = useState(() => getDefaultWidthsFromColumns(columns));
   const widthsRef = useRef(widths);
+  const resizeJustEndedRef = useRef(false);
 
   useEffect(() => {
     widthsRef.current = widths;
@@ -82,6 +84,10 @@ export function useConfigurableTableColumns<T extends string>(
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         saveTableColumnWidths(widthStorageKey, widthsRef.current);
+        resizeJustEndedRef.current = true;
+        window.requestAnimationFrame(() => {
+          resizeJustEndedRef.current = false;
+        });
       }
 
       document.body.style.cursor = "col-resize";
@@ -97,6 +103,11 @@ export function useConfigurableTableColumns<T extends string>(
     0,
   );
 
+  const shouldIgnoreHeaderClick = useCallback(
+    () => resizeJustEndedRef.current,
+    [],
+  );
+
   return {
     orderedColumns,
     widths,
@@ -108,6 +119,8 @@ export function useConfigurableTableColumns<T extends string>(
     handleColumnDragEnd,
     handleColumnDragOver,
     handleColumnDrop,
+    shouldIgnoreSortClick,
+    shouldIgnoreHeaderClick,
     fixedStart,
     fixedEnd,
   };

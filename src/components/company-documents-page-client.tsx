@@ -1,21 +1,34 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   deleteCompanyDocument,
   uploadCompanyDocument,
 } from "@/app/(main)/documents/actions";
+import CompanyDocumentsList from "@/components/company-documents-list";
+import TableRowSizeControl from "@/components/table-row-size-control";
 import {
   COMPANY_DOCUMENT_PRESETS,
-  buildDocumentDownloadPath,
-  formatCompanyDocumentExpiry,
-  formatCompanyDocumentFileSize,
   isCompanyDocumentExpired,
 } from "@/lib/company-documents";
+import {
+  companyDocumentListSortToSearchParams,
+  cycleCompanyDocumentListSort,
+  parseCompanyDocumentListSort,
+  sortCompanyDocuments,
+  type CompanyDocumentListSort,
+  type CompanyDocumentSortColumn,
+} from "@/lib/company-documents-sort";
+import {
+  DEFAULT_TABLE_ROW_FONT_SIZE,
+  loadTableRowFontSize,
+  saveTableRowFontSize,
+} from "@/lib/table-row-preferences";
 import type { CompanyDocument } from "@/types/company-document";
 
 type CompanyDocumentsPageClientProps = {
+  userId: string;
   documents: CompanyDocument[];
   canManage: boolean;
   schemaError?: string | null;
@@ -27,147 +40,34 @@ const inputClass =
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
 
-const deleteButtonClass =
-  "rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60";
+function syncDocumentsSortUrl(sort: CompanyDocumentListSort) {
+  const params = new URLSearchParams(window.location.search);
+  const sortParams = companyDocumentListSortToSearchParams(sort);
 
-const clickableRowClass =
-  "cursor-pointer transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:hover:bg-zinc-800/50 dark:active:bg-zinc-800";
+  if (sortParams.sort) {
+    params.set("sort", sortParams.sort);
+    params.set("order", sortParams.order ?? "desc");
+  } else {
+    params.delete("sort");
+    params.delete("order");
+  }
 
-function formatCreatedAt(value: string) {
-  return value.slice(0, 10);
-}
-
-function openDocument(document: CompanyDocument) {
-  window.open(
-    buildDocumentDownloadPath(document.id, document.file_name),
-    "_blank",
-    "noopener,noreferrer",
-  );
-}
-
-type DocumentRowProps = {
-  document: CompanyDocument;
-  canManage: boolean;
-  isPending: boolean;
-  onDelete: (document: CompanyDocument) => void;
-};
-
-function DocumentDeleteButton({
-  document,
-  canManage,
-  isPending,
-  onDelete,
-}: DocumentRowProps) {
-  if (!canManage) return null;
-
-  return (
-    <button
-      type="button"
-      disabled={isPending}
-      onClick={(event) => {
-        event.stopPropagation();
-        onDelete(document);
-      }}
-      className={deleteButtonClass}
-    >
-      삭제
-    </button>
-  );
-}
-
-function DocumentMobileCard({
-  document,
-  canManage,
-  isPending,
-  onDelete,
-}: DocumentRowProps) {
-  const expired = isCompanyDocumentExpired(document.expires_at);
-
-  return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={() => openDocument(document)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          openDocument(document);
-        }
-      }}
-      className={
-        expired
-          ? `rounded-xl border border-zinc-200 bg-zinc-100/90 p-3 dark:border-zinc-700 dark:bg-zinc-800/60 ${clickableRowClass}`
-          : `rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900 ${clickableRowClass}`
-      }
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p
-            className={
-              expired
-                ? "font-semibold text-zinc-600 dark:text-zinc-400"
-                : "font-semibold text-zinc-900 dark:text-zinc-100"
-            }
-          >
-            {document.title}
-          </p>
-          <p className="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400">
-            {document.file_name} ·{" "}
-            {formatCompanyDocumentFileSize(document.file_size)}
-          </p>
-        </div>
-        <DocumentDeleteButton
-          document={document}
-          canManage={canManage}
-          isPending={isPending}
-          onDelete={onDelete}
-        />
-      </div>
-
-      <dl className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
-        <div>
-          <dt className="font-medium text-zinc-500 dark:text-zinc-400">만료일</dt>
-          <dd
-            className={
-              expired
-                ? "font-semibold text-red-600 dark:text-red-400"
-                : "text-zinc-800 dark:text-zinc-200"
-            }
-          >
-            {expired
-              ? `만료 (${formatCompanyDocumentExpiry(document.expires_at)})`
-              : formatCompanyDocumentExpiry(document.expires_at)}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-500 dark:text-zinc-400">등록일</dt>
-          <dd className="text-zinc-800 dark:text-zinc-200">
-            {formatCreatedAt(document.created_at)}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-500 dark:text-zinc-400">등록자</dt>
-          <dd className="truncate text-zinc-800 dark:text-zinc-200">
-            {document.created_by_name ?? "-"}
-          </dd>
-        </div>
-      </dl>
-
-      {document.note ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          {document.note}
-        </p>
-      ) : null}
-    </article>
+  const query = params.toString();
+  window.history.replaceState(
+    null,
+    "",
+    query ? `${window.location.pathname}?${query}` : window.location.pathname,
   );
 }
 
 export default function CompanyDocumentsPageClient({
+  userId,
   documents,
   canManage,
   schemaError,
 }: CompanyDocumentsPageClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +77,29 @@ export default function CompanyDocumentsPageClient({
   const [customTitle, setCustomTitle] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [note, setNote] = useState("");
+  const [sort, setSort] = useState<CompanyDocumentListSort>(() =>
+    parseCompanyDocumentListSort(
+      searchParams.get("sort"),
+      searchParams.get("order"),
+    ),
+  );
+  const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+
+  useEffect(() => {
+    setRowFontSize(loadTableRowFontSize("company-documents", userId));
+    setPreferencesLoaded(true);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    saveTableRowFontSize("company-documents", userId, rowFontSize);
+  }, [preferencesLoaded, rowFontSize, userId]);
+
+  const sortedDocuments = useMemo(
+    () => sortCompanyDocuments(documents, sort),
+    [documents, sort],
+  );
 
   const expiredCount = useMemo(
     () => documents.filter((doc) => isCompanyDocumentExpired(doc.expires_at)).length,
@@ -187,6 +110,12 @@ export default function CompanyDocumentsPageClient({
     startTransition(() => {
       router.refresh();
     });
+  }
+
+  function handleSortColumn(column: CompanyDocumentSortColumn) {
+    const nextSort = cycleCompanyDocumentListSort(sort, column);
+    setSort(nextSort);
+    syncDocumentsSortUrl(nextSort);
   }
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
@@ -376,118 +305,20 @@ export default function CompanyDocumentsPageClient({
         </p>
       ) : null}
 
-      <div className="space-y-3 md:hidden">
-        {documents.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            등록된 문서가 없습니다.
-          </div>
-        ) : (
-          documents.map((document) => (
-            <DocumentMobileCard
-              key={document.id}
-              document={document}
-              canManage={canManage}
-              isPending={isPending}
-              onDelete={handleDelete}
-            />
-          ))
-        )}
+      <div className="hidden items-center justify-end md:flex">
+        <TableRowSizeControl value={rowFontSize} onChange={setRowFontSize} />
       </div>
 
-      <div className="hidden overflow-x-auto rounded-xl border border-zinc-200 md:block dark:border-zinc-700">
-        <table className="w-full text-sm">
-          <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold">문서 종류</th>
-              <th className="px-4 py-3 text-left font-semibold">파일</th>
-              <th className="px-4 py-3 text-left font-semibold">만료일</th>
-              <th className="px-4 py-3 text-left font-semibold">등록일</th>
-              <th className="px-4 py-3 text-left font-semibold">등록자</th>
-              {canManage ? (
-                <th className="px-4 py-3 text-left font-semibold">삭제</th>
-              ) : null}
-            </tr>
-          </thead>
-          <tbody>
-            {documents.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={canManage ? 6 : 5}
-                  className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
-                >
-                  등록된 문서가 없습니다.
-                </td>
-              </tr>
-            ) : (
-              documents.map((document) => {
-                const expired = isCompanyDocumentExpired(document.expires_at);
-                return (
-                  <tr
-                    key={document.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openDocument(document)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openDocument(document);
-                      }
-                    }}
-                    className={
-                      expired
-                        ? `border-b border-zinc-100 bg-zinc-100/90 text-zinc-500 last:border-0 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400 ${clickableRowClass}`
-                        : `border-b border-zinc-100 last:border-0 dark:border-zinc-800 ${clickableRowClass}`
-                    }
-                  >
-                    <td className="px-4 py-3 font-medium">
-                      <div>{document.title}</div>
-                      {document.note ? (
-                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                          {document.note}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="truncate">{document.file_name}</div>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        {formatCompanyDocumentFileSize(document.file_size)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      {expired ? (
-                        <span className="font-semibold text-red-600 dark:text-red-400">
-                          만료 ({formatCompanyDocumentExpiry(document.expires_at)})
-                        </span>
-                      ) : (
-                        formatCompanyDocumentExpiry(document.expires_at)
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {formatCreatedAt(document.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {document.created_by_name ?? "-"}
-                    </td>
-                    {canManage ? (
-                      <td
-                        className="px-4 py-3"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <DocumentDeleteButton
-                          document={document}
-                          canManage={canManage}
-                          isPending={isPending}
-                          onDelete={handleDelete}
-                        />
-                      </td>
-                    ) : null}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <CompanyDocumentsList
+        userId={userId}
+        documents={sortedDocuments}
+        canManage={canManage}
+        isPending={isPending}
+        sort={sort}
+        rowFontSize={rowFontSize}
+        onSortColumn={handleSortColumn}
+        onDelete={handleDelete}
+      />
 
       {isPending ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">처리 중...</p>

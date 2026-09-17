@@ -1,5 +1,7 @@
 "use client";
 
+type SortDirection = "asc" | "desc";
+
 type DraggableTableHeaderCellProps<T extends string> = {
   columnId: T;
   label: string;
@@ -16,8 +18,19 @@ type DraggableTableHeaderCellProps<T extends string> = {
   resizeHandleVariant?: "default" | "light-divider";
   tone?: "default" | "dark";
   onResizeStart?: (columnId: T, startX: number) => void;
+  sortable?: boolean;
+  sortDirection?: SortDirection | null;
+  onSortClick?: () => void;
   children?: React.ReactNode;
 };
+
+function SortIndicator({ direction }: { direction: SortDirection }) {
+  return (
+    <span className="ml-0.5 text-[10px] leading-none text-blue-600 dark:text-blue-400">
+      {direction === "desc" ? "▼" : "▲"}
+    </span>
+  );
+}
 
 const resizeHandleOuterDefaultClass =
   "group absolute right-0 top-0 z-10 flex h-full w-3 cursor-col-resize items-stretch justify-center";
@@ -47,6 +60,9 @@ export default function DraggableTableHeaderCell<T extends string>({
   resizeHandleVariant = "default",
   tone = "default",
   onResizeStart,
+  sortable = false,
+  sortDirection = null,
+  onSortClick,
   children,
 }: DraggableTableHeaderCellProps<T>) {
   const dragStateClass = isDragging
@@ -91,6 +107,45 @@ export default function DraggableTableHeaderCell<T extends string>({
     onColumnDrop(columnId);
   }
 
+  const labelContent =
+    children ??
+    (sortable ? (
+      <button
+        type="button"
+        draggable={reorderable}
+        onDragStart={handleDragStart}
+        onDragEnd={() => onColumnDragEnd?.()}
+        onClick={onSortClick}
+        className={`flex min-w-0 items-center truncate rounded px-0.5 text-left hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-blue-300 ${
+          reorderable ? "cursor-grab active:cursor-grabbing" : ""
+        }`}
+        title={
+          sortDirection === "desc"
+            ? "내림차순 (클릭: 올림차순)"
+            : sortDirection === "asc"
+              ? "올림차순 (클릭: 등록순)"
+              : reorderable
+                ? "드래그: 열 이동 · 클릭: 내림차순"
+                : "등록순 (클릭: 내림차순)"
+        }
+      >
+        <span className="truncate">{label}</span>
+        {sortDirection ? <SortIndicator direction={sortDirection} /> : null}
+      </button>
+    ) : (
+      <span
+        draggable={reorderable}
+        onDragStart={handleDragStart}
+        onDragEnd={() => onColumnDragEnd?.()}
+        className={`inline-block truncate ${
+          reorderable ? "cursor-grab active:cursor-grabbing" : ""
+        }`}
+        title={reorderable ? "드래그하여 열 이동" : undefined}
+      >
+        {label}
+      </span>
+    ));
+
   return (
     <th
       className={`relative select-none align-middle ${alignClass} ${dragStateClass} ${className}`}
@@ -98,19 +153,7 @@ export default function DraggableTableHeaderCell<T extends string>({
       onDrop={handleDrop}
     >
       <div className={`flex items-center pr-2 ${flexJustifyClass}`}>
-        {children ?? (
-          <span
-            draggable={reorderable}
-            onDragStart={handleDragStart}
-            onDragEnd={() => onColumnDragEnd?.()}
-            className={`inline-block truncate ${
-              reorderable ? "cursor-grab active:cursor-grabbing" : ""
-            }`}
-            title={reorderable ? "드래그하여 열 이동" : undefined}
-          >
-            {label}
-          </span>
-        )}
+        {labelContent}
       </div>
 
       {resizable ? (
@@ -127,6 +170,10 @@ export default function DraggableTableHeaderCell<T extends string>({
             event.preventDefault();
             event.stopPropagation();
             onResizeStart?.(columnId, event.clientX);
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
           }}
         >
           <div

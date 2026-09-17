@@ -7,6 +7,7 @@ import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { pageMain, pageSubtitle, pageTitle } from "@/lib/ui-classes";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 export const metadata = createPageMetadata("문서");
 
@@ -34,11 +35,14 @@ export default async function DocumentsPage() {
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <CompanyDocumentsPageClient
-          documents={documents}
-          canManage={canManage}
-          schemaError={error}
-        />
+        <Suspense fallback={<p className="text-sm text-zinc-500">불러오는 중…</p>}>
+          <CompanyDocumentsPageClient
+            userId={user.id}
+            documents={documents}
+            canManage={canManage}
+            schemaError={error}
+          />
+        </Suspense>
       </div>
     </main>
   );

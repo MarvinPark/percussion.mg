@@ -78,6 +78,11 @@ export function useTableColumnOrder<T extends string, C extends { id: T }>(
     [draggingColumnId, handleColumnDragEnd, moveColumn],
   );
 
+  const shouldIgnoreSortClick = useCallback(
+    () => dragJustEndedRef.current,
+    [],
+  );
+
   return {
     orderedColumns,
     draggingColumnId,
@@ -86,5 +91,6 @@ export function useTableColumnOrder<T extends string, C extends { id: T }>(
     handleColumnDragEnd,
     handleColumnDragOver,
     handleColumnDrop,
+    shouldIgnoreSortClick,
   };
 }
