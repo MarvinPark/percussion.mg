@@ -11,7 +11,10 @@ export type Permission =
   | "viewPartners"
   | "managePartners"
   | "manageUsers"
-  | "managePaymentMethods";
+  | "managePaymentMethods"
+  | "viewSettlement"
+  | "viewDocuments"
+  | "manageDocuments";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "viewProducts",
@@ -25,6 +28,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   "managePartners",
   "manageUsers",
   "managePaymentMethods",
+  "viewSettlement",
+  "viewDocuments",
+  "manageDocuments",
 ];
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
@@ -39,6 +45,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   managePartners: "거래처 등록·수정",
   manageUsers: "사용자·권한 관리",
   managePaymentMethods: "결제수단 관리",
+  viewSettlement: "결산 접근",
+  viewDocuments: "문서 조회·다운로드",
+  manageDocuments: "문서 업로드·삭제",
 };
 
 export const PERMISSION_GROUPS: {
@@ -60,6 +69,14 @@ export const PERMISSION_GROUPS: {
   {
     label: "거래처",
     permissions: ["viewPartners", "managePartners"],
+  },
+  {
+    label: "문서",
+    permissions: ["viewDocuments", "manageDocuments"],
+  },
+  {
+    label: "결산",
+    permissions: ["viewSettlement"],
   },
   {
     label: "관리자 설정",
@@ -95,6 +112,9 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMap = {
     "managePartners",
     "manageUsers",
     "managePaymentMethods",
+    "viewSettlement",
+    "viewDocuments",
+    "manageDocuments",
   ],
   manager: [
     "viewProducts",
@@ -106,6 +126,8 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMap = {
     "manageQuotes",
     "viewPartners",
     "managePartners",
+    "viewDocuments",
+    "manageDocuments",
   ],
   employee: [
     "viewProducts",
@@ -116,6 +138,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMap = {
     "manageQuotes",
     "viewPartners",
     "managePartners",
+    "viewDocuments",
   ],
 };
 
@@ -158,7 +181,7 @@ export function canAccessPath(
   }
 
   if (pathname.startsWith("/settings/overhead")) {
-    return role === "admin";
+    return hasPermission(role, "viewSettlement", permissionMap);
   }
 
   if (pathname.startsWith("/quotes")) {
@@ -171,6 +194,10 @@ export function canAccessPath(
 
   if (pathname.startsWith("/partners")) {
     return hasPermission(role, "viewPartners", permissionMap);
+  }
+
+  if (pathname.startsWith("/documents")) {
+    return hasPermission(role, "viewDocuments", permissionMap);
   }
 
   if (pathname.startsWith("/sales/payment-methods")) {
@@ -197,7 +224,6 @@ export type NavItem = {
   href: string;
   label: string;
   permission?: Permission;
-  adminOnly?: boolean;
 };
 
 export const ALL_NAV_ITEMS: NavItem[] = [
@@ -210,7 +236,8 @@ export const ALL_NAV_ITEMS: NavItem[] = [
     permission: "viewProducts",
   },
   { href: "/partners", label: "거래처", permission: "viewPartners" },
-  { href: "/settings/overhead", label: "결산", adminOnly: true },
+  { href: "/documents", label: "문서", permission: "viewDocuments" },
+  { href: "/settings/overhead", label: "결산", permission: "viewSettlement" },
   { href: "/settings/users", label: "설정", permission: "manageUsers" },
   { href: "/my-page", label: "마이페이지" },
 ];
@@ -219,10 +246,8 @@ export function getNavItems(
   role: UserRole,
   permissionMap: RolePermissionMap = DEFAULT_ROLE_PERMISSIONS,
 ) {
-  return ALL_NAV_ITEMS.filter((item) => {
-    if (item.adminOnly && role !== "admin") return false;
-    return (
-      !item.permission || hasPermission(role, item.permission, permissionMap)
-    );
-  });
+  return ALL_NAV_ITEMS.filter(
+    (item) =>
+      !item.permission || hasPermission(role, item.permission, permissionMap),
+  );
 }

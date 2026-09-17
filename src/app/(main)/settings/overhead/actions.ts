@@ -5,7 +5,7 @@ import {
   currentDateString,
   parseAccrualMonth,
 } from "@/lib/overhead-expenses";
-import { getModifierInfo, requireAdmin } from "@/lib/profile";
+import { getModifierInfo, requirePermission } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 
 function revalidateOverheadPaths() {
@@ -35,7 +35,7 @@ function validateExpenseFields(fields: ReturnType<typeof readExpenseFields>) {
 }
 
 export async function createOverheadExpense(formData: FormData) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("viewSettlement");
   if ("error" in auth) return { error: auth.error };
 
   const fields = readExpenseFields(formData);
@@ -67,7 +67,7 @@ export async function createOverheadExpense(formData: FormData) {
 }
 
 export async function createOverheadCategory(formData: FormData) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("viewSettlement");
   if ("error" in auth) return { error: auth.error };
 
   const group_name = String(formData.get("group_name") ?? "").trim();
@@ -130,7 +130,7 @@ export async function createOverheadCategory(formData: FormData) {
 }
 
 export async function updateOverheadCategory(formData: FormData) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("viewSettlement");
   if ("error" in auth) return { error: auth.error };
 
   const id = String(formData.get("category_id") ?? "").trim();
@@ -190,7 +190,7 @@ export async function updateOverheadCategory(formData: FormData) {
 }
 
 export async function deleteOverheadCategory(formData: FormData) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("viewSettlement");
   if ("error" in auth) return { error: auth.error };
 
   const id = String(formData.get("category_id") ?? "").trim();
@@ -234,7 +234,7 @@ export async function deleteOverheadCategory(formData: FormData) {
 }
 
 export async function updateOverheadExpense(formData: FormData) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("viewSettlement");
   if ("error" in auth) return { error: auth.error };
 
   const expenseId = String(formData.get("expense_id") ?? "").trim();
@@ -269,7 +269,7 @@ export async function updateOverheadExpense(formData: FormData) {
 }
 
 export async function deleteOverheadExpense(formData: FormData) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("viewSettlement");
   if ("error" in auth) return { error: auth.error };
 
   const expenseId = String(formData.get("expense_id") ?? "").trim();

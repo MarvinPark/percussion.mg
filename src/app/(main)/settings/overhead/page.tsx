@@ -11,7 +11,8 @@ import {
   parseAccrualMonth,
 } from "@/lib/overhead-expenses";
 import { getCurrentUserProfile } from "@/lib/profile";
-import { normalizeRole } from "@/lib/permissions";
+import { hasPermission, normalizeRole } from "@/lib/permissions";
+import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -30,7 +31,9 @@ export default async function OverheadSettingsPage({
     redirect("/login");
   }
 
-  if (normalizeRole(profile?.role) !== "admin") {
+  const role = normalizeRole(profile?.role);
+  const permissionMap = await getRolePermissionMap();
+  if (!hasPermission(role, "viewSettlement", permissionMap)) {
     redirect("/dashboard");
   }
 
@@ -55,7 +58,7 @@ export default async function OverheadSettingsPage({
         결산
       </h2>
       <p className="mb-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        관리자 전용 · 월별 매출·판관비·영업이익 결산 및 판관비 등록
+        월별 매출·판관비·영업이익 결산 및 판관비 등록
       </p>
 
       <OverheadExpensesManager

@@ -33,6 +33,9 @@ insert into role_permission_grants (role, permission) values
   ('admin', 'manageQuotes'),
   ('admin', 'manageUsers'),
   ('admin', 'managePaymentMethods'),
+  ('admin', 'viewSettlement'),
+  ('admin', 'viewDocuments'),
+  ('admin', 'manageDocuments'),
   ('manager', 'viewProducts'),
   ('manager', 'manageProducts'),
   ('manager', 'viewSales'),
@@ -40,6 +43,8 @@ insert into role_permission_grants (role, permission) values
   ('manager', 'manageSales'),
   ('manager', 'viewQuotes'),
   ('manager', 'manageQuotes'),
+  ('manager', 'viewDocuments'),
+  ('manager', 'manageDocuments'),
   ('employee', 'viewProducts'),
   ('employee', 'viewSales'),
   ('employee', 'createSales'),
@@ -47,5 +52,6 @@ insert into role_permission_grants (role, permission) values
   ('employee', 'viewQuotes'),
   ('employee', 'manageQuotes'),
   ('employee', 'viewPartners'),
-  ('employee', 'managePartners')
+  ('employee', 'managePartners'),
+  ('employee', 'viewDocuments')
 on conflict (role, permission) do nothing;
