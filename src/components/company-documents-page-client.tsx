@@ -26,14 +26,139 @@ const inputClass =
 const labelClass =
   "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
 
-const actionButtonClass =
-  "rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
-
 const deleteButtonClass =
   "rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60";
 
+const clickableRowClass =
+  "cursor-pointer transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:hover:bg-zinc-800/50 dark:active:bg-zinc-800";
+
 function formatCreatedAt(value: string) {
   return value.slice(0, 10);
+}
+
+function getDocumentViewUrl(documentId: string) {
+  return `/api/documents/${documentId}/download`;
+}
+
+function openDocument(document: CompanyDocument) {
+  window.location.assign(getDocumentViewUrl(document.id));
+}
+
+type DocumentRowProps = {
+  document: CompanyDocument;
+  canManage: boolean;
+  isPending: boolean;
+  onDelete: (document: CompanyDocument) => void;
+};
+
+function DocumentDeleteButton({
+  document,
+  canManage,
+  isPending,
+  onDelete,
+}: DocumentRowProps) {
+  if (!canManage) return null;
+
+  return (
+    <button
+      type="button"
+      disabled={isPending}
+      onClick={(event) => {
+        event.stopPropagation();
+        onDelete(document);
+      }}
+      className={deleteButtonClass}
+    >
+      삭제
+    </button>
+  );
+}
+
+function DocumentMobileCard({
+  document,
+  canManage,
+  isPending,
+  onDelete,
+}: DocumentRowProps) {
+  const expired = isCompanyDocumentExpired(document.expires_at);
+
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => openDocument(document)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDocument(document);
+        }
+      }}
+      className={
+        expired
+          ? `rounded-xl border border-zinc-200 bg-zinc-100/90 p-3 dark:border-zinc-700 dark:bg-zinc-800/60 ${clickableRowClass}`
+          : `rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900 ${clickableRowClass}`
+      }
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p
+            className={
+              expired
+                ? "font-semibold text-zinc-600 dark:text-zinc-400"
+                : "font-semibold text-zinc-900 dark:text-zinc-100"
+            }
+          >
+            {document.title}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400">
+            {document.file_name} ·{" "}
+            {formatCompanyDocumentFileSize(document.file_size)}
+          </p>
+        </div>
+        <DocumentDeleteButton
+          document={document}
+          canManage={canManage}
+          isPending={isPending}
+          onDelete={onDelete}
+        />
+      </div>
+
+      <dl className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
+        <div>
+          <dt className="font-medium text-zinc-500 dark:text-zinc-400">만료일</dt>
+          <dd
+            className={
+              expired
+                ? "font-semibold text-red-600 dark:text-red-400"
+                : "text-zinc-800 dark:text-zinc-200"
+            }
+          >
+            {expired
+              ? `만료 (${formatCompanyDocumentExpiry(document.expires_at)})`
+              : formatCompanyDocumentExpiry(document.expires_at)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-zinc-500 dark:text-zinc-400">등록일</dt>
+          <dd className="text-zinc-800 dark:text-zinc-200">
+            {formatCreatedAt(document.created_at)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-zinc-500 dark:text-zinc-400">등록자</dt>
+          <dd className="truncate text-zinc-800 dark:text-zinc-200">
+            {document.created_by_name ?? "-"}
+          </dd>
+        </div>
+      </dl>
+
+      {document.note ? (
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          {document.note}
+        </p>
+      ) : null}
+    </article>
+  );
 }
 
 export default function CompanyDocumentsPageClient({
@@ -250,8 +375,26 @@ export default function CompanyDocumentsPageClient({
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-        <table className="w-full min-w-[48rem] text-sm">
+      <div className="space-y-3 md:hidden">
+        {documents.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            등록된 문서가 없습니다.
+          </div>
+        ) : (
+          documents.map((document) => (
+            <DocumentMobileCard
+              key={document.id}
+              document={document}
+              canManage={canManage}
+              isPending={isPending}
+              onDelete={handleDelete}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-xl border border-zinc-200 md:block dark:border-zinc-700">
+        <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">문서 종류</th>
@@ -259,14 +402,16 @@ export default function CompanyDocumentsPageClient({
               <th className="px-4 py-3 text-left font-semibold">만료일</th>
               <th className="px-4 py-3 text-left font-semibold">등록일</th>
               <th className="px-4 py-3 text-left font-semibold">등록자</th>
-              <th className="px-4 py-3 text-left font-semibold">관리</th>
+              {canManage ? (
+                <th className="px-4 py-3 text-left font-semibold">삭제</th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {documents.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={canManage ? 6 : 5}
                   className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
                 >
                   등록된 문서가 없습니다.
@@ -278,10 +423,19 @@ export default function CompanyDocumentsPageClient({
                 return (
                   <tr
                     key={document.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openDocument(document)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openDocument(document);
+                      }
+                    }}
                     className={
                       expired
-                        ? "border-b border-zinc-100 bg-zinc-100/90 text-zinc-500 last:border-0 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400"
-                        : "border-b border-zinc-100 last:border-0 dark:border-zinc-800"
+                        ? `border-b border-zinc-100 bg-zinc-100/90 text-zinc-500 last:border-0 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400 ${clickableRowClass}`
+                        : `border-b border-zinc-100 last:border-0 dark:border-zinc-800 ${clickableRowClass}`
                     }
                   >
                     <td className="px-4 py-3 font-medium">
@@ -313,28 +467,19 @@ export default function CompanyDocumentsPageClient({
                     <td className="px-4 py-3">
                       {document.created_by_name ?? "-"}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <a
-                          href={`/api/documents/${document.id}/download`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={actionButtonClass}
-                        >
-                          보기
-                        </a>
-                        {canManage ? (
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleDelete(document)}
-                            className={deleteButtonClass}
-                          >
-                            삭제
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
+                    {canManage ? (
+                      <td
+                        className="px-4 py-3"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <DocumentDeleteButton
+                          document={document}
+                          canManage={canManage}
+                          isPending={isPending}
+                          onDelete={handleDelete}
+                        />
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })
