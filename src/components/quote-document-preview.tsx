@@ -55,6 +55,27 @@ const TABLE_COL_WIDTH_6_KOR = "6em";
 const TABLE_COL_WIDTH_3_DIGITS = "3ch";
 const TABLE_COL_WIDTH_PRICE = "10ch";
 const QUOTE_PREVIEW_CARD_FEE_PERCENT = 4;
+const DESCRIPTION_CHARS_PER_LINE = 14;
+
+function estimateWrappedLines(
+  text: string,
+  maxCharsPerLine = DESCRIPTION_CHARS_PER_LINE,
+) {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return Math.max(1, Math.ceil(trimmed.length / maxCharsPerLine));
+}
+
+function estimateDescriptionLineCount(item: QuoteItemInput) {
+  const nameLines = estimateWrappedLines(item.product_name ?? "");
+  return nameLines + getQuoteItemVariantLines(item).length;
+}
+
+function descriptionRowHeightClass(lineCount: number) {
+  if (lineCount <= 1) return "";
+  if (lineCount === 2) return "min-h-[2.85rem]";
+  return "min-h-[4.1rem]";
+}
 
 function formatDisplayDate(value: string) {
   if (!value) return "";
@@ -81,12 +102,14 @@ function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
   const variantLines = getQuoteItemVariantLines(item);
 
   return (
-    <div className="text-center">
-      <div>{item.product_name}</div>
+    <div className="flex flex-col gap-0.5 text-center leading-[1.6]">
+      <div className="whitespace-normal break-keep [overflow-wrap:anywhere]">
+        {item.product_name}
+      </div>
       {variantLines.map((line) => (
         <div
           key={line.label}
-          className="mt-0.5 text-[10px] font-normal leading-snug text-zinc-500"
+          className="text-[10px] font-normal leading-[1.5] text-zinc-500"
         >
           {line.label}: {line.value}
         </div>
@@ -139,9 +162,9 @@ function DocumentTable({
     "border-y border-zinc-400 px-1 py-1 text-center align-middle";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
   const bodyCellClass =
-    "border-y border-zinc-400 px-1 py-1 text-center align-middle";
-  const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-snug`;
-  const descriptionCellClass = wrapTextCellClass;
+    "border-y border-zinc-400 px-1 py-1.5 text-center align-top";
+  const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-normal`;
+  const descriptionCellClass = `${wrapTextCellClass} py-2 leading-[1.6]`;
   const priceCellClass = `${bodyCellClass} tabular-nums whitespace-nowrap`;
 
   function lineKey(item: QuoteItemInput, index: number) {
@@ -179,7 +202,12 @@ function DocumentTable({
               : item.line_total;
 
           return (
-          <tr key={lineKey(item, globalIndex)}>
+          <tr
+            key={lineKey(item, globalIndex)}
+            className={descriptionRowHeightClass(
+              estimateDescriptionLineCount(item),
+            )}
+          >
             <td className={wrapTextCellClass}>{item.category}</td>
             <td className={wrapTextCellClass}>{item.brand}</td>
             <td className={descriptionCellClass}>
