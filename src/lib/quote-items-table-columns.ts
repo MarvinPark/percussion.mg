@@ -1,7 +1,6 @@
 import type { ConfigurableTableColumn } from "@/lib/configurable-table-columns";
 
 export type QuoteItemsTableColumnId =
-  | "reorder"
   | "fulfillment"
   | "supplier"
   | "category"
@@ -16,23 +15,12 @@ export type QuoteItemsTableColumnId =
   | "margin_rate"
   | "actions";
 
-export const QUOTE_ITEMS_FIXED_START_COLUMN_IDS: QuoteItemsTableColumnId[] = [
-  "reorder",
-];
 export const QUOTE_ITEMS_FIXED_END_COLUMN_IDS: QuoteItemsTableColumnId[] = [
   "actions",
 ];
 
 export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableColumnId>[] =
   [
-    {
-      id: "reorder",
-      label: "",
-      minWidth: 32,
-      defaultWidth: 32,
-      resizable: false,
-      align: "center",
-    },
     {
       id: "fulfillment",
       label: "출고지",

@@ -20,7 +20,6 @@ import {
   getQuoteItemsColumnOrderStorageKey,
   getQuoteItemsColumnWidthStorageKey,
   QUOTE_ITEMS_FIXED_END_COLUMN_IDS,
-  QUOTE_ITEMS_FIXED_START_COLUMN_IDS,
   QUOTE_ITEMS_TABLE_COLUMNS,
   type QuoteItemsTableColumnId,
 } from "@/lib/quote-items-table-columns";
@@ -38,8 +37,6 @@ type QuoteItemsTableProps = {
   onItemDragEnd: () => void;
   onItemDragOver: (event: React.DragEvent, index: number) => void;
   onItemDrop: (fromIndex: number | null, toIndex: number) => void;
-  onMoveItemUp: (index: number) => void;
-  onMoveItemDown: (index: number) => void;
   onFulfillmentChange: (index: number, location: FulfillmentLocation) => void;
   onPurchaseSourceChange: (index: number, value: string) => void;
   onCategoryChange: (index: number, value: string) => void;
@@ -71,8 +68,41 @@ const deleteButtonClass =
 
 type QuoteItemsTableBodyProps = Omit<
   QuoteItemsTableProps,
-  "userId" | "draggingItemIndex" | "dragOverItemIndex" | "onItemDragStart" | "onItemDragEnd" | "onItemDragOver" | "onItemDrop"
+  | "userId"
+  | "draggingItemIndex"
+  | "dragOverItemIndex"
+  | "onItemDragStart"
+  | "onItemDragEnd"
+  | "onItemDragOver"
+  | "onItemDrop"
 >;
+
+function ItemDragHandle({
+  index,
+  onItemDragStart,
+  onItemDragEnd,
+}: {
+  index: number;
+  onItemDragStart: (index: number) => void;
+  onItemDragEnd: () => void;
+}) {
+  return (
+    <span
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(index));
+        onItemDragStart(index);
+      }}
+      onDragEnd={onItemDragEnd}
+      className="inline-flex shrink-0 cursor-grab select-none px-0.5 text-zinc-400 active:cursor-grabbing dark:text-zinc-500"
+      title="드래그하여 순서 변경"
+      aria-label="순서 변경"
+    >
+      ⋮⋮
+    </span>
+  );
+}
 
 const mobileFieldLabelClass =
   "mb-1 block text-[10px] font-semibold text-zinc-500 dark:text-zinc-400";
@@ -87,8 +117,6 @@ function QuoteItemsMobileList({
   items,
   discountAmount,
   onDiscountChange,
-  onMoveItemUp,
-  onMoveItemDown,
   onFulfillmentChange,
   onPurchaseSourceChange,
   onCategoryChange,
@@ -114,27 +142,6 @@ function QuoteItemsMobileList({
           className="rounded-xl border border-zinc-200/80 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
           <div className="mb-3 flex items-start gap-2">
-            <div className="flex shrink-0 flex-col">
-              <button
-                type="button"
-                disabled={index === 0}
-                onClick={() => onMoveItemUp(index)}
-                aria-label="위로 이동"
-                className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 text-[11px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                disabled={index === items.length - 1}
-                onClick={() => onMoveItemDown(index)}
-                aria-label="아래로 이동"
-                className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 text-[11px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
-              >
-                ↓
-              </button>
-            </div>
-
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 {item.model_name}
@@ -284,8 +291,6 @@ export default function QuoteItemsTable({
   onItemDragEnd,
   onItemDragOver,
   onItemDrop,
-  onMoveItemUp,
-  onMoveItemDown,
   onFulfillmentChange,
   onPurchaseSourceChange,
   onCategoryChange,
@@ -314,7 +319,6 @@ export default function QuoteItemsTable({
     getQuoteItemsColumnWidthStorageKey(userId),
     QUOTE_ITEMS_TABLE_COLUMNS,
     {
-      fixedStart: QUOTE_ITEMS_FIXED_START_COLUMN_IDS,
       fixedEnd: QUOTE_ITEMS_FIXED_END_COLUMN_IDS,
     },
   );
@@ -341,47 +345,6 @@ export default function QuoteItemsTable({
     index: number,
   ) {
     switch (columnId) {
-      case "reorder":
-        return (
-          <td className={`${readOnlyCellClass} px-0.5 text-center`}>
-            <div className="flex items-center justify-center gap-0.5">
-              <div className="flex flex-col">
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  onClick={() => onMoveItemUp(index)}
-                  aria-label="위로 이동"
-                  className="inline-flex h-5 w-5 items-center justify-center rounded border border-zinc-300 text-[10px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  disabled={index === items.length - 1}
-                  onClick={() => onMoveItemDown(index)}
-                  aria-label="아래로 이동"
-                  className="inline-flex h-5 w-5 items-center justify-center rounded border border-zinc-300 text-[10px] text-zinc-600 disabled:opacity-30 dark:border-zinc-600 dark:text-zinc-400"
-                >
-                  ↓
-                </button>
-              </div>
-              <span
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", String(index));
-                  onItemDragStart(index);
-                }}
-                onDragEnd={onItemDragEnd}
-                className="hidden cursor-grab select-none px-1 text-zinc-400 active:cursor-grabbing lg:inline-flex dark:text-zinc-500"
-                title="드래그하여 순서 변경"
-                aria-label="순서 변경"
-              >
-                ⋮⋮
-              </span>
-            </div>
-          </td>
-        );
       case "fulfillment":
         return (
           <td className={`${editableCellClass} text-center`}>
@@ -425,7 +388,14 @@ export default function QuoteItemsTable({
       case "model_name":
         return (
           <td className={`${readOnlyCellClass} text-left font-medium`}>
-            <span className="block w-full truncate">{item.model_name}</span>
+            <div className="flex min-w-0 items-center gap-1">
+              <ItemDragHandle
+                index={index}
+                onItemDragStart={onItemDragStart}
+                onItemDragEnd={onItemDragEnd}
+              />
+              <span className="min-w-0 flex-1 truncate">{item.model_name}</span>
+            </div>
           </td>
         );
       case "product_name":
@@ -514,8 +484,6 @@ export default function QuoteItemsTable({
 
   function renderDiscountCell(columnId: QuoteItemsTableColumnId) {
     switch (columnId) {
-      case "reorder":
-        return <td className={readOnlyCellClass} />;
       case "fulfillment":
       case "supplier":
       case "category":
@@ -579,8 +547,6 @@ export default function QuoteItemsTable({
         items={items}
         discountAmount={discountAmount}
         onDiscountChange={onDiscountChange}
-        onMoveItemUp={onMoveItemUp}
-        onMoveItemDown={onMoveItemDown}
         onFulfillmentChange={onFulfillmentChange}
         onPurchaseSourceChange={onPurchaseSourceChange}
         onCategoryChange={onCategoryChange}
@@ -600,16 +566,7 @@ export default function QuoteItemsTable({
               const showHeaderDivider =
                 columnIndex < orderedColumns.length - 1;
 
-              return column.id === "reorder" ? (
-                <th
-                  key={column.id}
-                  className={`${headerCellClass} px-1 ${
-                    showHeaderDivider ? headerCellDividerClass : ""
-                  }`}
-                  aria-label="순서"
-                  style={{ width: `${widths[column.id]}px` }}
-                />
-              ) : (
+              return (
                 <DraggableTableHeaderCell
                   key={column.id}
                   columnId={column.id}
@@ -651,7 +608,9 @@ export default function QuoteItemsTable({
                   event.preventDefault();
                   const raw = event.dataTransfer.getData("text/plain");
                   const parsed = Number.parseInt(raw, 10);
-                  const fromIndex = Number.isNaN(parsed) ? draggingItemIndex : parsed;
+                  const fromIndex = Number.isNaN(parsed)
+                    ? draggingItemIndex
+                    : parsed;
                   onItemDrop(fromIndex, index);
                 }}
                 onDragEnd={onItemDragEnd}
