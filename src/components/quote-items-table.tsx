@@ -348,13 +348,22 @@ export default function QuoteItemsTable({
       case "fulfillment":
         return (
           <td className={`${editableCellClass} text-center`}>
-            <QuoteInlineSelectCell
-              value={item.fulfillment_location}
-              options={FULFILLMENT_LOCATIONS}
-              onChange={(location) =>
-                onFulfillmentChange(index, location as FulfillmentLocation)
-              }
-            />
+            <div className="flex items-center justify-center gap-1">
+              <ItemDragHandle
+                index={index}
+                onItemDragStart={onItemDragStart}
+                onItemDragEnd={onItemDragEnd}
+              />
+              <div className="min-w-0 flex-1">
+                <QuoteInlineSelectCell
+                  value={item.fulfillment_location}
+                  options={FULFILLMENT_LOCATIONS}
+                  onChange={(location) =>
+                    onFulfillmentChange(index, location as FulfillmentLocation)
+                  }
+                />
+              </div>
+            </div>
           </td>
         );
       case "supplier":
@@ -388,14 +397,7 @@ export default function QuoteItemsTable({
       case "model_name":
         return (
           <td className={`${readOnlyCellClass} text-left font-medium`}>
-            <div className="flex min-w-0 items-center gap-1">
-              <ItemDragHandle
-                index={index}
-                onItemDragStart={onItemDragStart}
-                onItemDragEnd={onItemDragEnd}
-              />
-              <span className="min-w-0 flex-1 truncate">{item.model_name}</span>
-            </div>
+            <span className="block w-full truncate">{item.model_name}</span>
           </td>
         );
       case "product_name":
