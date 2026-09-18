@@ -1,4 +1,5 @@
 import type { StockMovementWithProduct } from "@/types/stock-movement";
+import { matchesTokenSearch } from "@/lib/text-search";
 
 function stockMovementSearchHaystack(item: StockMovementWithProduct): string {
   const product = item.products;
@@ -20,11 +21,10 @@ export function filterStockMovements(
   movements: StockMovementWithProduct[],
   query: string,
 ): StockMovementWithProduct[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return movements;
+  if (!query.trim()) return movements;
 
   return movements.filter((item) =>
-    stockMovementSearchHaystack(item).includes(normalized),
+    matchesTokenSearch(stockMovementSearchHaystack(item), query),
   );
 }
 

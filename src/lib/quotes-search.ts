@@ -1,4 +1,5 @@
 import type { QuoteListItem } from "@/components/quotes-list";
+import { matchesTokenSearch } from "@/lib/text-search";
 
 function normalize(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
@@ -19,8 +20,7 @@ export function matchesQuotesTextSearch(
   query: string,
   productSkuById: Map<string, string>,
 ): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
+  if (!query.trim()) return true;
 
   const parts = [quote.customer_name];
 
@@ -33,7 +33,7 @@ export function matchesQuotesTextSearch(
   }
 
   const haystack = parts.map(normalize).filter(Boolean).join(" ");
-  return haystack.includes(q);
+  return matchesTokenSearch(haystack, query);
 }
 
 export function filterQuotesBySeller(

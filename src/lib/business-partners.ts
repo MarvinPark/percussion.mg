@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllRows } from "@/lib/supabase-paginate";
+import { splitSearchTokens } from "@/lib/text-search";
 import type {
   BusinessPartner,
   BusinessPartnerInput,
@@ -184,31 +185,36 @@ export async function fetchBusinessPartners(
   options?: { search?: string; limit?: number },
 ) {
   const search = options?.search?.trim();
-  const searchFilter = search
-    ? (() => {
-        const pattern = `%${search.replace(/[%_,]/g, "")}%`;
-        return [
-          `display_name.ilike.${pattern}`,
-          `corp_name.ilike.${pattern}`,
-          `ceo_name.ilike.${pattern}`,
-          `memo.ilike.${pattern}`,
-          `contact_name.ilike.${pattern}`,
-          `corp_num.ilike.${pattern}`,
-          `contact_phone.ilike.${pattern}`,
-          `invoice_contact_name.ilike.${pattern}`,
-        ].join(",");
-      })()
-    : null;
+
+  function buildPartnerSearchOrFilter(token: string) {
+    const pattern = `%${token.replace(/[%_,]/g, "")}%`;
+    return [
+      `display_name.ilike.${pattern}`,
+      `corp_name.ilike.${pattern}`,
+      `ceo_name.ilike.${pattern}`,
+      `memo.ilike.${pattern}`,
+      `contact_name.ilike.${pattern}`,
+      `corp_num.ilike.${pattern}`,
+      `contact_phone.ilike.${pattern}`,
+      `invoice_contact_name.ilike.${pattern}`,
+    ].join(",");
+  }
 
   // display_name 은 겹칠 수 있어 id 로 순서를 확정합니다.
   function baseQuery() {
-    const query = supabase
+    let query = supabase
       .from("business_partners")
       .select("*")
       .order("display_name", { ascending: true })
       .order("id", { ascending: true });
 
-    return searchFilter ? query.or(searchFilter) : query;
+    if (search) {
+      for (const token of splitSearchTokens(search)) {
+        query = query.or(buildPartnerSearchOrFilter(token));
+      }
+    }
+
+    return query;
   }
 
   // 자동완성처럼 앞부분만 필요한 호출은 그대로 잘라서 한 번에 읽습니다.

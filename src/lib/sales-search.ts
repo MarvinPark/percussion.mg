@@ -1,4 +1,5 @@
 import type { SaleWithProduct } from "@/types/sale";
+import { matchesTokenSearch } from "@/lib/text-search";
 
 function normalize(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
@@ -8,8 +9,7 @@ export function matchesSalesTextSearch(
   sale: SaleWithProduct,
   query: string,
 ): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
+  if (!query.trim()) return true;
 
   const haystack = [
     sale.customer_name,
@@ -22,7 +22,7 @@ export function matchesSalesTextSearch(
     .filter(Boolean)
     .join(" ");
 
-  return haystack.includes(q);
+  return matchesTokenSearch(haystack, query);
 }
 
 export function filterSalesBySeller(

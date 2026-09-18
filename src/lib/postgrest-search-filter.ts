@@ -1,4 +1,10 @@
+import { splitSearchTokens } from "@/lib/text-search";
+
 export const PRODUCT_SEARCH_MIN_LENGTH = 2;
+
+export function getProductSearchTokens(searchQuery: string): string[] {
+  return splitSearchTokens(searchQuery, PRODUCT_SEARCH_MIN_LENGTH);
+}
 
 export function normalizeProductSearchQuery(raw: string): {
   searchQuery: string;

@@ -54,15 +54,24 @@ function ExcelIcon() {
 }
 
 function buildImportReport(state: ExcelImportResult): ProductRegistrationReport {
-  const hasPartialSuccess = !!state.successCount && !!state.errors?.length;
+  const successCount = state.successCount ?? 0;
+  const failureCount = state.errors?.length ?? 0;
+  const hasPartialSuccess = successCount > 0 && failureCount > 0;
+  const hasTotalFailure = successCount === 0 && (failureCount > 0 || !!state.error);
 
   return {
-    title: hasPartialSuccess ? "엑셀 등록 일부 실패" : "엑셀 등록 실패",
+    title: hasPartialSuccess
+      ? "엑셀 등록 일부 실패"
+      : hasTotalFailure
+        ? "엑셀 등록 실패"
+        : "엑셀 등록 완료",
     description: hasPartialSuccess
       ? "일부 행은 등록되었지만, 아래 문제는 확인이 필요합니다."
-      : "엑셀 파일을 확인한 뒤 다시 등록해 주세요.",
-    successCount: state.successCount,
-    successLabel: "{count}개 제품이 등록되었습니다.",
+      : hasTotalFailure
+        ? "엑셀 파일을 확인한 뒤 다시 등록해 주세요."
+        : "엑셀 파일의 제품이 등록되었습니다.",
+    successCount,
+    failureCount,
     error: state.error,
     errors: state.errors,
   };
@@ -84,8 +93,8 @@ function buildUpdateReport(state: ExcelUpdateResult): ProductRegistrationReport 
   };
 }
 
-function shouldOpenReport(
-  state: ExcelImportResult | ExcelUpdateResult | null,
+function shouldOpenUpdateReport(
+  state: ExcelUpdateResult | null,
 ) {
   if (!state) return false;
   return !!state.error || !!state.errors?.length;
@@ -95,7 +104,7 @@ function SuccessMessage({
   state,
   successLabel,
 }: {
-  state: ExcelImportResult | ExcelUpdateResult | null;
+  state: ExcelUpdateResult | null;
   successLabel: string;
 }) {
   if (!state?.successCount || state.error || state.errors?.length) {
@@ -105,7 +114,7 @@ function SuccessMessage({
   return (
     <p className="max-w-md rounded bg-green-50 px-2 py-1 text-right text-[10px] text-green-700 dark:bg-green-950 dark:text-green-300">
       {successLabel.replace("{count}", String(state.successCount))}
-      {"usedAi" in state && state.usedAi ? (
+      {state.usedAi ? (
         <span className="mt-1 block text-left text-blue-700 dark:text-blue-300">
           AI가 수입사 엑셀 형식을 분석해 매칭했습니다.
         </span>
@@ -137,7 +146,7 @@ export default function ExcelProductActions({
   >(updateProductsFromExcel, null);
 
   useEffect(() => {
-    if (importPending || !importState || !shouldOpenReport(importState)) {
+    if (importPending || !importState) {
       return;
     }
 
@@ -148,7 +157,7 @@ export default function ExcelProductActions({
   }, [importPending, importState]);
 
   useEffect(() => {
-    if (updatePending || !updateState || !shouldOpenReport(updateState)) {
+    if (updatePending || !updateState || !shouldOpenUpdateReport(updateState)) {
       return;
     }
 
@@ -246,10 +255,6 @@ export default function ExcelProductActions({
           </button>
         </div>
 
-        <SuccessMessage
-          state={importState}
-          successLabel="{count}개 제품이 등록되었습니다."
-        />
         <SuccessMessage
           state={updateState}
           successLabel="{count}개 제품이 수정되었습니다."

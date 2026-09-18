@@ -7,6 +7,7 @@ import {
 } from "@/lib/product-list-sort";
 import {
   buildProductSearchOrFilter,
+  getProductSearchTokens,
   normalizeProductSearchQuery,
   toPostgrestIlikePattern,
 } from "@/lib/postgrest-search-filter";
@@ -122,7 +123,14 @@ export function applyProductSearchFilter<T extends { or: (filters: string) => T 
   query: T,
   searchQuery: string,
 ) {
-  return query.or(buildProductSearchOrFilter(searchQuery));
+  const tokens = getProductSearchTokens(searchQuery);
+  if (tokens.length === 0) return query;
+
+  let builder = query;
+  for (const token of tokens) {
+    builder = builder.or(buildProductSearchOrFilter(token));
+  }
+  return builder;
 }
 
 type ProductListOrderBuilder = {

@@ -1,4 +1,5 @@
 import type { TaxInvoiceIssue } from "@/types/tax-invoice";
+import { matchesTokenSearch } from "@/lib/text-search";
 
 function normalize(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
@@ -18,8 +19,7 @@ export function filterTaxInvoiceIssuesByPartnerQuery(
   issues: TaxInvoiceIssue[],
   query: string,
 ): TaxInvoiceIssue[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return issues;
+  if (!query.trim()) return issues;
 
   return issues.filter((issue) => {
     const haystack = [
@@ -32,7 +32,7 @@ export function filterTaxInvoiceIssuesByPartnerQuery(
       .filter(Boolean)
       .join(" ");
 
-    return haystack.includes(q);
+    return matchesTokenSearch(haystack, query);
   });
 }
 

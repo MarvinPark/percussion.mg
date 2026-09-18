@@ -1,5 +1,6 @@
 import type { Product } from "@/types/product";
 import type { SaleProductOption } from "@/types/sale";
+import { matchesTokenSearch } from "@/lib/text-search";
 
 export function saleProductSearchHaystack(
   product: Pick<
@@ -27,9 +28,8 @@ export function matchesSaleProductSearch(
   >,
   query: string,
 ): boolean {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-  return saleProductSearchHaystack(product).includes(normalized);
+  if (!query.trim()) return true;
+  return matchesTokenSearch(saleProductSearchHaystack(product), query);
 }
 
 export function formatLinkedProductDisplayLabel(
@@ -66,9 +66,8 @@ export function productSearchHaystack(product: Product): string {
 }
 
 export function matchesProductSearch(product: Product, query: string): boolean {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-  return productSearchHaystack(product).includes(normalized);
+  if (!query.trim()) return true;
+  return matchesTokenSearch(productSearchHaystack(product), query);
 }
 
 export function filterProducts(products: Product[], query: string): Product[] {

@@ -6,6 +6,7 @@ export type ProductRegistrationReport = {
   title: string;
   description?: string;
   successCount?: number;
+  failureCount?: number;
   successLabel?: string;
   error?: string;
   errors?: string[];
@@ -59,7 +60,16 @@ export default function ProductRegistrationReportModal({
         </div>
 
         <div className="space-y-3 overflow-y-auto px-5 py-4">
-          {report.successCount ? (
+          {report.failureCount !== undefined ? (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-700 dark:bg-zinc-800/50">
+              <p className="font-medium text-green-700 dark:text-green-300">
+                등록성공 - {report.successCount ?? 0}개
+              </p>
+              <p className="mt-1 font-medium text-red-700 dark:text-red-300">
+                등록실패 - {report.failureCount}개
+              </p>
+            </div>
+          ) : report.successCount ? (
             <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
               {report.successLabel?.replace(
                 "{count}",

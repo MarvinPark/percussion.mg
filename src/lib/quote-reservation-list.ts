@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { matchesTokenSearch } from "@/lib/text-search";
 
 export type QuoteReservationRow = {
   id: string;
@@ -141,8 +142,7 @@ export function filterQuoteReservations(
   rows: QuoteReservationRow[],
   query: string,
 ) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return rows;
+  if (!query.trim()) return rows;
 
   return rows.filter((row) => {
     const haystack = [
@@ -155,6 +155,6 @@ export function filterQuoteReservations(
       .join(" ")
       .toLowerCase();
 
-    return haystack.includes(normalized);
+    return matchesTokenSearch(haystack, query);
   });
 }
