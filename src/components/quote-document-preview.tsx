@@ -1,7 +1,14 @@
 "use client";
 
 import { jsPDF } from "jspdf";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
@@ -104,19 +111,49 @@ function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
   const variantLines = getQuoteItemVariantLines(item);
 
   return (
-    <div className="flex flex-col gap-0.5 text-center leading-[1.6]">
+    <div className="flex w-full flex-col items-center justify-center gap-0.5 text-center leading-snug">
       <div className="whitespace-normal break-keep [overflow-wrap:anywhere]">
         {item.product_name}
       </div>
       {variantLines.map((line) => (
         <div
           key={line.label}
-          className="text-[10px] font-normal leading-[1.5] text-zinc-500"
+          className="text-[10px] font-normal leading-snug text-zinc-500"
         >
           {line.label}: {line.value}
         </div>
       ))}
     </div>
+  );
+}
+
+function DocumentTableBodyCell({
+  innerClassName,
+  className,
+  style,
+  colSpan,
+  children,
+}: {
+  innerClassName?: string;
+  className?: string;
+  style?: CSSProperties;
+  colSpan?: number;
+  children?: ReactNode;
+}) {
+  const tdClass =
+    "border-y border-zinc-400 h-px p-0 text-center align-middle";
+  const innerClass =
+    innerClassName ??
+    "flex h-full min-h-full w-full items-center justify-center px-1 py-1.5 text-center leading-snug";
+
+  return (
+    <td
+      className={`${tdClass}${className ? ` ${className}` : ""}`}
+      style={style}
+      colSpan={colSpan}
+    >
+      <div className={innerClass}>{children}</div>
+    </td>
   );
 }
 
@@ -163,11 +200,11 @@ function DocumentTable({
   const headCellClass =
     "border-y border-zinc-400 px-1 py-1 text-center align-middle";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
-  const bodyCellClass =
-    "border-y border-zinc-400 px-1 py-1.5 text-center align-middle";
-  const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-normal`;
-  const descriptionCellClass = `${wrapTextCellClass} py-1.5 leading-[1.7]`;
-  const priceCellClass = `${bodyCellClass} tabular-nums whitespace-nowrap`;
+  const bodyCellInnerClass =
+    "flex h-full min-h-full w-full items-center justify-center px-1 py-1.5 text-center leading-snug";
+  const wrapTextInnerClass = `${bodyCellInnerClass} break-keep [overflow-wrap:anywhere]`;
+  const priceInnerClass = `${bodyCellInnerClass} tabular-nums whitespace-nowrap`;
+  const totalInnerClass = `${bodyCellInnerClass} py-2 text-base font-bold`;
 
   function lineKey(item: QuoteItemInput, index: number) {
     return `${item.product_id}-${item.model_name}-${index}`;
@@ -209,90 +246,98 @@ function DocumentTable({
 
           return (
           <tr key={lineKey(item, globalIndex)}>
-            <td className={wrapTextCellClass} style={rowCellStyle}>
+            <DocumentTableBodyCell innerClassName={wrapTextInnerClass} style={rowCellStyle}>
               {item.category}
-            </td>
-            <td className={wrapTextCellClass} style={rowCellStyle}>
+            </DocumentTableBodyCell>
+            <DocumentTableBodyCell innerClassName={wrapTextInnerClass} style={rowCellStyle}>
               {item.brand}
-            </td>
-            <td className={descriptionCellClass} style={rowCellStyle}>
+            </DocumentTableBodyCell>
+            <DocumentTableBodyCell innerClassName={wrapTextInnerClass} style={rowCellStyle}>
               <ProductDescriptionCell item={item} />
-            </td>
-            <td className={`${wrapTextCellClass} font-medium`} style={rowCellStyle}>
+            </DocumentTableBodyCell>
+            <DocumentTableBodyCell
+              innerClassName={`${wrapTextInnerClass} font-medium`}
+              style={rowCellStyle}
+            >
               {item.model_name}
-            </td>
-            <td className={`${bodyCellClass} tabular-nums`} style={rowCellStyle}>
+            </DocumentTableBodyCell>
+            <DocumentTableBodyCell
+              innerClassName={`${bodyCellInnerClass} tabular-nums`}
+              style={rowCellStyle}
+            >
               {item.quantity}
-            </td>
+            </DocumentTableBodyCell>
             {mode === "quote" ? (
-              <td className={priceCellClass} style={rowCellStyle}>
+              <DocumentTableBodyCell innerClassName={priceInnerClass} style={rowCellStyle}>
                 {formatKRW(item.consumer_price)}
-              </td>
+              </DocumentTableBodyCell>
             ) : null}
-            <td className={priceCellClass} style={rowCellStyle}>
+            <DocumentTableBodyCell innerClassName={priceInnerClass} style={rowCellStyle}>
               {formatKRW(unitPrice)}
-            </td>
-            <td className={`${priceCellClass} font-medium`} style={rowCellStyle}>
+            </DocumentTableBodyCell>
+            <DocumentTableBodyCell
+              innerClassName={`${priceInnerClass} font-medium`}
+              style={rowCellStyle}
+            >
               {formatKRW(lineTotal)}
-            </td>
+            </DocumentTableBodyCell>
           </tr>
           );
         })}
         {showTotal && (discountAmount ?? 0) > 0 ? (
           <tr>
-            <td className={bodyCellClass} />
-            <td className={bodyCellClass} />
-            <td className={`${descriptionCellClass} text-red-600`}>
+            <DocumentTableBodyCell />
+            <DocumentTableBodyCell />
+            <DocumentTableBodyCell innerClassName={`${wrapTextInnerClass} text-red-600`}>
               할인
-            </td>
-            <td className={bodyCellClass} />
-            <td className={`${bodyCellClass} tabular-nums`} />
-            {mode === "quote" ? <td className={priceCellClass} /> : null}
-            <td className={priceCellClass} />
-            <td className={`${priceCellClass} text-red-600`}>
+            </DocumentTableBodyCell>
+            <DocumentTableBodyCell />
+            <DocumentTableBodyCell innerClassName={`${bodyCellInnerClass} tabular-nums`} />
+            {mode === "quote" ? <DocumentTableBodyCell innerClassName={priceInnerClass} /> : null}
+            <DocumentTableBodyCell innerClassName={priceInnerClass} />
+            <DocumentTableBodyCell innerClassName={`${priceInnerClass} text-red-600`}>
               -{formatKRW(discountAmount ?? 0)}
-            </td>
+            </DocumentTableBodyCell>
           </tr>
         ) : null}
         {showTotal ? (
           <>
             <tr className="bg-zinc-50 font-semibold">
-              <td
-                colSpan={5}
-                className={`${bodyCellClass} text-center`}
-              >
+              <DocumentTableBodyCell colSpan={5} innerClassName={bodyCellInnerClass}>
                 {mode === "invoice" ? "최종금액" : "합계 (부가세포함)"}
-              </td>
+              </DocumentTableBodyCell>
               {mode === "quote" ? (
                 <>
-                  <td className={priceCellClass}>
+                  <DocumentTableBodyCell innerClassName={priceInnerClass}>
                     {formatKRW(totalConsumerAmount ?? 0)}
-                  </td>
-                  <td
+                  </DocumentTableBodyCell>
+                  <DocumentTableBodyCell
                     colSpan={2}
-                    className={`total-amount ${priceCellClass} overflow-hidden py-2 text-base font-bold text-red-600`}
+                    className="total-amount overflow-hidden"
+                    innerClassName={`${totalInnerClass} text-red-600`}
                   >
                     {formatKRW(totalAmount)}원
-                  </td>
+                  </DocumentTableBodyCell>
                 </>
               ) : (
-                <td
+                <DocumentTableBodyCell
                   colSpan={2}
-                  className={`total-amount ${bodyCellClass} whitespace-nowrap py-2 text-base font-bold text-red-600`}
+                  className="total-amount"
+                  innerClassName={`${totalInnerClass} whitespace-nowrap text-red-600`}
                 >
                   {formatKRW(totalAmount)}원
-                </td>
+                </DocumentTableBodyCell>
               )}
             </tr>
             {mode === "quote" ? (
               <tr className="bg-zinc-50 font-semibold">
-                <td colSpan={5} className={bodyCellClass} />
-                <td className={`${priceCellClass} whitespace-nowrap`}>
+                <DocumentTableBodyCell colSpan={5} />
+                <DocumentTableBodyCell innerClassName={`${priceInnerClass} whitespace-nowrap`}>
                   카드결제시 {QUOTE_PREVIEW_CARD_FEE_PERCENT}%추가 :
-                </td>
-                <td colSpan={2} className={priceCellClass}>
+                </DocumentTableBodyCell>
+                <DocumentTableBodyCell colSpan={2} innerClassName={priceInnerClass}>
                   {formatKRW(cardPaymentWithFee)}원
-                </td>
+                </DocumentTableBodyCell>
               </tr>
             ) : null}
           </>

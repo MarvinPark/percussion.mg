@@ -26,6 +26,12 @@ type SavedCellStyle = {
   minHeight: string;
   verticalAlign: string;
   overflow: string;
+  inner?: {
+    element: HTMLElement;
+    height: string;
+    minHeight: string;
+    boxSizing: string;
+  };
 };
 
 function syncTableRowHeights(root: HTMLElement) {
@@ -39,12 +45,22 @@ function syncTableRowHeights(root: HTMLElement) {
     if (cells.length === 0) continue;
 
     for (const cell of cells) {
+      const inner = cell.firstElementChild;
+      const innerElement = inner instanceof HTMLElement ? inner : undefined;
       saved.push({
         element: cell,
         height: cell.style.height,
         minHeight: cell.style.minHeight,
         verticalAlign: cell.style.verticalAlign,
         overflow: cell.style.overflow,
+        inner: innerElement
+          ? {
+              element: innerElement,
+              height: innerElement.style.height,
+              minHeight: innerElement.style.minHeight,
+              boxSizing: innerElement.style.boxSizing,
+            }
+          : undefined,
       });
       cell.style.height = "auto";
       cell.style.minHeight = "auto";
@@ -66,6 +82,12 @@ function syncTableRowHeights(root: HTMLElement) {
       cell.style.minHeight = heightPx;
       cell.style.verticalAlign = "middle";
       cell.style.overflow = "visible";
+      const inner = cell.firstElementChild;
+      if (inner instanceof HTMLElement) {
+        inner.style.height = "100%";
+        inner.style.minHeight = heightPx;
+        inner.style.boxSizing = "border-box";
+      }
     }
   }
 
@@ -75,6 +97,11 @@ function syncTableRowHeights(root: HTMLElement) {
       item.element.style.minHeight = item.minHeight;
       item.element.style.verticalAlign = item.verticalAlign;
       item.element.style.overflow = item.overflow;
+      if (item.inner) {
+        item.inner.element.style.height = item.inner.height;
+        item.inner.element.style.minHeight = item.inner.minHeight;
+        item.inner.element.style.boxSizing = item.inner.boxSizing;
+      }
     }
   };
 }
