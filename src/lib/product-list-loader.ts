@@ -172,8 +172,14 @@ async function fetchStatsViaRpc(
     return null;
   }
 
+  // 검색어가 있을 때는 목록과 동일한 PostgREST 필터로 집계합니다.
+  // (get_product_list_stats RPC 검색 집계가 DB 함수 버전에 따라 어긋날 수 있음)
+  if (searchQuery?.trim()) {
+    return null;
+  }
+
   const { data, error } = await supabase.rpc("get_product_list_stats", {
-    search_query: searchQuery?.trim() || null,
+    search_query: null,
   });
 
   if (error || !data?.[0]) return null;
@@ -184,26 +190,70 @@ async function fetchStatsViaRpc(
   };
 }
 
+async function fetchFilteredStockQuantity(
+  supabase: SupabaseClient,
+  searchQuery: string,
+  scopeFilters: ProductListScopeFilters,
+): Promise<number> {
+  let total = 0;
+  let offset = 0;
+
+  while (true) {
+    let builder = supabase.from("products").select("stock_quantity");
+
+    if (searchQuery.trim()) {
+      builder = applyProductSearchFilter(builder, searchQuery);
+    }
+
+    builder = applyProductListScopeFilters(builder, scopeFilters);
+
+    const { data, error } = await builder.range(offset, offset + 999);
+
+    if (error || !data?.length) break;
+
+    for (const row of data) {
+      total += Number(row.stock_quantity) || 0;
+    }
+
+    if (data.length < 1000) break;
+    offset += 1000;
+  }
+
+  return total;
+}
+
 async function fetchStatsFallback(
   supabase: SupabaseClient,
   searchQuery?: string,
   scopeFilters?: ProductListScopeFilters,
 ): Promise<ProductListStats> {
+  const normalizedScopeFilters = scopeFilters ?? {};
+  const trimmedSearch = searchQuery?.trim() ?? "";
+
   let builder = supabase
     .from("products")
     .select("*", { count: "exact", head: true });
 
-  if (searchQuery?.trim()) {
-    builder = applyProductSearchFilter(builder, searchQuery);
+  if (trimmedSearch) {
+    builder = applyProductSearchFilter(builder, trimmedSearch);
   }
 
-  builder = applyProductListScopeFilters(builder, scopeFilters ?? {});
+  builder = applyProductListScopeFilters(builder, normalizedScopeFilters);
 
   const { count } = await builder;
 
+  const totalStockQuantity =
+    trimmedSearch || hasProductListScopeFilters(normalizedScopeFilters)
+      ? await fetchFilteredStockQuantity(
+          supabase,
+          trimmedSearch,
+          normalizedScopeFilters,
+        )
+      : 0;
+
   return {
     totalCount: count ?? 0,
-    totalStockQuantity: 0,
+    totalStockQuantity,
   };
 }
 

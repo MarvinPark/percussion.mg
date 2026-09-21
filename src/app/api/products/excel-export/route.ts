@@ -1,6 +1,7 @@
 import { createProductExportBuffer } from "@/lib/excel-products";
 import {
   fetchProductsForExport,
+  normalizeProductSearchQuery,
 } from "@/lib/product-list-loader";
 import { parseProductListSort } from "@/lib/product-list-sort";
 import { createClient } from "@/lib/supabase/server";
@@ -17,7 +18,14 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const searchQuery = searchParams.get("q")?.trim() ?? "";
+  const normalizedSearch = normalizeProductSearchQuery(
+    searchParams.get("q") ?? "",
+  );
+  if (normalizedSearch.error) {
+    return NextResponse.json({ error: normalizedSearch.error }, { status: 400 });
+  }
+
+  const searchQuery = normalizedSearch.searchQuery;
   const sort = parseProductListSort(
     searchParams.get("sort") ?? undefined,
     searchParams.get("order") ?? undefined,

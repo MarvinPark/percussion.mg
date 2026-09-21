@@ -1,5 +1,6 @@
 -- 제품 목록 통계 (총 건수 · 총 재고) — 1회 쿼리로 집계
 -- Supabase SQL Editor에서 실행
+-- (매개변수 이름은 기존 함수와 동일해야 CREATE OR REPLACE 가능)
 
 create or replace function public.escape_ilike_pattern(value text)
 returns text
@@ -18,20 +19,23 @@ declare
   tokens text[];
   token text;
   pattern text;
+  query_text text;
 begin
-  if search_query is null or btrim(search_query) = '' then
+  query_text := search_query;
+
+  if query_text is null or btrim(query_text) = '' then
     return true;
   end if;
 
   tokens := array(
     select t
-    from unnest(regexp_split_to_array(btrim(search_query), '\s+')) as t
+    from unnest(regexp_split_to_array(btrim(query_text), '\s+')) as t
     where char_length(t) >= 2
   );
 
   if coalesce(array_length(tokens, 1), 0) = 0 then
-    if char_length(btrim(search_query)) >= 2 then
-      tokens := array[btrim(search_query)];
+    if char_length(btrim(query_text)) >= 2 then
+      tokens := array[btrim(query_text)];
     else
       return false;
     end if;
@@ -40,13 +44,13 @@ begin
   foreach token in array tokens loop
     pattern := '%' || public.escape_ilike_pattern(token) || '%';
     if not (
-      p.supplier ilike pattern
-      or p.category ilike pattern
-      or p.brand ilike pattern
-      or p.product_name ilike pattern
-      or p.model_name ilike pattern
-      or p.sku ilike pattern
-      or p.keywords ilike pattern
+      coalesce(p.supplier, '') ilike pattern
+      or coalesce(p.category, '') ilike pattern
+      or coalesce(p.brand, '') ilike pattern
+      or coalesce(p.product_name, '') ilike pattern
+      or coalesce(p.model_name, '') ilike pattern
+      or coalesce(p.sku, '') ilike pattern
+      or coalesce(p.keywords, '') ilike pattern
     ) then
       return false;
     end if;
@@ -62,8 +66,12 @@ language plpgsql
 stable
 security invoker
 as $$
+declare
+  query_text text;
 begin
-  if search_query is null or btrim(search_query) = '' then
+  query_text := search_query;
+
+  if query_text is null or btrim(query_text) = '' then
     return query
     select count(*)::bigint, coalesce(sum(stock_quantity), 0)::numeric
     from products;
@@ -72,7 +80,7 @@ begin
   return query
   select count(*)::bigint, coalesce(sum(stock_quantity), 0)::numeric
   from products p
-  where public.product_matches_search(p, search_query);
+  where public.product_matches_search(p, query_text);
 end;
 $$;
 
