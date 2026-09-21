@@ -1,6 +1,7 @@
 "use client";
 
 import { btnPrimary, btnSecondary, marginTextLg, marginText, sectionAccent, sectionMuted } from "@/lib/ui-classes";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
@@ -160,6 +161,7 @@ export default function QuoteForm({
   initialQuote,
   onSaved,
 }: QuoteFormProps) {
+  const router = useRouter();
   const isEditing = Boolean(quoteId);
   const livePaymentMethods = useLivePaymentMethods(paymentMethods);
 
@@ -248,20 +250,39 @@ export default function QuoteForm({
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
-      if (isEditing && saveModeRef.current === "update") {
-        const result = await updateQuote(formData);
-        if (result?.success) {
-          lastSaveModeRef.current = "update";
+      try {
+        if (isEditing && saveModeRef.current === "update") {
+          const result = await updateQuote(formData);
+          if (result?.success) {
+            lastSaveModeRef.current = "update";
+            onSaved?.();
+          }
+          return result ?? null;
+        }
+
+        lastSaveModeRef.current = "create";
+        const result = await createQuote(formData);
+        if (result && "success" in result && result.success) {
           onSaved?.();
         }
         return result ?? null;
+      } catch {
+        return {
+          error:
+            "저장 요청이 완료되지 않았습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.",
+        };
       }
-
-      lastSaveModeRef.current = "create";
-      return (await createQuote(formData)) ?? null;
     },
     null,
   );
+
+  useEffect(() => {
+    if (!state || !("success" in state) || !state.success) return;
+    if (lastSaveModeRef.current !== "create") return;
+
+    router.push("/quotes");
+    router.refresh();
+  }, [router, state]);
 
   const totals = useMemo(
     () => calculateQuoteTotals(items, discountAmount),

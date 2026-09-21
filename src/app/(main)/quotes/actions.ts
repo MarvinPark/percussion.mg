@@ -43,7 +43,6 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import type { QuoteProductOption } from "@/types/quote";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { formatSaleCategoryDbError } from "@/lib/sale-categories";
 import { resolveSaleCategory } from "@/lib/sale-category-options";
 import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
@@ -336,7 +335,7 @@ export async function createQuote(formData: FormData) {
   }
 
   revalidatePath("/quotes");
-  redirect("/quotes");
+  return { success: true as const, quoteId: quote.id as string };
 }
 
 function normalizePastedQuoteItems(items: QuoteItemInput[]) {
