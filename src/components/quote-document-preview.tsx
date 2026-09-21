@@ -76,7 +76,6 @@ function descriptionRowCellStyle(lineCount: number): CSSProperties | undefined {
 
   return {
     minHeight: lineCount === 2 ? "3.5rem" : "5rem",
-    verticalAlign: "top",
   };
 }
 
@@ -165,9 +164,9 @@ function DocumentTable({
     "border-y border-zinc-400 px-1 py-1 text-center align-middle";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
   const bodyCellClass =
-    "border-y border-zinc-400 px-1 py-1.5 text-center align-top";
+    "border-y border-zinc-400 px-1 py-1.5 text-center align-middle";
   const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-normal`;
-  const descriptionCellClass = `${wrapTextCellClass} py-2.5 leading-[1.7]`;
+  const descriptionCellClass = `${wrapTextCellClass} py-1.5 leading-[1.7]`;
   const priceCellClass = `${bodyCellClass} tabular-nums whitespace-nowrap`;
 
   function lineKey(item: QuoteItemInput, index: number) {

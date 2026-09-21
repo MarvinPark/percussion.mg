@@ -64,7 +64,7 @@ function syncTableRowHeights(root: HTMLElement) {
     for (const cell of cells) {
       cell.style.height = heightPx;
       cell.style.minHeight = heightPx;
-      cell.style.verticalAlign = "top";
+      cell.style.verticalAlign = "middle";
       cell.style.overflow = "visible";
     }
   }
