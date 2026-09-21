@@ -1,8 +1,9 @@
 "use client";
 
 import { btnPrimary, btnSecondary, marginTextLg, marginText, sectionAccent, sectionMuted } from "@/lib/ui-classes";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createQuote, findQuoteProductForAdd, updateQuote } from "@/app/(main)/quotes/actions";
 import ModelNameAutocomplete, {
   type ModelNameAutocompleteHandle,
@@ -248,6 +249,18 @@ export default function QuoteForm({
     });
   }, [initialQuote, paymentMethods, saleCategories]);
 
+  const allowNavigationRef = useRef<() => void>(() => {});
+
+  const navigateToQuotesList = useCallback(() => {
+    allowNavigationRef.current();
+    router.replace("/quotes");
+    window.setTimeout(() => {
+      if (window.location.pathname === "/quotes/new") {
+        window.location.assign("/quotes");
+      }
+    }, 600);
+  }, [router]);
+
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
       try {
@@ -255,6 +268,7 @@ export default function QuoteForm({
           const result = await updateQuote(formData);
           if (result?.success) {
             lastSaveModeRef.current = "update";
+            allowNavigationRef.current();
             onSaved?.();
           }
           return result ?? null;
@@ -263,10 +277,15 @@ export default function QuoteForm({
         lastSaveModeRef.current = "create";
         const result = await createQuote(formData);
         if (result && "success" in result && result.success) {
+          allowNavigationRef.current();
           onSaved?.();
+          navigateToQuotesList();
         }
         return result ?? null;
-      } catch {
+      } catch (error) {
+        if (isRedirectError(error)) {
+          throw error;
+        }
         return {
           error:
             "저장 요청이 완료되지 않았습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.",
@@ -275,14 +294,6 @@ export default function QuoteForm({
     },
     null,
   );
-
-  useEffect(() => {
-    if (!state || !("success" in state) || !state.success) return;
-    if (lastSaveModeRef.current !== "create") return;
-
-    router.push("/quotes");
-    router.refresh();
-  }, [router, state]);
 
   const totals = useMemo(
     () => calculateQuoteTotals(items, discountAmount),
@@ -327,7 +338,12 @@ export default function QuoteForm({
     ],
   );
 
-  const { dialog: leaveDialog } = useUnsavedChangesGuard(isDirty && !isPending);
+  const saveSucceeded = Boolean(state && "success" in state && state.success);
+
+  const { dialog: leaveDialog, allowNavigation } = useUnsavedChangesGuard(
+    isDirty && !isPending && !saveSucceeded,
+  );
+  allowNavigationRef.current = allowNavigation;
 
   const selectedPaymentMethod = useMemo(
     () => livePaymentMethods.find((method) => method.id === paymentMethodId),
