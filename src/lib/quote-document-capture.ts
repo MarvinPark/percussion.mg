@@ -20,6 +20,65 @@ type SavedStyle = {
   height: string;
 };
 
+type SavedCellStyle = {
+  element: HTMLTableCellElement;
+  height: string;
+  minHeight: string;
+  verticalAlign: string;
+  overflow: string;
+};
+
+function syncTableRowHeights(root: HTMLElement) {
+  const saved: SavedCellStyle[] = [];
+  const rows = root.querySelectorAll<HTMLTableRowElement>(
+    "table.quote-document-table tbody tr",
+  );
+
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll<HTMLTableCellElement>("td"));
+    if (cells.length === 0) continue;
+
+    for (const cell of cells) {
+      saved.push({
+        element: cell,
+        height: cell.style.height,
+        minHeight: cell.style.minHeight,
+        verticalAlign: cell.style.verticalAlign,
+        overflow: cell.style.overflow,
+      });
+      cell.style.height = "auto";
+      cell.style.minHeight = "auto";
+      cell.style.overflow = "visible";
+    }
+
+    let maxHeight = 0;
+    for (const cell of cells) {
+      maxHeight = Math.max(
+        maxHeight,
+        cell.scrollHeight,
+        cell.getBoundingClientRect().height,
+      );
+    }
+
+    const heightPx = `${Math.ceil(maxHeight + 6)}px`;
+    for (const cell of cells) {
+      cell.style.height = heightPx;
+      cell.style.minHeight = heightPx;
+      cell.style.verticalAlign = "top";
+      cell.style.overflow = "visible";
+    }
+  }
+
+  return () => {
+    for (const item of saved) {
+      item.element.style.height = item.height;
+      item.element.style.minHeight = item.minHeight;
+      item.element.style.verticalAlign = item.verticalAlign;
+      item.element.style.overflow = item.overflow;
+    }
+  };
+}
+
 function unlockCaptureLayout(source: HTMLElement) {
   const saved: SavedStyle[] = [];
   let current: HTMLElement | null = source;
@@ -48,14 +107,19 @@ function unlockCaptureLayout(source: HTMLElement) {
 
 async function renderPageCanvas(page: HTMLElement) {
   const restoreLayout = unlockCaptureLayout(page);
+  const restoreRowHeights = syncTableRowHeights(page);
 
   try {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => resolve());
     });
     const canvas = await toCanvas(page, CAPTURE_OPTIONS);
     return fitCanvasToA4Portrait(canvas, A4_CAPTURE_PIXEL_RATIO);
   } finally {
+    restoreRowHeights();
     restoreLayout();
   }
 }

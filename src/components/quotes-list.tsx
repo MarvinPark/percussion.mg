@@ -403,7 +403,13 @@ export default function QuotesList({
   }
 
   function handleCopyOrderText(quote: QuoteListItem) {
-    const text = buildQuoteOrderCopyText(quote, nonStockCategories);
+    const orderManagerName =
+      stripManagerHonorific(currentUserName) || currentUserName.trim();
+    const text = buildQuoteOrderCopyText(
+      quote,
+      nonStockCategories,
+      orderManagerName,
+    );
 
     void navigator.clipboard.writeText(text).then(() => {
       setCopiedOrderQuoteId(quote.id);

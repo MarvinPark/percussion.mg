@@ -66,17 +66,6 @@ const editableCellClass = `px-1 py-1 align-middle ${QUOTE_CELL_HEIGHT_CLASS} ${r
 const deleteButtonClass =
   "inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60";
 
-type QuoteItemsTableBodyProps = Omit<
-  QuoteItemsTableProps,
-  | "userId"
-  | "draggingItemIndex"
-  | "dragOverItemIndex"
-  | "onItemDragStart"
-  | "onItemDragEnd"
-  | "onItemDragOver"
-  | "onItemDrop"
->;
-
 function ItemDragHandle({
   index,
   onItemDragStart,
@@ -101,182 +90,6 @@ function ItemDragHandle({
     >
       ⋮⋮
     </span>
-  );
-}
-
-const mobileFieldLabelClass =
-  "mb-1 block text-[10px] font-semibold text-zinc-500 dark:text-zinc-400";
-
-const mobileValueClass =
-  "text-sm text-zinc-800 dark:text-zinc-200";
-
-const mobileMetaClass =
-  "text-sm text-zinc-600 dark:text-zinc-400";
-
-function QuoteItemsMobileList({
-  items,
-  discountAmount,
-  onDiscountChange,
-  onFulfillmentChange,
-  onPurchaseSourceChange,
-  onCategoryChange,
-  onProductNameChange,
-  onQuantityChange,
-  onSalePriceChange,
-  onPurchasePriceChange,
-  onRemoveItem,
-}: QuoteItemsTableBodyProps) {
-  if (items.length === 0) {
-    return (
-      <div className="rounded-xl border border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 md:hidden">
-        제품을 추가해 주세요.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 md:hidden">
-      {items.map((item, index) => (
-        <article
-          key={`${item.product_id}-${index}`}
-          className="rounded-xl border border-zinc-200/80 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          <div className="mb-3 flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                {item.model_name}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onRemoveItem(index)}
-              className="shrink-0 text-xs font-medium text-red-600 hover:underline dark:text-red-400"
-            >
-              삭제
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className={mobileFieldLabelClass}>제품 설명</label>
-              <QuoteInlineTextCell
-                value={item.product_name}
-                placeholder="제품 설명"
-                onChange={(value) => onProductNameChange(index, value)}
-              />
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>출고지</label>
-              <QuoteInlineSelectCell
-                value={item.fulfillment_location}
-                options={FULFILLMENT_LOCATIONS}
-                onChange={(location) =>
-                  onFulfillmentChange(index, location as FulfillmentLocation)
-                }
-              />
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>공급처</label>
-              <p className={`${mobileMetaClass} truncate`}>
-                {item.supplier || "-"}
-              </p>
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>품목</label>
-              <QuoteInlineTextCell
-                value={item.category}
-                placeholder="품목"
-                onChange={(value) => onCategoryChange(index, value)}
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label className={mobileFieldLabelClass}>매입처</label>
-              <QuoteInlineTextCell
-                value={item.purchase_source}
-                placeholder="매입처"
-                onChange={(value) => onPurchaseSourceChange(index, value)}
-              />
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>수량</label>
-              <QuoteInlineNumberCell
-                value={item.quantity}
-                onChange={(quantity) => onQuantityChange(index, quantity)}
-              />
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>판매단가</label>
-              <QuoteInlinePriceCell
-                value={item.sale_unit_price}
-                onChange={(saleUnitPrice) =>
-                  onSalePriceChange(index, saleUnitPrice)
-                }
-              />
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>매입가</label>
-              <QuoteInlinePriceCell
-                value={item.purchase_price}
-                onChange={(purchasePrice) =>
-                  onPurchasePriceChange(index, purchasePrice)
-                }
-              />
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>마진</label>
-              <p className={`${mobileValueClass} font-semibold text-green-700 dark:text-green-300`}>
-                {formatKRW(item.margin)}
-              </p>
-            </div>
-
-            <div>
-              <label className={mobileFieldLabelClass}>마진율</label>
-              <p className={mobileValueClass}>
-                {(item.margin_rate * 100).toFixed(1)}%
-              </p>
-            </div>
-
-            <div className="col-span-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-              <div className="flex items-center justify-between gap-2">
-                <span className={mobileFieldLabelClass}>총 판매가</span>
-                <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {formatKRW(item.line_total)}원
-                </span>
-              </div>
-            </div>
-          </div>
-        </article>
-      ))}
-      <article className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/80">
-        <div className="mb-3">
-          <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">할인</p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={mobileFieldLabelClass}>할인 금액</label>
-            <QuoteInlinePriceCell
-              value={discountAmount}
-              onChange={onDiscountChange}
-            />
-          </div>
-          <div>
-            <label className={mobileFieldLabelClass}>총 판매가</label>
-            <p className="text-sm font-bold tabular-nums text-red-600 dark:text-red-400">
-              {discountAmount > 0 ? `-${formatKRW(discountAmount)}` : formatKRW(0)}원
-            </p>
-          </div>
-        </div>
-      </article>
-    </div>
   );
 }
 
@@ -544,23 +357,8 @@ export default function QuoteItemsTable({
   );
 
   return (
-    <>
-      <QuoteItemsMobileList
-        items={items}
-        discountAmount={discountAmount}
-        onDiscountChange={onDiscountChange}
-        onFulfillmentChange={onFulfillmentChange}
-        onPurchaseSourceChange={onPurchaseSourceChange}
-        onCategoryChange={onCategoryChange}
-        onProductNameChange={onProductNameChange}
-        onQuantityChange={onQuantityChange}
-        onSalePriceChange={onSalePriceChange}
-        onPurchasePriceChange={onPurchasePriceChange}
-        onRemoveItem={onRemoveItem}
-      />
-
-      <section className="hidden overflow-x-auto md:block">
-        <table className={tableClassName} style={{ minWidth: tableMinWidth }}>
+    <section className="overflow-x-auto overscroll-x-contain touch-pan-x">
+      <table className={tableClassName} style={{ minWidth: tableMinWidth }}>
         {colGroup}
         <thead>
           <tr>
@@ -644,6 +442,5 @@ export default function QuoteItemsTable({
         </tbody>
       </table>
     </section>
-    </>
   );
 }

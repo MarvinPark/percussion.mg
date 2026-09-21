@@ -1,7 +1,7 @@
 "use client";
 
 import { jsPDF } from "jspdf";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
@@ -71,10 +71,13 @@ function estimateDescriptionLineCount(item: QuoteItemInput) {
   return nameLines + getQuoteItemVariantLines(item).length;
 }
 
-function descriptionRowHeightClass(lineCount: number) {
-  if (lineCount <= 1) return "";
-  if (lineCount === 2) return "min-h-[2.85rem]";
-  return "min-h-[4.1rem]";
+function descriptionRowCellStyle(lineCount: number): CSSProperties | undefined {
+  if (lineCount <= 1) return undefined;
+
+  return {
+    minHeight: lineCount === 2 ? "3.5rem" : "5rem",
+    verticalAlign: "top",
+  };
 }
 
 function formatDisplayDate(value: string) {
@@ -164,7 +167,7 @@ function DocumentTable({
   const bodyCellClass =
     "border-y border-zinc-400 px-1 py-1.5 text-center align-top";
   const wrapTextCellClass = `${bodyCellClass} break-keep [overflow-wrap:anywhere] leading-normal`;
-  const descriptionCellClass = `${wrapTextCellClass} py-2 leading-[1.6]`;
+  const descriptionCellClass = `${wrapTextCellClass} py-2.5 leading-[1.7]`;
   const priceCellClass = `${bodyCellClass} tabular-nums whitespace-nowrap`;
 
   function lineKey(item: QuoteItemInput, index: number) {
@@ -172,7 +175,7 @@ function DocumentTable({
   }
 
   return (
-    <table className="w-full min-w-full table-fixed border-collapse text-[11px]">
+    <table className="quote-document-table w-full min-w-full table-fixed border-collapse text-[11px]">
       <DocumentTableColGroup mode={mode} />
       <thead>
         <tr className="bg-zinc-100">
@@ -201,33 +204,36 @@ function DocumentTable({
               ? pricing.adjustedLineTotal
               : item.line_total;
 
+          const rowCellStyle = descriptionRowCellStyle(
+            estimateDescriptionLineCount(item),
+          );
+
           return (
-          <tr
-            key={lineKey(item, globalIndex)}
-            className={descriptionRowHeightClass(
-              estimateDescriptionLineCount(item),
-            )}
-          >
-            <td className={wrapTextCellClass}>{item.category}</td>
-            <td className={wrapTextCellClass}>{item.brand}</td>
-            <td className={descriptionCellClass}>
+          <tr key={lineKey(item, globalIndex)}>
+            <td className={wrapTextCellClass} style={rowCellStyle}>
+              {item.category}
+            </td>
+            <td className={wrapTextCellClass} style={rowCellStyle}>
+              {item.brand}
+            </td>
+            <td className={descriptionCellClass} style={rowCellStyle}>
               <ProductDescriptionCell item={item} />
             </td>
-            <td className={`${wrapTextCellClass} font-medium`}>
+            <td className={`${wrapTextCellClass} font-medium`} style={rowCellStyle}>
               {item.model_name}
             </td>
-            <td className={`${bodyCellClass} tabular-nums`}>
+            <td className={`${bodyCellClass} tabular-nums`} style={rowCellStyle}>
               {item.quantity}
             </td>
             {mode === "quote" ? (
-              <td className={priceCellClass}>
+              <td className={priceCellClass} style={rowCellStyle}>
                 {formatKRW(item.consumer_price)}
               </td>
             ) : null}
-            <td className={priceCellClass}>
+            <td className={priceCellClass} style={rowCellStyle}>
               {formatKRW(unitPrice)}
             </td>
-            <td className={`${priceCellClass} font-medium`}>
+            <td className={`${priceCellClass} font-medium`} style={rowCellStyle}>
               {formatKRW(lineTotal)}
             </td>
           </tr>

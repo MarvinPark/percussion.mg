@@ -1,5 +1,4 @@
 import { isNonStockServiceItem } from "@/lib/quote-fulfillment";
-import { SUPPLIER_INFO } from "@/types/quote";
 
 const ORDER_SUPPLIER_LABEL = "CJ";
 
@@ -17,14 +16,10 @@ export type QuoteOrderCopySource = {
   quote_items: QuoteOrderCopyItem[];
 };
 
-function getOrderManagerName() {
-  const match = SUPPLIER_INFO.manager.match(/담당\s+(\S+)/);
-  return match?.[1] ?? "전인철";
-}
-
 export function buildQuoteOrderCopyText(
   quote: QuoteOrderCopySource,
   nonStockCategories: readonly string[],
+  orderManagerName: string,
 ): string {
   const orderItems = quote.quote_items.filter(
     (item) => !isNonStockServiceItem(item, nonStockCategories),
@@ -41,7 +36,7 @@ export function buildQuoteOrderCopyText(
   ].filter((line) => line.length > 0);
 
   return [
-    `발주담당자 : ${getOrderManagerName()}`,
+    `발주담당자 : ${orderManagerName.trim()}`,
     `[${ORDER_SUPPLIER_LABEL}]`,
     "ㅇ품목",
     ...itemLines,
