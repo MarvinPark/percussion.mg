@@ -76,7 +76,7 @@ export function syncQuoteDocumentTableRowHeights(root: HTMLElement) {
       );
     }
 
-    const heightPx = `${Math.ceil(maxHeight + 10)}px`;
+    const heightPx = `${Math.ceil(maxHeight + 6)}px`;
     for (const cell of cells) {
       cell.style.height = heightPx;
       cell.style.minHeight = heightPx;

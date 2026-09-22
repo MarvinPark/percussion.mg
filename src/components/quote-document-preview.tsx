@@ -82,11 +82,11 @@ function estimateDescriptionLineCount(item: QuoteItemInput) {
 
 function itemRowCellStyle(lineCount: number): CSSProperties {
   if (lineCount <= 1) {
-    return { minHeight: "2.5rem" };
+    return { minHeight: "2.25rem" };
   }
 
   return {
-    minHeight: lineCount === 2 ? "4.75rem" : `${5.5 + (lineCount - 3) * 1.25}rem`,
+    minHeight: lineCount === 2 ? "4.25rem" : `${5 + (lineCount - 3) * 1.15}rem`,
   };
 }
 
@@ -207,7 +207,7 @@ function DocumentTable({
   const bodyCellInnerClass =
     "flex h-full min-h-full w-full items-center justify-center px-1 py-1.5 text-center leading-snug";
   const itemRowInnerClass =
-    "flex h-full min-h-full w-full items-center justify-center px-1 py-2.5 text-center leading-normal";
+    "flex h-full min-h-full w-full items-center justify-center px-1 py-2 text-center leading-normal";
   const itemWrapTextInnerClass = `${itemRowInnerClass} break-keep [overflow-wrap:anywhere]`;
   const itemPriceInnerClass = `${itemRowInnerClass} tabular-nums whitespace-nowrap`;
   const wrapTextInnerClass = `${bodyCellInnerClass} break-keep [overflow-wrap:anywhere]`;
