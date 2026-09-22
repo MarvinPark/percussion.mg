@@ -38,7 +38,7 @@ type QuoteItemsTableProps = {
   onItemDragOver: (event: React.DragEvent, index: number) => void;
   onItemDrop: (fromIndex: number | null, toIndex: number) => void;
   onFulfillmentChange: (index: number, location: FulfillmentLocation) => void;
-  onPurchaseSourceChange: (index: number, value: string) => void;
+  onBrandChange: (index: number, value: string) => void;
   onCategoryChange: (index: number, value: string) => void;
   onProductNameChange: (index: number, value: string) => void;
   onQuantityChange: (index: number, quantity: number) => void;
@@ -105,7 +105,7 @@ export default function QuoteItemsTable({
   onItemDragOver,
   onItemDrop,
   onFulfillmentChange,
-  onPurchaseSourceChange,
+  onBrandChange,
   onCategoryChange,
   onProductNameChange,
   onQuantityChange,
@@ -200,10 +200,10 @@ export default function QuoteItemsTable({
         return (
           <td className={editableCellClass}>
             <QuoteInlineTextCell
-              value={item.purchase_source}
-              placeholder="매입처"
+              value={item.brand}
+              placeholder="브랜드"
               align="left"
-              onChange={(value) => onPurchaseSourceChange(index, value)}
+              onChange={(value) => onBrandChange(index, value)}
             />
           </td>
         );

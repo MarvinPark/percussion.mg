@@ -465,11 +465,9 @@ export default function QuoteForm({
     );
   }
 
-  function updateItemPurchaseSource(index: number, purchaseSource: string) {
+  function updateItemBrand(index: number, brand: string) {
     setItems((prev) =>
-      prev.map((item, i) =>
-        i === index ? { ...item, purchase_source: purchaseSource } : item,
-      ),
+      prev.map((item, i) => (i === index ? { ...item, brand } : item)),
     );
   }
 
@@ -813,7 +811,7 @@ export default function QuoteForm({
         onItemDragOver={handleItemDragOver}
         onItemDrop={handleItemDrop}
         onFulfillmentChange={updateItemFulfillmentLocation}
-        onPurchaseSourceChange={updateItemPurchaseSource}
+        onBrandChange={updateItemBrand}
         onCategoryChange={updateItemCategory}
         onProductNameChange={updateItemProductName}
         onQuantityChange={updateItemQuantity}

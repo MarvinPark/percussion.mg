@@ -47,7 +47,7 @@ export const QUOTE_ITEMS_TABLE_COLUMNS: ConfigurableTableColumn<QuoteItemsTableC
     },
     {
       id: "purchase_source",
-      label: "매입처",
+      label: "브랜드",
       minWidth: 80,
       defaultWidth: 104,
       resizable: true,
