@@ -62,10 +62,15 @@ function measureQuoteDocumentItemRowHeight(cells: HTMLTableCellElement[]) {
 
   let maxHeight = 0;
   for (const item of saved) {
+    const description = item.cell.querySelector<HTMLElement>(
+      "[data-quote-description]",
+    );
     const innerHeight = item.inner?.scrollHeight ?? 0;
+    const descriptionHeight = description ? description.scrollHeight + 14 : 0;
     maxHeight = Math.max(
       maxHeight,
       innerHeight,
+      descriptionHeight,
       item.cell.scrollHeight,
       item.cell.getBoundingClientRect().height,
     );

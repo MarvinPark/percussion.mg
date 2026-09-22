@@ -77,13 +77,17 @@ function estimateWrappedLines(
 
 function estimateDescriptionLineCount(item: QuoteItemInput) {
   const nameLines = estimateWrappedLines(item.product_name ?? "");
-  return nameLines + getQuoteItemVariantLines(item).length;
+  const variantLines = getQuoteItemVariantLines(item).reduce(
+    (sum, line) =>
+      sum + estimateWrappedLines(`${line.label}: ${line.value}`, 18),
+    0,
+  );
+  return nameLines + variantLines;
 }
 
-function itemRowMinHeightClass(lineCount: number) {
-  if (lineCount <= 1) return "min-h-[2rem]";
-  if (lineCount === 2) return "min-h-[3.6rem]";
-  return "min-h-[4.4rem]";
+function itemRowMinHeight(lineCount: number) {
+  if (lineCount <= 1) return "2rem";
+  return `${2 + (lineCount - 1) * 1.25}rem`;
 }
 
 function formatDisplayDate(value: string) {
@@ -109,16 +113,23 @@ function paginateItems(items: QuoteItemInput[]) {
 
 function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
   const variantLines = getQuoteItemVariantLines(item);
-  const description = [
-    item.product_name?.trim() ?? "",
-    ...variantLines.map((line) => `${line.label}:${line.value}`),
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   return (
-    <div className="w-full whitespace-normal break-keep text-center leading-snug">
-      {description}
+    <div
+      data-quote-description
+      className="flex w-full flex-col items-center justify-center gap-0.5 text-center"
+    >
+      <div className="w-full whitespace-normal break-keep leading-snug">
+        {item.product_name}
+      </div>
+      {variantLines.map((line) => (
+        <div
+          key={line.label}
+          className="w-full whitespace-normal break-keep text-[10px] font-normal leading-snug text-zinc-500"
+        >
+          {line.label}: {line.value}
+        </div>
+      ))}
     </div>
   );
 }
@@ -240,43 +251,43 @@ function DocumentTable({
               ? pricing.adjustedLineTotal
               : item.line_total;
 
-          const itemRowClass = itemRowMinHeightClass(
-            estimateDescriptionLineCount(item),
-          );
+          const rowMinHeight = {
+            minHeight: itemRowMinHeight(estimateDescriptionLineCount(item)),
+          };
 
           return (
           <tr key={lineKey(item, globalIndex)} data-quote-item-row>
-            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemWrapTextInnerClass}>
+            <DocumentTableBodyCell style={rowMinHeight} innerClassName={itemWrapTextInnerClass}>
               {item.category}
             </DocumentTableBodyCell>
-            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemWrapTextInnerClass}>
+            <DocumentTableBodyCell style={rowMinHeight} innerClassName={itemWrapTextInnerClass}>
               {item.brand}
             </DocumentTableBodyCell>
-            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemWrapTextInnerClass}>
+            <DocumentTableBodyCell style={rowMinHeight} innerClassName={itemWrapTextInnerClass}>
               <ProductDescriptionCell item={item} />
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
-              className={itemRowClass}
+              style={rowMinHeight}
               innerClassName={`${itemWrapTextInnerClass} font-medium`}
             >
               {item.model_name}
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
-              className={itemRowClass}
+              style={rowMinHeight}
               innerClassName={`${itemRowInnerClass} tabular-nums`}
             >
               {item.quantity}
             </DocumentTableBodyCell>
             {mode === "quote" ? (
-              <DocumentTableBodyCell className={itemRowClass} innerClassName={itemPriceInnerClass}>
+              <DocumentTableBodyCell style={rowMinHeight} innerClassName={itemPriceInnerClass}>
                 {formatKRW(item.consumer_price)}
               </DocumentTableBodyCell>
             ) : null}
-            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemPriceInnerClass}>
+            <DocumentTableBodyCell style={rowMinHeight} innerClassName={itemPriceInnerClass}>
               {formatKRW(unitPrice)}
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
-              className={itemRowClass}
+              style={rowMinHeight}
               innerClassName={`${itemPriceInnerClass} font-medium`}
             >
               {formatKRW(lineTotal)}
