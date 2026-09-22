@@ -3,6 +3,7 @@
 import { jsPDF } from "jspdf";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +13,7 @@ import {
 import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
+  syncQuoteDocumentTableRowHeights,
 } from "@/lib/quote-document-capture";
 import {
   A4_PAGE_PADDING_STYLE,
@@ -57,12 +59,12 @@ const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
 const TABLE_COL_WIDTH_CATEGORY = "6em";
 const TABLE_COL_WIDTH_BRAND = "6em";
-const TABLE_COL_WIDTH_PRODUCT_DESC = "14em";
+const TABLE_COL_WIDTH_PRODUCT_DESC = "16em";
 const TABLE_COL_WIDTH_6_KOR = "6em";
 const TABLE_COL_WIDTH_3_DIGITS = "3ch";
 const TABLE_COL_WIDTH_PRICE = "10ch";
 const QUOTE_PREVIEW_CARD_FEE_PERCENT = 4;
-const DESCRIPTION_CHARS_PER_LINE = 14;
+const DESCRIPTION_CHARS_PER_LINE = 16;
 
 function estimateWrappedLines(
   text: string,
@@ -84,7 +86,7 @@ function itemRowCellStyle(lineCount: number): CSSProperties {
   }
 
   return {
-    minHeight: lineCount === 2 ? "4rem" : "5.5rem",
+    minHeight: lineCount === 2 ? "4.75rem" : `${5.5 + (lineCount - 3) * 1.25}rem`,
   };
 }
 
@@ -114,7 +116,7 @@ function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
 
   return (
     <div className="flex w-full flex-col items-center justify-center gap-0.5 text-center leading-[1.7]">
-      <div className="whitespace-normal break-keep [overflow-wrap:anywhere]">
+      <div className="whitespace-normal break-keep">
         {item.product_name}
       </div>
       {variantLines.map((line) => (
@@ -251,7 +253,7 @@ function DocumentTable({
           );
 
           return (
-          <tr key={lineKey(item, globalIndex)}>
+          <tr key={lineKey(item, globalIndex)} data-quote-item-row>
             <DocumentTableBodyCell innerClassName={itemWrapTextInnerClass} style={rowCellStyle}>
               {item.category}
             </DocumentTableBodyCell>
@@ -761,6 +763,42 @@ export default function QuoteDocumentPreview({
       ),
     [data.items],
   );
+
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const previewRoot = printRef.current;
+    if (!previewRoot) return;
+
+    const restores: Array<() => void> = [];
+
+    function syncAllPages(container: HTMLElement) {
+      for (const restore of restores) restore();
+      restores.length = 0;
+
+      const pages = container.querySelectorAll<HTMLElement>(".print-page");
+      for (const page of pages) {
+        restores.push(syncQuoteDocumentTableRowHeights(page));
+      }
+    }
+
+    syncAllPages(previewRoot);
+    const frameId = requestAnimationFrame(() => syncAllPages(previewRoot));
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      for (const restore of restores) restore();
+    };
+  }, [
+    open,
+    displayPages,
+    mode,
+    previewLayout,
+    documentTotalAmount,
+    discountAmount,
+    totalConsumerAmount,
+    invoiceLinePricing,
+  ]);
 
   if (!open) return null;
 

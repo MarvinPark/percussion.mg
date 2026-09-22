@@ -34,10 +34,10 @@ type SavedCellStyle = {
   };
 };
 
-function syncTableRowHeights(root: HTMLElement) {
+export function syncQuoteDocumentTableRowHeights(root: HTMLElement) {
   const saved: SavedCellStyle[] = [];
   const rows = root.querySelectorAll<HTMLTableRowElement>(
-    "table.quote-document-table tbody tr",
+    "table.quote-document-table tbody tr[data-quote-item-row]",
   );
 
   for (const row of rows) {
@@ -76,7 +76,7 @@ function syncTableRowHeights(root: HTMLElement) {
       );
     }
 
-    const heightPx = `${Math.ceil(maxHeight + 6)}px`;
+    const heightPx = `${Math.ceil(maxHeight + 10)}px`;
     for (const cell of cells) {
       cell.style.height = heightPx;
       cell.style.minHeight = heightPx;
@@ -134,7 +134,7 @@ function unlockCaptureLayout(source: HTMLElement) {
 
 async function renderPageCanvas(page: HTMLElement) {
   const restoreLayout = unlockCaptureLayout(page);
-  const restoreRowHeights = syncTableRowHeights(page);
+  const restoreRowHeights = syncQuoteDocumentTableRowHeights(page);
 
   try {
     await new Promise<void>((resolve) => {
