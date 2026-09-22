@@ -34,6 +34,90 @@ type SavedCellStyle = {
   };
 };
 
+function measureQuoteDocumentItemRowHeight(cells: HTMLTableCellElement[]) {
+  const saved = cells.map((cell) => {
+    const inner = cell.firstElementChild;
+    return {
+      cell,
+      height: cell.style.height,
+      minHeight: cell.style.minHeight,
+      overflow: cell.style.overflow,
+      inner: inner instanceof HTMLElement ? inner : null,
+      innerHeight: inner instanceof HTMLElement ? inner.style.height : "",
+      innerMinHeight: inner instanceof HTMLElement ? inner.style.minHeight : "",
+      innerBoxSizing: inner instanceof HTMLElement ? inner.style.boxSizing : "",
+    };
+  });
+
+  for (const item of saved) {
+    item.cell.style.height = "auto";
+    item.cell.style.minHeight = "auto";
+    item.cell.style.overflow = "visible";
+    if (item.inner) {
+      item.inner.style.height = "auto";
+      item.inner.style.minHeight = "auto";
+      item.inner.style.boxSizing = "";
+    }
+  }
+
+  let maxHeight = 0;
+  for (const item of saved) {
+    const innerHeight = item.inner?.scrollHeight ?? 0;
+    maxHeight = Math.max(
+      maxHeight,
+      innerHeight,
+      item.cell.scrollHeight,
+      item.cell.getBoundingClientRect().height,
+    );
+  }
+
+  for (const item of saved) {
+    item.cell.style.height = item.height;
+    item.cell.style.minHeight = item.minHeight;
+    item.cell.style.overflow = item.overflow;
+    if (item.inner) {
+      item.inner.style.height = item.innerHeight;
+      item.inner.style.minHeight = item.innerMinHeight;
+      item.inner.style.boxSizing = item.innerBoxSizing;
+    }
+  }
+
+  return Math.ceil(maxHeight + 10);
+}
+
+function applyQuoteDocumentItemRowHeight(
+  cells: HTMLTableCellElement[],
+  heightPx: number,
+) {
+  const heightValue = `${heightPx}px`;
+  for (const cell of cells) {
+    cell.style.height = heightValue;
+    cell.style.minHeight = heightValue;
+    cell.style.verticalAlign = "middle";
+    cell.style.overflow = "visible";
+    const inner = cell.firstElementChild;
+    if (inner instanceof HTMLElement) {
+      inner.style.height = "100%";
+      inner.style.minHeight = heightValue;
+      inner.style.boxSizing = "border-box";
+    }
+  }
+}
+
+export function applyQuoteDocumentTableRowHeights(root: HTMLElement) {
+  const rows = root.querySelectorAll<HTMLTableRowElement>(
+    "table.quote-document-table tbody tr[data-quote-item-row]",
+  );
+
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll<HTMLTableCellElement>("td"));
+    if (cells.length === 0) continue;
+
+    const heightPx = measureQuoteDocumentItemRowHeight(cells);
+    applyQuoteDocumentItemRowHeight(cells, heightPx);
+  }
+}
+
 export function syncQuoteDocumentTableRowHeights(root: HTMLElement) {
   const saved: SavedCellStyle[] = [];
   const rows = root.querySelectorAll<HTMLTableRowElement>(
@@ -62,33 +146,10 @@ export function syncQuoteDocumentTableRowHeights(root: HTMLElement) {
             }
           : undefined,
       });
-      cell.style.height = "auto";
-      cell.style.minHeight = "auto";
-      cell.style.overflow = "visible";
     }
 
-    let maxHeight = 0;
-    for (const cell of cells) {
-      maxHeight = Math.max(
-        maxHeight,
-        cell.scrollHeight,
-        cell.getBoundingClientRect().height,
-      );
-    }
-
-    const heightPx = `${Math.ceil(maxHeight + 6)}px`;
-    for (const cell of cells) {
-      cell.style.height = heightPx;
-      cell.style.minHeight = heightPx;
-      cell.style.verticalAlign = "middle";
-      cell.style.overflow = "visible";
-      const inner = cell.firstElementChild;
-      if (inner instanceof HTMLElement) {
-        inner.style.height = "100%";
-        inner.style.minHeight = heightPx;
-        inner.style.boxSizing = "border-box";
-      }
-    }
+    const heightPx = measureQuoteDocumentItemRowHeight(cells);
+    applyQuoteDocumentItemRowHeight(cells, heightPx);
   }
 
   return () => {
@@ -134,20 +195,21 @@ function unlockCaptureLayout(source: HTMLElement) {
 
 async function renderPageCanvas(page: HTMLElement) {
   const restoreLayout = unlockCaptureLayout(page);
-  const restoreRowHeights = syncQuoteDocumentTableRowHeights(page);
+  applyQuoteDocumentTableRowHeights(page);
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+  applyQuoteDocumentTableRowHeights(page);
 
   try {
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
-    });
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => resolve());
     });
     const canvas = await toCanvas(page, CAPTURE_OPTIONS);
     return fitCanvasToA4Portrait(canvas, A4_CAPTURE_PIXEL_RATIO);
   } finally {
-    restoreRowHeights();
     restoreLayout();
+    applyQuoteDocumentTableRowHeights(page);
   }
 }
 

@@ -13,7 +13,7 @@ import {
 import {
   captureQuoteDocumentFull,
   captureQuoteDocumentPages,
-  syncQuoteDocumentTableRowHeights,
+  applyQuoteDocumentTableRowHeights,
 } from "@/lib/quote-document-capture";
 import {
   A4_PAGE_PADDING_STYLE,
@@ -59,7 +59,7 @@ const FIRST_PAGE_ROWS = 8;
 const CONTINUATION_PAGE_ROWS = 16;
 const TABLE_COL_WIDTH_CATEGORY = "6em";
 const TABLE_COL_WIDTH_BRAND = "6em";
-const TABLE_COL_WIDTH_PRODUCT_DESC = "16em";
+const TABLE_COL_WIDTH_PRODUCT_DESC = "17em";
 const TABLE_COL_WIDTH_6_KOR = "6em";
 const TABLE_COL_WIDTH_3_DIGITS = "3ch";
 const TABLE_COL_WIDTH_PRICE = "10ch";
@@ -80,14 +80,10 @@ function estimateDescriptionLineCount(item: QuoteItemInput) {
   return nameLines + getQuoteItemVariantLines(item).length;
 }
 
-function itemRowCellStyle(lineCount: number): CSSProperties {
-  if (lineCount <= 1) {
-    return { minHeight: "2.25rem" };
-  }
-
-  return {
-    minHeight: lineCount === 2 ? "4.25rem" : `${5 + (lineCount - 3) * 1.15}rem`,
-  };
+function itemRowMinHeightClass(lineCount: number) {
+  if (lineCount <= 1) return "min-h-[2rem]";
+  if (lineCount === 2) return "min-h-[3.6rem]";
+  return "min-h-[4.4rem]";
 }
 
 function formatDisplayDate(value: string) {
@@ -113,20 +109,16 @@ function paginateItems(items: QuoteItemInput[]) {
 
 function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
   const variantLines = getQuoteItemVariantLines(item);
+  const description = [
+    item.product_name?.trim() ?? "",
+    ...variantLines.map((line) => `${line.label}:${line.value}`),
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className="flex w-full flex-col items-center justify-center gap-0.5 text-center leading-[1.7]">
-      <div className="whitespace-normal break-keep">
-        {item.product_name}
-      </div>
-      {variantLines.map((line) => (
-        <div
-          key={line.label}
-          className="text-[10px] font-normal leading-snug text-zinc-500"
-        >
-          {line.label}: {line.value}
-        </div>
-      ))}
+    <div className="w-full whitespace-normal break-keep text-center leading-snug">
+      {description}
     </div>
   );
 }
@@ -207,8 +199,8 @@ function DocumentTable({
   const bodyCellInnerClass =
     "flex h-full min-h-full w-full items-center justify-center px-1 py-1.5 text-center leading-snug";
   const itemRowInnerClass =
-    "flex h-full min-h-full w-full items-center justify-center px-1 py-2 text-center leading-normal";
-  const itemWrapTextInnerClass = `${itemRowInnerClass} break-keep [overflow-wrap:anywhere]`;
+    "flex h-full min-h-full w-full items-center justify-center px-1 py-[0.35rem] text-center leading-snug";
+  const itemWrapTextInnerClass = `${itemRowInnerClass} break-keep`;
   const itemPriceInnerClass = `${itemRowInnerClass} tabular-nums whitespace-nowrap`;
   const wrapTextInnerClass = `${bodyCellInnerClass} break-keep [overflow-wrap:anywhere]`;
   const priceInnerClass = `${bodyCellInnerClass} tabular-nums whitespace-nowrap`;
@@ -248,44 +240,44 @@ function DocumentTable({
               ? pricing.adjustedLineTotal
               : item.line_total;
 
-          const rowCellStyle = itemRowCellStyle(
+          const itemRowClass = itemRowMinHeightClass(
             estimateDescriptionLineCount(item),
           );
 
           return (
           <tr key={lineKey(item, globalIndex)} data-quote-item-row>
-            <DocumentTableBodyCell innerClassName={itemWrapTextInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemWrapTextInnerClass}>
               {item.category}
             </DocumentTableBodyCell>
-            <DocumentTableBodyCell innerClassName={itemWrapTextInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemWrapTextInnerClass}>
               {item.brand}
             </DocumentTableBodyCell>
-            <DocumentTableBodyCell innerClassName={itemWrapTextInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemWrapTextInnerClass}>
               <ProductDescriptionCell item={item} />
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
+              className={itemRowClass}
               innerClassName={`${itemWrapTextInnerClass} font-medium`}
-              style={rowCellStyle}
             >
               {item.model_name}
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
+              className={itemRowClass}
               innerClassName={`${itemRowInnerClass} tabular-nums`}
-              style={rowCellStyle}
             >
               {item.quantity}
             </DocumentTableBodyCell>
             {mode === "quote" ? (
-              <DocumentTableBodyCell innerClassName={itemPriceInnerClass} style={rowCellStyle}>
+              <DocumentTableBodyCell className={itemRowClass} innerClassName={itemPriceInnerClass}>
                 {formatKRW(item.consumer_price)}
               </DocumentTableBodyCell>
             ) : null}
-            <DocumentTableBodyCell innerClassName={itemPriceInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell className={itemRowClass} innerClassName={itemPriceInnerClass}>
               {formatKRW(unitPrice)}
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
+              className={itemRowClass}
               innerClassName={`${itemPriceInnerClass} font-medium`}
-              style={rowCellStyle}
             >
               {formatKRW(lineTotal)}
             </DocumentTableBodyCell>
@@ -770,35 +762,22 @@ export default function QuoteDocumentPreview({
     const previewRoot = printRef.current;
     if (!previewRoot) return;
 
-    const restores: Array<() => void> = [];
-
-    function syncAllPages(container: HTMLElement) {
-      for (const restore of restores) restore();
-      restores.length = 0;
-
+    function applyAllPages(container: HTMLElement) {
       const pages = container.querySelectorAll<HTMLElement>(".print-page");
       for (const page of pages) {
-        restores.push(syncQuoteDocumentTableRowHeights(page));
+        applyQuoteDocumentTableRowHeights(page);
       }
     }
 
-    syncAllPages(previewRoot);
-    const frameId = requestAnimationFrame(() => syncAllPages(previewRoot));
+    applyAllPages(previewRoot);
+    let frameId = 0;
+    frameId = requestAnimationFrame(() => {
+      applyAllPages(previewRoot);
+      requestAnimationFrame(() => applyAllPages(previewRoot));
+    });
 
-    return () => {
-      cancelAnimationFrame(frameId);
-      for (const restore of restores) restore();
-    };
-  }, [
-    open,
-    displayPages,
-    mode,
-    previewLayout,
-    documentTotalAmount,
-    discountAmount,
-    totalConsumerAmount,
-    invoiceLinePricing,
-  ]);
+    return () => cancelAnimationFrame(frameId);
+  });
 
   if (!open) return null;
 
