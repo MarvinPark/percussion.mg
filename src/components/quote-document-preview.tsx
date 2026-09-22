@@ -78,11 +78,13 @@ function estimateDescriptionLineCount(item: QuoteItemInput) {
   return nameLines + getQuoteItemVariantLines(item).length;
 }
 
-function descriptionRowCellStyle(lineCount: number): CSSProperties | undefined {
-  if (lineCount <= 1) return undefined;
+function itemRowCellStyle(lineCount: number): CSSProperties {
+  if (lineCount <= 1) {
+    return { minHeight: "2.5rem" };
+  }
 
   return {
-    minHeight: lineCount === 2 ? "3.5rem" : "5rem",
+    minHeight: lineCount === 2 ? "4rem" : "5.5rem",
   };
 }
 
@@ -111,7 +113,7 @@ function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
   const variantLines = getQuoteItemVariantLines(item);
 
   return (
-    <div className="flex w-full flex-col items-center justify-center gap-0.5 text-center leading-snug">
+    <div className="flex w-full flex-col items-center justify-center gap-0.5 text-center leading-[1.7]">
       <div className="whitespace-normal break-keep [overflow-wrap:anywhere]">
         {item.product_name}
       </div>
@@ -202,6 +204,10 @@ function DocumentTable({
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
   const bodyCellInnerClass =
     "flex h-full min-h-full w-full items-center justify-center px-1 py-1.5 text-center leading-snug";
+  const itemRowInnerClass =
+    "flex h-full min-h-full w-full items-center justify-center px-1 py-2.5 text-center leading-normal";
+  const itemWrapTextInnerClass = `${itemRowInnerClass} break-keep [overflow-wrap:anywhere]`;
+  const itemPriceInnerClass = `${itemRowInnerClass} tabular-nums whitespace-nowrap`;
   const wrapTextInnerClass = `${bodyCellInnerClass} break-keep [overflow-wrap:anywhere]`;
   const priceInnerClass = `${bodyCellInnerClass} tabular-nums whitespace-nowrap`;
   const totalInnerClass = `${bodyCellInnerClass} py-2 text-base font-bold`;
@@ -240,43 +246,43 @@ function DocumentTable({
               ? pricing.adjustedLineTotal
               : item.line_total;
 
-          const rowCellStyle = descriptionRowCellStyle(
+          const rowCellStyle = itemRowCellStyle(
             estimateDescriptionLineCount(item),
           );
 
           return (
           <tr key={lineKey(item, globalIndex)}>
-            <DocumentTableBodyCell innerClassName={wrapTextInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell innerClassName={itemWrapTextInnerClass} style={rowCellStyle}>
               {item.category}
             </DocumentTableBodyCell>
-            <DocumentTableBodyCell innerClassName={wrapTextInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell innerClassName={itemWrapTextInnerClass} style={rowCellStyle}>
               {item.brand}
             </DocumentTableBodyCell>
-            <DocumentTableBodyCell innerClassName={wrapTextInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell innerClassName={itemWrapTextInnerClass} style={rowCellStyle}>
               <ProductDescriptionCell item={item} />
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
-              innerClassName={`${wrapTextInnerClass} font-medium`}
+              innerClassName={`${itemWrapTextInnerClass} font-medium`}
               style={rowCellStyle}
             >
               {item.model_name}
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
-              innerClassName={`${bodyCellInnerClass} tabular-nums`}
+              innerClassName={`${itemRowInnerClass} tabular-nums`}
               style={rowCellStyle}
             >
               {item.quantity}
             </DocumentTableBodyCell>
             {mode === "quote" ? (
-              <DocumentTableBodyCell innerClassName={priceInnerClass} style={rowCellStyle}>
+              <DocumentTableBodyCell innerClassName={itemPriceInnerClass} style={rowCellStyle}>
                 {formatKRW(item.consumer_price)}
               </DocumentTableBodyCell>
             ) : null}
-            <DocumentTableBodyCell innerClassName={priceInnerClass} style={rowCellStyle}>
+            <DocumentTableBodyCell innerClassName={itemPriceInnerClass} style={rowCellStyle}>
               {formatKRW(unitPrice)}
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
-              innerClassName={`${priceInnerClass} font-medium`}
+              innerClassName={`${itemPriceInnerClass} font-medium`}
               style={rowCellStyle}
             >
               {formatKRW(lineTotal)}
