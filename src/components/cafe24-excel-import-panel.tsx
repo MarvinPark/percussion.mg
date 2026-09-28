@@ -14,6 +14,7 @@ import {
   previewCafe24ExcelImport,
 } from "@/app/(main)/sales/cafe24-excel/actions";
 import Cafe24ExcelProductCreateModal from "@/components/cafe24-excel-product-create-modal";
+import { ExcelIcon } from "@/components/excel-icon";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
 import MarketplaceProductCombobox from "@/components/marketplace-product-combobox";
@@ -703,9 +704,10 @@ export default function Cafe24ExcelImportPanel({
             <button
               type="button"
               onClick={() => downloadSalesImportTemplate()}
-              className={`${buttonClass} shrink-0`}
+              className={`${buttonClass} shrink-0 gap-1.5`}
             >
-              📊 양식 다운로드
+              <ExcelIcon />
+              양식 다운로드
             </button>
           </div>
 
