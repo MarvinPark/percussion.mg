@@ -1,7 +1,10 @@
 import * as XLSX from "xlsx";
-import type { ParsedCafe24OrderRow } from "@/lib/cafe24-orders/types";
+import type {
+  ParsedCafe24OrderRow,
+  SalesImportFileFormat,
+} from "@/lib/cafe24-orders/types";
 
-export type OrderImportFileFormat = "cafe24" | "brightsound";
+export type OrderImportFileFormat = SalesImportFileFormat;
 
 function pickString(row: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
@@ -68,6 +71,9 @@ function buildLineId(input: {
 }
 
 function detectFormat(headerKeys: string[]): OrderImportFileFormat | null {
+  if (headerKeys.includes("제품명") && headerKeys.includes("판매일")) {
+    return "template";
+  }
   if (!headerKeys.includes("주문번호") || !headerKeys.includes("주문상품명")) {
     return null;
   }
@@ -75,6 +81,60 @@ function detectFormat(headerKeys: string[]): OrderImportFileFormat | null {
     return "brightsound";
   }
   return "cafe24";
+}
+
+function isGuideOrHeaderRow(row: Record<string, unknown>) {
+  const firstCell = String(Object.values(row)[0] ?? "").trim();
+  if (firstCell.startsWith("※")) return true;
+  if (firstCell === "관리번호") return true;
+  return false;
+}
+
+function mapTemplateRow(
+  row: Record<string, unknown>,
+  index: number,
+): ParsedCafe24OrderRow | null {
+  if (isGuideOrHeaderRow(row)) return null;
+
+  const productName = pickString(row, "제품명");
+  if (!productName) return null;
+
+  const managementNo = pickString(row, "관리번호");
+  const importModelName = pickString(row, "모델명");
+  const sellerProductCode = pickString(row, "자체품목코드");
+  const productOption = pickString(row, "옵션");
+  const orderNo = managementNo || `행-${index + 1}`;
+  const quantity = Math.max(1, Math.round(pickNumber(row, "수량")));
+  const unitSalePrice = Math.max(0, Math.round(pickNumber(row, "판매단가")));
+
+  return {
+    lineId: buildLineId({
+      orderNo,
+      productNo: importModelName,
+      sellerProductCode,
+      productOption: productOption || productName,
+    }),
+    importFormat: "template",
+    mallName: "",
+    orderNo,
+    soldAt: parseSoldAt(row["판매일"]),
+    productName,
+    productNo: "",
+    productOption,
+    importModelName,
+    sellerProductCode,
+    cafe24PaymentMethod: pickString(row, "결제수단"),
+    paymentProvider: "",
+    unitSalePrice,
+    quantity,
+    customerName: pickString(row, "고객명"),
+    customerPhone: pickString(row, "연락처"),
+    customerAddress: pickString(row, "주소"),
+    businessPartner: pickString(row, "거래처"),
+    saleCategoryHint: pickString(row, "구분"),
+    shippingCostFromFile: Math.max(0, Math.round(pickNumber(row, "배송비"))),
+    note: pickString(row, "비고"),
+  };
 }
 
 function extractBrightsoundProductOption(
@@ -139,12 +199,14 @@ function mapBrightsoundRow(row: Record<string, unknown>): ParsedCafe24OrderRow |
         sellerProductCode,
         productOption,
       }),
+    importFormat: "brightsound",
     mallName: pickString(row, "쇼핑몰"),
     orderNo,
     soldAt: parseSoldAt(row["발주일"]),
     productName,
     productNo,
     productOption,
+    importModelName: "",
     sellerProductCode,
     cafe24PaymentMethod: pickString(row, "결제수단"),
     paymentProvider: pickString(row, "결제구분"),
@@ -153,6 +215,9 @@ function mapBrightsoundRow(row: Record<string, unknown>): ParsedCafe24OrderRow |
     customerName: pickString(row, "수령인"),
     customerPhone: pickString(row, "수령인 휴대전화"),
     customerAddress,
+    businessPartner: "",
+    saleCategoryHint: "",
+    shippingCostFromFile: 0,
     note: pickString(row, "배송메시지"),
   };
 }
@@ -175,12 +240,14 @@ function mapCafe24Row(row: Record<string, unknown>): ParsedCafe24OrderRow | null
       sellerProductCode,
       productOption,
     }),
+    importFormat: "cafe24",
     mallName: pickString(row, "쇼핑몰"),
     orderNo,
     soldAt: parseSoldAt(row["발주일"]),
     productName,
     productNo,
     productOption,
+    importModelName: "",
     sellerProductCode,
     cafe24PaymentMethod: pickString(row, "결제수단"),
     paymentProvider: pickString(row, "결제업체"),
@@ -196,6 +263,9 @@ function mapCafe24Row(row: Record<string, unknown>): ParsedCafe24OrderRow | null
       "수령지전화",
     ),
     customerAddress: pickString(row, "주문자주소", "주소"),
+    businessPartner: "",
+    saleCategoryHint: "",
+    shippingCostFromFile: 0,
     note: pickString(row, "비고"),
   };
 }
@@ -226,21 +296,40 @@ export function parseCafe24OrdersFile(
     if (!format) {
       return {
         error:
-          "지원하지 않는 주문 파일 형식입니다. 카페24 또는 Brightsound 주문 엑셀(CSV/XLSX)이 필요합니다.",
+          "지원하지 않는 파일 형식입니다. 매출 일괄등록 양식, 카페24, Brightsound 주문 엑셀(CSV/XLSX) 중 하나를 사용해 주세요.",
       };
     }
 
-    const mapRow = format === "brightsound" ? mapBrightsoundRow : mapCafe24Row;
-    const rows = jsonRows
-      .map((row) => mapRow(row))
-      .filter((row): row is ParsedCafe24OrderRow => row !== null);
+    const rows =
+      format === "template"
+        ? jsonRows
+            .map((row, index) => mapTemplateRow(row, index))
+            .filter((row): row is ParsedCafe24OrderRow => row !== null)
+        : jsonRows
+            .map((row) =>
+              format === "brightsound"
+                ? mapBrightsoundRow(row)
+                : mapCafe24Row(row),
+            )
+            .filter((row): row is ParsedCafe24OrderRow => row !== null);
 
     if (rows.length === 0) {
-      return { error: "등록 가능한 주문 행을 찾지 못했습니다." };
+      return { error: "등록 가능한 행을 찾지 못했습니다." };
     }
 
     return { rows, format };
   } catch {
     return { error: "엑셀 파일을 읽지 못했습니다." };
+  }
+}
+
+export function formatLabelForImportFormat(format: OrderImportFileFormat) {
+  switch (format) {
+    case "template":
+      return "매출 일괄등록 양식";
+    case "brightsound":
+      return "Brightsound 주문";
+    default:
+      return "카페24 주문";
   }
 }

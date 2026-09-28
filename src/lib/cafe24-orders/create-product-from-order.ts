@@ -14,7 +14,7 @@ export async function createProductFromCafe24Order(
   order: ParsedCafe24OrderRow,
 ): Promise<ProductMatchCandidate | { error: string }> {
   const sku = buildSku(order);
-  const supplier = "카페24";
+  const supplier = order.importFormat === "template" ? "영업" : "카페24";
   const productOption = order.productOption.trim() || null;
 
   const { data: existing } = await supabase
@@ -35,13 +35,15 @@ export async function createProductFromCafe24Order(
     };
   }
 
-  const modelName = order.productOption.trim() || order.productName.trim();
-
+  const modelName =
+    order.importModelName.trim() ||
+    order.productOption.trim() ||
+    order.productName.trim();
   const { data, error } = await supabase
     .from("products")
     .insert({
       sku,
-      product_name: order.productName.trim() || "카페24 상품",
+      product_name: order.productName.trim() || "미등록 상품",
       model_name: modelName || sku,
       supplier,
       product_option: productOption,

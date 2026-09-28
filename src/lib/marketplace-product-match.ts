@@ -14,6 +14,7 @@ export function matchProductForMarketplaceOrder(
     sellerProductCode: string;
     productName: string;
     productOption: string;
+    importModelName?: string;
   },
 ) {
   const code = order.sellerProductCode.trim().toLowerCase();
@@ -22,7 +23,17 @@ export function matchProductForMarketplaceOrder(
     if (bySku) return bySku;
   }
 
-  const haystack = `${order.productName} ${order.productOption}`.trim().toLowerCase();
+  const modelName = order.importModelName?.trim().toLowerCase() ?? "";
+  if (modelName) {
+    const byModel = products.find(
+      (p) => p.model_name.trim().toLowerCase() === modelName,
+    );
+    if (byModel) return byModel;
+  }
+
+  const haystack = `${order.productName} ${order.productOption} ${modelName}`
+    .trim()
+    .toLowerCase();
   if (!haystack) return null;
 
   const exactName = products.find(

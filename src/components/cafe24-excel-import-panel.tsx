@@ -17,7 +17,15 @@ import Cafe24ExcelProductCreateModal from "@/components/cafe24-excel-product-cre
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PriceInput from "@/components/price-input";
 import MarketplaceProductCombobox from "@/components/marketplace-product-combobox";
-import { parseCafe24OrdersFile } from "@/lib/cafe24-orders/parse-orders-file";
+import {
+  formatLabelForImportFormat,
+  parseCafe24OrdersFile,
+} from "@/lib/cafe24-orders/parse-orders-file";
+import type { SalesImportFileFormat } from "@/lib/cafe24-orders/types";
+import {
+  downloadSalesImportTemplate,
+  matchPaymentMethodIdByName,
+} from "@/lib/sales-import-template";
 import type {
   Cafe24ExcelImportPreviewItem,
   Cafe24ExcelImportResult,
@@ -230,6 +238,9 @@ export default function Cafe24ExcelImportPanel({
   const paymentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [isOpen, setIsOpen] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [importFormat, setImportFormat] = useState<SalesImportFileFormat | null>(
+    null,
+  );
   const [parsedRows, setParsedRows] = useState<ParsedCafe24OrderRow[]>([]);
   const [items, setItems] = useState<Cafe24ExcelImportPreviewItem[]>([]);
   // 자동 매칭 정보는 서버 미리보기가 함께 내려주므로, 여기에는 이번 작업 중
@@ -380,8 +391,33 @@ export default function Cafe24ExcelImportPanel({
     setManualMatches({});
     setDismissedAutoMatches(new Set());
     setPurchasePrices({});
-    setShippingCosts({});
+    setShippingCosts(() => {
+      const next: Record<string, number> = {};
+      for (const item of result.items) {
+        if (item.alreadyImported) continue;
+        if (item.shippingCostFromFile > 0) {
+          next[item.lineId] = item.shippingCostFromFile;
+        }
+      }
+      return next;
+    });
     setSelectedLineIds(new Set());
+    setPaymentMethodIds(() => {
+      const next: Record<string, string> = {};
+      for (const item of result.items) {
+        if (item.alreadyImported) continue;
+        const matched = matchPaymentMethodIdByName(
+          item.cafe24PaymentMethod,
+          paymentMethods,
+        );
+        if (matched) {
+          next[item.lineId] = matched;
+        } else if (bulkPaymentMethodId) {
+          next[item.lineId] = bulkPaymentMethodId;
+        }
+      }
+      return next;
+    });
     setFulfillmentLocations((current) => {
       const next = { ...current };
       for (const item of result.items) {
@@ -396,7 +432,10 @@ export default function Cafe24ExcelImportPanel({
       const next = { ...current };
       for (const item of result.items) {
         if (item.alreadyImported) continue;
-        if (!next[item.lineId]) {
+        const hint = item.saleCategoryHint.trim();
+        if (hint && saleCategories.includes(hint)) {
+          next[item.lineId] = hint;
+        } else if (!next[item.lineId]) {
           next[item.lineId] = defaultSaleCategory;
         }
       }
@@ -422,6 +461,7 @@ export default function Cafe24ExcelImportPanel({
     setSaleCategoryByLineId({});
     setSelectedLineIds(new Set());
     setDismissedAutoMatches(new Set());
+    setImportFormat(null);
 
     startPreviewTransition(async () => {
       const buffer = await file.arrayBuffer();
@@ -429,10 +469,12 @@ export default function Cafe24ExcelImportPanel({
       if ("error" in parsed) {
         setError(parsed.error);
         setFileName(null);
+        setImportFormat(null);
         return;
       }
 
       setFileName(file.name);
+      setImportFormat(parsed.format);
       setParsedRows(parsed.rows);
 
       const refreshed = await refreshPreviewRows(parsed.rows);
@@ -594,9 +636,9 @@ export default function Cafe24ExcelImportPanel({
             엑셀 매출 등록
           </p>
           <p className="mt-1 text-xs text-blue-800/80 dark:text-blue-200/80">
-            카페24 또는 Brightsound 주문 엑셀(CSV/XLSX)을 업로드해 매출로
-            등록합니다. 행마다 출고지를 선택할 수 있으며, 「매장」일 때만 재고가
-            차감됩니다.
+            매출 일괄등록 양식 또는 카페24·Brightsound 주문 엑셀(CSV/XLSX)을
+            업로드해 등록합니다. 제품·결제수단은 미리보기에서 확인·수정할 수
+            있습니다.
           </p>
         </div>
         <button
@@ -611,9 +653,16 @@ export default function Cafe24ExcelImportPanel({
       {isOpen ? (
         <div className="space-y-4 border-t border-blue-200 px-4 py-4 dark:border-blue-900">
           <div className="flex flex-wrap items-end gap-3">
+            <button
+              type="button"
+              onClick={() => downloadSalesImportTemplate()}
+              className={buttonClass}
+            >
+              양식 다운로드
+            </button>
             <div className="text-sm">
               <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">
-                주문 엑셀 파일
+                엑셀 파일
               </span>
               <input
                 ref={fileInputRef}
@@ -632,7 +681,11 @@ export default function Cafe24ExcelImportPanel({
               </button>
               {fileName ? (
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  {fileName} · {parsedRows.length}행
+                  {fileName}
+                  {importFormat
+                    ? ` · ${formatLabelForImportFormat(importFormat)}`
+                    : ""}{" "}
+                  · {parsedRows.length}행
                 </p>
               ) : null}
             </div>
@@ -942,6 +995,11 @@ export default function Cafe24ExcelImportPanel({
                               }}
                             >
                               <div>{item.productName}</div>
+                              {item.importModelName ? (
+                                <div className="text-zinc-500">
+                                  모델: {item.importModelName}
+                                </div>
+                              ) : null}
                               {item.sellerProductCode ? (
                                 <div className="text-zinc-500">
                                   SKU: {item.sellerProductCode}

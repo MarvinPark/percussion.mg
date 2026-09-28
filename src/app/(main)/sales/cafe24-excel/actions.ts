@@ -109,9 +109,19 @@ function buildImportNote(
   order: ParsedCafe24OrderRow,
   fulfillmentLocation: FulfillmentLocation,
 ) {
+  const paymentNote = order.cafe24PaymentMethod
+    ? order.importFormat === "template"
+      ? `결제 ${order.cafe24PaymentMethod}`
+      : `카페24 ${order.cafe24PaymentMethod}`
+    : null;
+
   const baseNote = [
-    order.orderNo ? `주문 ${order.orderNo}` : null,
-    order.cafe24PaymentMethod ? `카페24 ${order.cafe24PaymentMethod}` : null,
+    order.orderNo
+      ? order.importFormat === "template"
+        ? `관리 ${order.orderNo}`
+        : `주문 ${order.orderNo}`
+      : null,
+    paymentNote,
     order.paymentProvider ? order.paymentProvider : null,
     order.productOption ? order.productOption : null,
     order.note ? order.note : null,
@@ -159,6 +169,7 @@ async function resolveProductForOrder(
         sellerProductCode: order.sellerProductCode,
         productName: order.productName,
         productOption: order.productOption,
+        importModelName: order.importModelName,
       });
 
   if (matched) {
@@ -197,6 +208,7 @@ function buildPreviewItems(
       sellerProductCode: row.sellerProductCode,
       productName: row.productName,
       productOption: row.productOption,
+      importModelName: row.importModelName,
     });
 
     return {
@@ -373,7 +385,9 @@ export async function importCafe24ExcelOrders(
 
       const shippingCost = Math.max(
         0,
-        Math.round(shippingCosts[order.lineId] ?? 0),
+        Math.round(
+          shippingCosts[order.lineId] ?? order.shippingCostFromFile ?? 0,
+        ),
       );
       const { totalAmount, paymentFeeAmount, marginAmount, shippingCost: normalizedShippingCost } =
         buildSaleAmountsForLine(
@@ -407,13 +421,15 @@ export async function importCafe24ExcelOrders(
       const insertResult = await insertSaleRecord(supabase, {
         sold_at: order.soldAt,
         sale_category:
-          saleCategories[order.lineId]?.trim() || ONLINE_SALE_CATEGORY,
+          saleCategories[order.lineId]?.trim() ||
+          order.saleCategoryHint ||
+          ONLINE_SALE_CATEGORY,
         product_id: matched.id,
         quantity: order.quantity,
         unit_sale_price: order.unitSalePrice,
         unit_purchase_price: unitPurchasePrice,
         customer_name: order.customerName || null,
-        business_partner: null,
+        business_partner: order.businessPartner || null,
         customer_phone: order.customerPhone || null,
         customer_address: order.customerAddress || null,
         payment_method: paymentMethod.name,

@@ -1,11 +1,15 @@
+export type SalesImportFileFormat = "cafe24" | "brightsound" | "template";
+
 export type ParsedCafe24OrderRow = {
   lineId: string;
+  importFormat: SalesImportFileFormat;
   mallName: string;
   orderNo: string;
   soldAt: string;
   productName: string;
   productNo: string;
   productOption: string;
+  importModelName: string;
   sellerProductCode: string;
   cafe24PaymentMethod: string;
   paymentProvider: string;
@@ -14,6 +18,9 @@ export type ParsedCafe24OrderRow = {
   customerName: string;
   customerPhone: string;
   customerAddress: string;
+  businessPartner: string;
+  saleCategoryHint: string;
+  shippingCostFromFile: number;
   note: string;
 };
 
