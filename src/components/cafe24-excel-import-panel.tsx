@@ -652,57 +652,60 @@ export default function Cafe24ExcelImportPanel({
 
       {isOpen ? (
         <div className="space-y-4 border-t border-blue-200 px-4 py-4 dark:border-blue-900">
-          <div className="flex flex-wrap items-end gap-3">
-            <button
-              type="button"
-              onClick={() => downloadSalesImportTemplate()}
-              className={buttonClass}
-            >
-              양식 다운로드
-            </button>
-            <div className="text-sm">
-              <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">
-                엑셀 파일
-              </span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="text-sm">
+                <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">
+                  엑셀 파일
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isPreviewPending || isImportPending}
+                  className={buttonClass}
+                >
+                  {isPreviewPending ? "읽는 중..." : "파일 선택"}
+                </button>
+                {fileName ? (
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {fileName}
+                    {importFormat
+                      ? ` · ${formatLabelForImportFormat(importFormat)}`
+                      : ""}{" "}
+                    · {parsedRows.length}행
+                  </p>
+                ) : null}
+              </div>
+
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isPreviewPending || isImportPending}
-                className={buttonClass}
+                onClick={handleImport}
+                disabled={
+                  isPreviewPending ||
+                  isImportPending ||
+                  previewSummary.importable === 0 ||
+                  !schemaReady ||
+                  parsedRows.length === 0
+                }
+                className={primaryButtonClass}
               >
-                {isPreviewPending ? "읽는 중..." : "파일 선택"}
+                {isImportPending ? "등록 중..." : "매출 등록"}
               </button>
-              {fileName ? (
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  {fileName}
-                  {importFormat
-                    ? ` · ${formatLabelForImportFormat(importFormat)}`
-                    : ""}{" "}
-                  · {parsedRows.length}행
-                </p>
-              ) : null}
             </div>
 
             <button
               type="button"
-              onClick={handleImport}
-              disabled={
-                isPreviewPending ||
-                isImportPending ||
-                previewSummary.importable === 0 ||
-                !schemaReady ||
-                parsedRows.length === 0
-              }
-              className={primaryButtonClass}
+              onClick={() => downloadSalesImportTemplate()}
+              className={`${buttonClass} shrink-0`}
             >
-              {isImportPending ? "등록 중..." : "매출 등록"}
+              📊 양식 다운로드
             </button>
           </div>
 
