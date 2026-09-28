@@ -86,7 +86,7 @@ function detectFormat(headerKeys: string[]): OrderImportFileFormat | null {
 function isGuideOrHeaderRow(row: Record<string, unknown>) {
   const firstCell = String(Object.values(row)[0] ?? "").trim();
   if (firstCell.startsWith("※")) return true;
-  if (firstCell === "관리번호") return true;
+  if (pickString(row, "제품명") === "제품명") return true;
   return false;
 }
 
@@ -101,7 +101,7 @@ function mapTemplateRow(
 
   const managementNo = pickString(row, "관리번호");
   const importModelName = pickString(row, "모델명");
-  const sellerProductCode = pickString(row, "자체품목코드");
+  const sellerProductCode = pickString(row, "SKU", "자체품목코드");
   const productOption = pickString(row, "옵션");
   const orderNo = managementNo || `행-${index + 1}`;
   const quantity = Math.max(1, Math.round(pickNumber(row, "수량")));

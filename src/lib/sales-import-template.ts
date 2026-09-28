@@ -1,16 +1,14 @@
 import * as XLSX from "xlsx";
 
 export const SALES_IMPORT_TEMPLATE_HEADERS = [
-  "관리번호",
+  "구분",
   "판매일",
   "제품명",
   "모델명",
-  "자체품목코드",
-  "옵션",
+  "SKU",
   "수량",
   "판매단가",
   "결제수단",
-  "구분",
   "거래처",
   "고객명",
   "연락처",
@@ -19,60 +17,18 @@ export const SALES_IMPORT_TEMPLATE_HEADERS = [
   "비고",
 ] as const;
 
-const EXAMPLE_ROW: Record<(typeof SALES_IMPORT_TEMPLATE_HEADERS)[number], string | number> =
-  {
-    관리번호: "20250928-001",
-    판매일: "2025-09-28",
-    제품명: "X32 컴팩트 32채널",
-    모델명: "X32C",
-    자체품목코드: "",
-    옵션: "",
-    수량: 1,
-    판매단가: 1990000,
-    결제수단: "카드",
-    구분: "",
-    거래처: "○○학교",
-    고객명: "홍길동",
-    연락처: "010-1234-5678",
-    주소: "",
-    배송비: 0,
-    비고: "",
-  };
-
-const GUIDE_ROWS = [
-  {
-    A: "※ 안내 (아래 예시 행은 업로드 전 삭제하세요)",
-  },
-  {
-    A: "관리번호: 행마다 서로 다른 값 권장 (재업로드 시 중복 방지)",
-  },
-  {
-    A: "결제수단: 시스템 등록명과 같으면 자동 선택, 아니면 업로드 후 드롭다운에서 선택",
-  },
-  {
-    A: "구분: 비우면 미리보기 기본 구분 사용 (관리자에 등록된 이름만)",
-  },
-];
-
 export function buildSalesImportTemplateWorkbook() {
-  const sheet = XLSX.utils.aoa_to_sheet([
-    ...GUIDE_ROWS.map((row) => [row.A]),
-    [],
-    [...SALES_IMPORT_TEMPLATE_HEADERS],
-    SALES_IMPORT_TEMPLATE_HEADERS.map((header) => EXAMPLE_ROW[header]),
-  ]);
+  const sheet = XLSX.utils.aoa_to_sheet([[...SALES_IMPORT_TEMPLATE_HEADERS]]);
 
   sheet["!cols"] = [
-    { wch: 14 },
+    { wch: 10 },
     { wch: 12 },
     { wch: 28 },
     { wch: 12 },
     { wch: 14 },
-    { wch: 16 },
     { wch: 6 },
     { wch: 10 },
     { wch: 12 },
-    { wch: 10 },
     { wch: 14 },
     { wch: 10 },
     { wch: 14 },
