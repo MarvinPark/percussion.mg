@@ -23,7 +23,10 @@ type ModelNameAutocompleteProps = {
   onChange: (value: string) => void;
   onSelectProduct: (product: QuoteProductOption) => void;
   onRegisterProduct?: (query: string) => void;
+  onCommitQuery?: (query: string) => void | Promise<void>;
   placeholder?: string;
+  inputClassName?: string;
+  listClassName?: string;
 };
 
 function productSearchLabel(product: QuoteProductOption) {
@@ -39,7 +42,10 @@ const ModelNameAutocomplete = forwardRef<
     onChange,
     onSelectProduct,
     onRegisterProduct,
+    onCommitQuery,
     placeholder = "모델명 입력",
+    inputClassName,
+    listClassName = "absolute z-20 mt-1 w-full",
   },
   ref,
 ) {
@@ -118,6 +124,12 @@ const ModelNameAutocomplete = forwardRef<
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={() => {
+          if (!onCommitQuery) return;
+          window.setTimeout(() => {
+            void onCommitQuery(value);
+          }, 200);
+        }}
         onKeyDown={(event) => {
           if (!open) return;
 
@@ -148,17 +160,21 @@ const ModelNameAutocomplete = forwardRef<
           }
         }}
         placeholder={placeholder}
-        className={inputClass}
+        className={inputClassName ?? inputClass}
         autoComplete="off"
       />
 
       {open && query ? (
         isSearching ? (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <div
+            className={`${listClassName} rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`}
+          >
             검색 중…
           </div>
         ) : matches.length > 0 ? (
-          <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
+          <ul
+            className={`${listClassName} max-h-56 overflow-auto rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900`}
+          >
             {matches.map((product, index) => (
               <ProductSearchResultRow
                 key={product.id}
@@ -172,7 +188,9 @@ const ModelNameAutocomplete = forwardRef<
             ))}
           </ul>
         ) : showRegisterOption ? (
-          <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900">
+          <ul
+            className={`${listClassName} overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-900`}
+          >
             <li>
               <button
                 type="button"
@@ -188,7 +206,9 @@ const ModelNameAutocomplete = forwardRef<
             </li>
           </ul>
         ) : (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <div
+            className={`${listClassName} rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-500 shadow-lg dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`}
+          >
             검색 결과가 없습니다.
           </div>
         )

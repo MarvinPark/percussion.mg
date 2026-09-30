@@ -5,11 +5,13 @@ import DraggableTableHeaderCell from "@/components/draggable-table-header-cell";
 import {
   QUOTE_CELL_HEIGHT_CLASS,
   QUOTE_CELL_TEXT_CLASS,
+  QuoteInlineModelCell,
   QuoteInlineNumberCell,
   QuoteInlinePriceCell,
   QuoteInlineSelectCell,
   QuoteInlineTextCell,
 } from "@/components/quote-inline-cells";
+import type { QuoteProductOption } from "@/types/quote";
 import { useConfigurableTableColumns } from "@/hooks/use-configurable-table-columns";
 import { isReorderableConfigurableColumn } from "@/lib/configurable-table-columns";
 import {
@@ -41,6 +43,8 @@ type QuoteItemsTableProps = {
   onBrandChange: (index: number, value: string) => void;
   onCategoryChange: (index: number, value: string) => void;
   onProductNameChange: (index: number, value: string) => void;
+  onItemProductReplace: (index: number, product: QuoteProductOption) => void;
+  onItemRegisterProduct?: (index: number, query: string) => void;
   onQuantityChange: (index: number, quantity: number) => void;
   onSalePriceChange: (index: number, saleUnitPrice: number) => void;
   onPurchasePriceChange: (index: number, purchasePrice: number) => void;
@@ -108,6 +112,8 @@ export default function QuoteItemsTable({
   onBrandChange,
   onCategoryChange,
   onProductNameChange,
+  onItemProductReplace,
+  onItemRegisterProduct,
   onQuantityChange,
   onSalePriceChange,
   onPurchasePriceChange,
@@ -209,8 +215,16 @@ export default function QuoteItemsTable({
         );
       case "model_name":
         return (
-          <td className={`${readOnlyCellClass} text-left font-medium`}>
-            <span className="block w-full truncate">{item.model_name}</span>
+          <td className={editableCellClass}>
+            <QuoteInlineModelCell
+              modelName={item.model_name}
+              onProductReplace={(product) => onItemProductReplace(index, product)}
+              onRegisterProduct={
+                onItemRegisterProduct
+                  ? (query) => onItemRegisterProduct(index, query)
+                  : undefined
+              }
+            />
           </td>
         );
       case "product_name":

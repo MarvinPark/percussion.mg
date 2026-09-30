@@ -179,6 +179,9 @@ export default function QuoteForm({
   const [productCreateQuery, setProductCreateQuery] = useState<string | null>(
     null,
   );
+  const [productCreateItemIndex, setProductCreateItemIndex] = useState<
+    number | null
+  >(null);
   const [quoteDate, setQuoteDate] = useState(
     initialQuote?.quote_date ?? todayString(),
   );
@@ -366,14 +369,44 @@ export default function QuoteForm({
   }
 
   function handleRegisterProductFromSearch(query: string) {
+    setProductCreateItemIndex(null);
+    setProductCreateQuery(query);
+  }
+
+  function handleRegisterProductFromItem(index: number, query: string) {
+    setProductCreateItemIndex(index);
     setProductCreateQuery(query);
   }
 
   function handleQuoteProductCreated(product: QuoteProductOption) {
-    setModelSearch(product.model_name || product.sku);
-    handleProductPick(product);
+    if (productCreateItemIndex !== null) {
+      replaceItemWithProduct(productCreateItemIndex, product);
+      setProductCreateItemIndex(null);
+    } else {
+      setModelSearch(product.model_name || product.sku);
+      handleProductPick(product);
+      focusModelInput();
+    }
     setProductCreateQuery(null);
-    focusModelInput();
+  }
+
+  function replaceItemWithProduct(index: number, product: QuoteProductOption) {
+    setItems((prev) => {
+      const existing = prev[index];
+      if (!existing) return prev;
+
+      const next = [...prev];
+      next[index] = {
+        ...buildItemFromProduct(
+          product,
+          existing.quantity,
+          product.sale_price,
+          product.purchase_price,
+        ),
+        fulfillment_location: existing.fulfillment_location,
+      };
+      return next;
+    });
   }
 
   async function resolveProductForAdd(): Promise<QuoteProductOption | null> {
@@ -814,6 +847,8 @@ export default function QuoteForm({
         onBrandChange={updateItemBrand}
         onCategoryChange={updateItemCategory}
         onProductNameChange={updateItemProductName}
+        onItemProductReplace={replaceItemWithProduct}
+        onItemRegisterProduct={handleRegisterProductFromItem}
         onQuantityChange={updateItemQuantity}
         onSalePriceChange={updateItemSalePrice}
         onPurchasePriceChange={updateItemPurchasePrice}
@@ -998,7 +1033,10 @@ export default function QuoteForm({
         <InlineProductCreateModal
           context="quote"
           initialModelName={productCreateQuery}
-          onClose={() => setProductCreateQuery(null)}
+          onClose={() => {
+            setProductCreateQuery(null);
+            setProductCreateItemIndex(null);
+          }}
           onCreated={(product) =>
             handleQuoteProductCreated(toQuoteProductOption(product))
           }

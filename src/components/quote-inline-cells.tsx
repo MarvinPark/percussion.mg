@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { findQuoteProductForAdd } from "@/app/(main)/quotes/actions";
+import ModelNameAutocomplete from "@/components/model-name-autocomplete";
 import PriceInput from "@/components/price-input";
 import { formatKRW } from "@/lib/sales-calculator";
+import type { QuoteProductOption } from "@/types/quote";
 
 export const QUOTE_CELL_HEIGHT_CLASS = "h-9 min-h-[2.25rem]";
 export const QUOTE_CELL_TEXT_CLASS = "text-xs leading-9";
@@ -253,3 +256,85 @@ export function QuoteInlineSelectCell({
   );
 }
 
+type QuoteInlineModelCellProps = {
+  modelName: string;
+  onProductReplace: (product: QuoteProductOption) => void;
+  onRegisterProduct?: (query: string) => void;
+};
+
+export function QuoteInlineModelCell({
+  modelName,
+  onProductReplace,
+  onRegisterProduct,
+}: QuoteInlineModelCellProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(modelName);
+  const committedRef = useRef(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(modelName);
+  }, [editing, modelName]);
+
+  function finishEditing() {
+    setEditing(false);
+    committedRef.current = false;
+  }
+
+  function handleSelectProduct(product: QuoteProductOption) {
+    committedRef.current = true;
+    onProductReplace(product);
+    finishEditing();
+  }
+
+  async function handleCommitQuery(query: string) {
+    if (committedRef.current) return;
+
+    const trimmed = query.trim();
+    if (!trimmed || trimmed === modelName.trim()) {
+      finishEditing();
+      return;
+    }
+
+    const { product } = await findQuoteProductForAdd(trimmed);
+    if (product) {
+      committedRef.current = true;
+      onProductReplace(product);
+      finishEditing();
+      return;
+    }
+
+    alert("등록된 제품을 찾지 못했습니다. 목록에서 선택하거나 모델명을 확인해 주세요.");
+    setDraft(modelName);
+    finishEditing();
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className={`${cellEditableDisplayClass} ${cellAlignClass("left")} ${
+          modelName.trim() ? "" : cellEmptyClass
+        }`}
+        title="클릭하여 모델명 변경"
+      >
+        <span className="block w-full truncate font-medium">
+          {modelName.trim() || "모델명"}
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <ModelNameAutocomplete
+      value={draft}
+      onChange={setDraft}
+      onSelectProduct={handleSelectProduct}
+      onRegisterProduct={onRegisterProduct}
+      onCommitQuery={handleCommitQuery}
+      placeholder="모델명"
+      inputClassName={`${cellEditingClass} ${cellAlignClass("left")}`}
+      listClassName="absolute z-50 mt-1 min-w-[16rem] max-w-[24rem]"
+    />
+  );
+}
