@@ -20,6 +20,10 @@ const cellEditingClass = `${cellBaseClass} w-full rounded-sm border border-blue-
 
 const cellEmptyClass = "text-slate-400";
 
+const modelCellDisplayClass = `${cellBaseClass} flex w-full cursor-text items-center bg-yellow-50 text-slate-900 hover:bg-yellow-100/90 dark:bg-yellow-950/35 dark:text-slate-100 dark:hover:bg-yellow-950/50`;
+
+const modelCellEditingClass = `${cellBaseClass} w-full rounded-sm border border-blue-400 bg-yellow-50 text-slate-900 outline-none ring-2 ring-blue-500/20 dark:border-blue-500 dark:bg-yellow-950/40 dark:text-slate-100`;
+
 const selectEditableClass = `${cellBaseClass} w-full cursor-pointer appearance-none bg-white text-slate-900 outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-300 dark:bg-slate-800/70 dark:text-slate-100 dark:hover:bg-slate-800/90 dark:focus:bg-slate-900`;
 
 function cellAlignClass(align: QuoteCellAlign) {
@@ -313,7 +317,7 @@ export function QuoteInlineModelCell({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className={`${cellEditableDisplayClass} ${cellAlignClass("left")} ${
+        className={`${modelCellDisplayClass} ${cellAlignClass("left")} ${
           modelName.trim() ? "" : cellEmptyClass
         }`}
         title="클릭하여 모델명 변경"
@@ -333,7 +337,7 @@ export function QuoteInlineModelCell({
       onRegisterProduct={onRegisterProduct}
       onCommitQuery={handleCommitQuery}
       placeholder="모델명"
-      inputClassName={`${cellEditingClass} ${cellAlignClass("left")}`}
+      inputClassName={`${modelCellEditingClass} ${cellAlignClass("left")}`}
       listClassName="absolute z-50 mt-1 min-w-[16rem] max-w-[24rem]"
     />
   );

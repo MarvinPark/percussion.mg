@@ -67,6 +67,8 @@ const readOnlyCellClass = `px-2 py-1.5 align-middle ${QUOTE_CELL_HEIGHT_CLASS} $
 
 const editableCellClass = `px-1 py-1 align-middle ${QUOTE_CELL_HEIGHT_CLASS} ${rowDividerClass} bg-white dark:bg-slate-800/70`;
 
+const modelCellClass = `px-1 py-1 align-middle ${QUOTE_CELL_HEIGHT_CLASS} ${rowDividerClass} bg-yellow-50 dark:bg-yellow-950/35`;
+
 const deleteButtonClass =
   "inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60";
 
@@ -215,7 +217,7 @@ export default function QuoteItemsTable({
         );
       case "model_name":
         return (
-          <td className={editableCellClass}>
+          <td className={modelCellClass}>
             <QuoteInlineModelCell
               modelName={item.model_name}
               onProductReplace={(product) => onItemProductReplace(index, product)}
