@@ -6,6 +6,7 @@ import { getSaleProductById } from "@/app/(main)/products/actions";
 import { deleteSale, updateSale } from "@/app/(main)/sales/actions";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
+import SaleCustomerAutocomplete from "@/components/sale-customer-autocomplete";
 import ProductSearchSelect from "@/components/product-search-select";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import PhoneInput from "@/components/phone-input";
@@ -17,7 +18,9 @@ import {
   formatKRW,
   marginAmountClass,
 } from "@/lib/sales-calculator";
+import { getPartnerCustomerFields } from "@/lib/business-partners";
 import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
+import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import type { PaymentMethod, SaleProductOption, SaleWithProduct } from "@/types/sale";
 import type { StaffOption } from "@/components/sales-page-client";
@@ -33,6 +36,7 @@ type SaleEditModalProps = {
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   staffOptions: StaffOption[];
+  contactSuggestions: SaleContactSuggestions;
   onClose: () => void;
 };
 
@@ -45,6 +49,7 @@ export default function SaleEditModal({
   paymentMethods,
   saleCategories,
   staffOptions,
+  contactSuggestions,
   onClose,
 }: SaleEditModalProps) {
   const router = useRouter();
@@ -463,24 +468,11 @@ export default function SaleEditModal({
           </div>
 
           <section className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/30">
-            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               고객 / 거래처 정보
-            </h4>
+            </h3>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="edit_customer_name" className={labelClass}>
-                  고객명
-                </label>
-                <input
-                  id="edit_customer_name"
-                  name="customer_name"
-                  value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
-                  className={inputClass}
-                />
-              </div>
-
               <div>
                 <label htmlFor="edit_business_partner" className={labelClass}>
                   거래처명
@@ -492,6 +484,32 @@ export default function SaleEditModal({
                   partnerId={partnerId}
                   onChange={setBusinessPartner}
                   onPartnerIdChange={setPartnerId}
+                  onSelectPartner={(partner) => {
+                    const fields = getPartnerCustomerFields(partner);
+                    if (fields.customerName) setCustomerName(fields.customerName);
+                    if (fields.customerPhone) setCustomerPhone(fields.customerPhone);
+                    if (fields.customerAddress) setCustomerAddress(fields.customerAddress);
+                  }}
+                  placeholder="예: OO음악학원"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit_customer_name" className={labelClass}>
+                  고객명
+                </label>
+                <SaleCustomerAutocomplete
+                  id="edit_customer_name"
+                  name="customer_name"
+                  value={customerName}
+                  onChange={setCustomerName}
+                  suggestions={contactSuggestions.customers}
+                  onSelectCustomer={(customer) => {
+                    setCustomerPhone(customer.phone);
+                    setCustomerAddress(customer.address);
+                  }}
+                  placeholder="예: 홍길동"
                   className={inputClass}
                 />
               </div>
@@ -505,6 +523,7 @@ export default function SaleEditModal({
                   name="customer_phone"
                   value={customerPhone}
                   onChange={setCustomerPhone}
+                  placeholder="01012345678"
                   className={inputClass}
                 />
               </div>
@@ -518,6 +537,7 @@ export default function SaleEditModal({
                   name="customer_address"
                   value={customerAddress}
                   onChange={(event) => setCustomerAddress(event.target.value)}
+                  placeholder="예: 경기도 성남시 ..."
                   className={inputClass}
                 />
               </div>

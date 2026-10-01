@@ -34,6 +34,7 @@ import {
   getTableHeaderPaddingClass,
   getTableRowPaddingClass,
 } from "@/lib/table-row-preferences";
+import type { SaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import type { PaymentMethod, SaleWithProduct } from "@/types/sale";
 import {
   loadSalesEmphasizedIds,
@@ -278,6 +279,7 @@ type SalesTableProps = {
   paymentMethods: PaymentMethod[];
   saleCategories: string[];
   staffOptions: StaffOption[];
+  contactSuggestions: SaleContactSuggestions;
   rowFontSize?: number;
   emptyMessage?: string;
   canManageSales?: boolean;
@@ -304,6 +306,7 @@ export default function SalesTable({
   paymentMethods,
   saleCategories,
   staffOptions,
+  contactSuggestions,
   rowFontSize = 12,
   emptyMessage,
   canManageSales = true,
@@ -1237,6 +1240,7 @@ export default function SalesTable({
           paymentMethods={paymentMethods}
           saleCategories={saleCategories}
           staffOptions={staffOptions}
+          contactSuggestions={contactSuggestions}
           onClose={() => setEditingSale(null)}
         />
       ) : null}

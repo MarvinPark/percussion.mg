@@ -22,7 +22,7 @@ export function matchesQuotesTextSearch(
 ): boolean {
   if (!query.trim()) return true;
 
-  const parts = [quote.customer_name];
+  const parts = [quote.customer_name, quote.business_partner];
 
   for (const item of quote.quote_items) {
     parts.push(item.product_name, item.model_name);
@@ -92,7 +92,7 @@ export function formatQuoteDropdownLine(
   quote: QuoteListItem,
   productSkuById: Map<string, string>,
 ) {
-  const parts = [quote.customer_name];
+  const parts = [quote.customer_name, quote.business_partner];
 
   for (const item of quote.quote_items) {
     parts.push(item.product_name, item.model_name);
@@ -112,6 +112,7 @@ export function getQuoteSearchSelectionValue(
 ) {
   return (
     quote.customer_name?.trim() ||
+    quote.business_partner?.trim() ||
     quote.quote_items.find((item) => item.product_name?.trim())?.product_name?.trim() ||
     quote.quote_items.find((item) => item.model_name?.trim())?.model_name?.trim() ||
     quote.quote_items

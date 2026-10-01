@@ -23,6 +23,7 @@ import {
   filterSalesBySeller,
   getUniqueSellerNames,
 } from "@/lib/sales-search";
+import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
 import {
   paginateItems,
   TABLE_PAGE_SIZE,
@@ -70,6 +71,11 @@ export default function SalesPageClient({
   canManageSales = true,
   invoicedSaleIds = [],
 }: SalesPageClientProps) {
+  const contactSuggestions = useMemo(
+    () => buildSaleContactSuggestions(sales),
+    [sales],
+  );
+
   const [sellerFilter, setSellerFilter] = useState(currentUserName);
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
@@ -306,6 +312,7 @@ export default function SalesPageClient({
               paymentMethods={paymentMethods}
               saleCategories={saleCategories}
               staffOptions={staffOptions}
+              contactSuggestions={contactSuggestions}
               rowFontSize={rowFontSize}
               canManageSales={canManageSales}
               invoicedSaleIds={invoicedSaleIds}

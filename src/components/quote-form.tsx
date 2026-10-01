@@ -667,8 +667,6 @@ export default function QuoteForm({
                   partnerId={partnerId}
                   onChange={setBusinessPartner}
                   onPartnerIdChange={setPartnerId}
-                  openOnFocus={false}
-                  minCharsToOpen={2}
                   onSelectPartner={(partner) => {
                     const fields = getPartnerCustomerFields(partner);
                     if (fields.customerName) setCustomerName(fields.customerName);
@@ -678,7 +676,7 @@ export default function QuoteForm({
                       setCustomerAddress(fields.customerAddress);
                     }
                   }}
-                  placeholder="입력"
+                  placeholder="예: OO음악학원"
                   className={fieldBoxInputClass}
                 />
               </div>
