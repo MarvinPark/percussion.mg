@@ -9,16 +9,16 @@ const THEME_LABEL: Record<ProductListItem['theme'], string> = {
 
 type ProductListTableProps = {
   items: ProductListItem[]
+  onDelete?: (id: string) => void
 }
 
-export function ProductListTable({ items }: ProductListTableProps) {
+export function ProductListTable({ items, onDelete }: ProductListTableProps) {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
         <p className="text-sm font-medium text-slate-900">등록된 상품이 없습니다</p>
         <p className="mt-2 text-sm text-slate-500">
-          「새 상품 만들기」로 첫 상품 상세페이지를 준비하세요. (STEP 2부터 입력·미리보기가
-          연결됩니다.)
+          「새 상품 만들기」로 상품 정보를 입력한 뒤 저장하세요. 미리보기는 STEP 3에서 연결됩니다.
         </p>
       </div>
     )
@@ -48,8 +48,9 @@ export function ProductListTable({ items }: ProductListTableProps) {
               <td className="px-4 py-3 text-right">
                 <div className="inline-flex gap-2">
                   <Link
-                    to={`/products/${item.id}/preview`}
+                    to={`/products/${item.id}/edit`}
                     className="rounded-md px-2 py-1 text-slate-600 hover:bg-slate-100"
+                    title="STEP 3에서 전용 미리보기"
                   >
                     미리보기
                   </Link>
@@ -62,8 +63,7 @@ export function ProductListTable({ items }: ProductListTableProps) {
                   <button
                     type="button"
                     className="rounded-md px-2 py-1 text-red-600 hover:bg-red-50"
-                    disabled
-                    title="STEP 9 Supabase 연동 후 활성화"
+                    onClick={() => onDelete?.(item.id)}
                   >
                     삭제
                   </button>

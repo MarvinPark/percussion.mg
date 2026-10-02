@@ -46,4 +46,8 @@ npm run dev
 
 ## 개발 단계
 
-현재 **STEP 1** — 프로젝트 구조 및 상품 목록 기본 화면.
+- **STEP 1** — 프로젝트 구조 및 상품 목록
+- **STEP 2** — 상품 입력 폼 (`/products/new`, `/products/:id/edit`), 브라우저 localStorage 저장
+- **STEP 3+** — 실시간 미리보기, 섹션·테마, Supabase 등 (진행 예정)
+
+데이터는 당분간 **localStorage**에 저장됩니다 (STEP 9에서 Supabase로 이전).
