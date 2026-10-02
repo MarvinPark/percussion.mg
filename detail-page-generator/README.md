@@ -19,7 +19,10 @@ node -v   # 예: v22.17.0
 
 저장소 **최신 `main`을 pull**한 뒤, **반드시 `detail-page-generator` 폴더 안에서** 실행합니다.
 
+**명령은 한 줄씩** 실행하세요. (`cd`와 `npm`을 같은 줄에 쓰면 `cd: too many arguments`가 납니다.)
+
 ```bash
+cd ~/Projects/percussioncenter-management
 git pull origin main
 cd detail-page-generator
 npm install
@@ -28,11 +31,15 @@ npm run dev
 
 브라우저에서 Vite가 안내하는 로컬 URL(기본 `http://localhost:5173`)을 엽니다.
 
+`npm`이 `/Users/mac/package.json`을 찾는다면 **홈 폴더에서 실행 중**입니다. 위 `cd`로 저장소 → `detail-page-generator`까지 이동한 뒤 다시 `npm install` 하세요.
+
 ### 자주 나는 오류
 
 | 증상 | 원인 | 조치 |
 |------|------|------|
-| `Could not read package.json` / `ENOENT` | 상위 폴더에서 실행했거나 아직 pull 안 함 | `git pull` 후 `cd detail-page-generator` |
+| `not a git repository` | git 저장소 밖(홈 등)에서 pull | 먼저 `cd`로 `percussioncenter-management` 이동 |
+| `Could not read package.json` / `ENOENT` | `detail-page-generator` 밖에서 npm 실행 | `pwd` 확인 후 `cd detail-page-generator` |
+| `cd: too many arguments` | 여러 명령을 한 줄에 붙임 | 한 줄에 명령 하나씩 |
 | Node / Vite engine 오류 | Node 버전 낮음 | Node 22 LTS 설치 후 `rm -rf node_modules && npm install` |
 | `EADDRINUSE 5173` | 포트 사용 중 | 다른 dev 서버 종료 또는 `npm run dev -- --port 5174` |
 
