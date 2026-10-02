@@ -74,13 +74,32 @@ function detectFormat(headerKeys: string[]): OrderImportFileFormat | null {
   if (headerKeys.includes("제품명") && headerKeys.includes("판매일")) {
     return "template";
   }
-  if (!headerKeys.includes("주문번호") || !headerKeys.includes("주문상품명")) {
+  if (!headerKeys.includes("주문번호")) {
     return null;
   }
-  if (headerKeys.includes("품목별 주문번호")) {
+  if (
+    headerKeys.includes("품목별 주문번호") ||
+    headerKeys.includes("상품명(관리용)")
+  ) {
     return "brightsound";
   }
+  if (!headerKeys.includes("주문상품명")) {
+    return null;
+  }
   return "cafe24";
+}
+
+function isBrightsoundCompactExport(headerKeys: string[]) {
+  return headerKeys.includes("상품명(관리용)");
+}
+
+function parseSoldAtFromBrightsoundOrderNo(orderNo: string) {
+  const match = orderNo.trim().match(/^(\d{4})(\d{2})(\d{2})-/);
+  if (!match) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  const [, year, month, day] = match;
+  return `${year}-${month}-${day}`;
 }
 
 function isGuideOrHeaderRow(row: Record<string, unknown>) {
@@ -166,6 +185,55 @@ function extractBrightsoundSellerProductCode(
   if (modelMatch) return modelMatch[1]!.trim();
 
   return "";
+}
+
+function mapBrightsoundCompactRow(
+  row: Record<string, unknown>,
+): ParsedCafe24OrderRow | null {
+  const orderNo = pickString(row, "주문번호");
+  if (!orderNo) return null;
+
+  const modelCode = pickString(row, "상품명(관리용)");
+  const quantity = Math.max(1, Math.round(pickNumber(row, "수량")));
+  const unitSalePrice = Math.max(0, Math.round(pickNumber(row, "상품구매금액")));
+  if (!modelCode && unitSalePrice <= 0) return null;
+
+  const addressCity = pickString(row, "수령인 시/군/도시(영문)");
+  const addressDetail = pickString(row, "수령인 상세 주소");
+  const customerAddress = [addressCity, addressDetail].filter(Boolean).join(" ");
+  const productName = modelCode || "Brightsound 주문 품목";
+
+  return {
+    lineId: buildLineId({
+      orderNo,
+      productNo: modelCode,
+      sellerProductCode: modelCode,
+      productOption: `${quantity}|${unitSalePrice}`,
+    }),
+    importFormat: "brightsound",
+    mallName: "Brightsound",
+    orderNo,
+    soldAt: parseSoldAtFromBrightsoundOrderNo(orderNo),
+    productName,
+    productNo: "",
+    productOption: "",
+    importModelName: modelCode,
+    sellerProductCode: modelCode,
+    cafe24PaymentMethod: pickString(row, "결제수단"),
+    paymentProvider: "",
+    unitSalePrice,
+    quantity,
+    customerName: pickString(row, "수령인", "주문자명"),
+    customerPhone: pickString(row, "수령인 전화번호"),
+    customerAddress,
+    businessPartner: "",
+    saleCategoryHint: "",
+    shippingCostFromFile: Math.max(
+      0,
+      Math.round(pickNumber(row, "총 배송비 (전체 품목에 표시)")),
+    ),
+    note: "",
+  };
 }
 
 function mapBrightsoundRow(row: Record<string, unknown>): ParsedCafe24OrderRow | null {
@@ -293,6 +361,7 @@ export function parseCafe24OrdersFile(
 
     const headerKeys = Object.keys(jsonRows[0] ?? {});
     const format = detectFormat(headerKeys);
+    const brightsoundCompact = isBrightsoundCompactExport(headerKeys);
     if (!format) {
       return {
         error:
@@ -306,11 +375,14 @@ export function parseCafe24OrdersFile(
             .map((row, index) => mapTemplateRow(row, index))
             .filter((row): row is ParsedCafe24OrderRow => row !== null)
         : jsonRows
-            .map((row) =>
-              format === "brightsound"
-                ? mapBrightsoundRow(row)
-                : mapCafe24Row(row),
-            )
+            .map((row) => {
+              if (format === "brightsound") {
+                return brightsoundCompact
+                  ? mapBrightsoundCompactRow(row)
+                  : mapBrightsoundRow(row);
+              }
+              return mapCafe24Row(row);
+            })
             .filter((row): row is ParsedCafe24OrderRow => row !== null);
 
     if (rows.length === 0) {
