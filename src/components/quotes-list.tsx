@@ -796,6 +796,7 @@ export default function QuotesList({
               managerName={managerName}
               managerPhone={managerPhone}
               onSaved={handleEditSaved}
+              onClose={() => setEditingQuote(null)}
             />
           </div>
         </div>

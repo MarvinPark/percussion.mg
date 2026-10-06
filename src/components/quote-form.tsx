@@ -87,6 +87,7 @@ type QuoteFormProps = {
   quoteId?: string;
   initialQuote?: QuoteEditInitial;
   onSaved?: () => void;
+  onClose?: () => void;
 };
 
 function todayString() {
@@ -161,6 +162,7 @@ export default function QuoteForm({
   quoteId,
   initialQuote,
   onSaved,
+  onClose,
 }: QuoteFormProps) {
   const router = useRouter();
   const isEditing = Boolean(quoteId);
@@ -1022,6 +1024,16 @@ export default function QuoteForm({
               {isPending && saveModeRef.current === "create"
                 ? "저장 중..."
                 : "새로 저장"}
+            </button>
+          ) : null}
+          {isEditing && onClose ? (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onClose}
+              className={`${btnSecondary} px-4 py-2.5`}
+            >
+              닫기
             </button>
           ) : null}
         </form>
