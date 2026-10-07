@@ -5,6 +5,7 @@ import type { QuoteFormData, QuoteItemInput } from "@/types/quote";
 
 type DbQuoteItem = {
   id: string;
+  sort_order?: number | null;
   product_id: string | null;
   supplier: string | null;
   purchase_source: string | null;
@@ -29,6 +30,39 @@ type DbQuoteItem = {
     size: string | null;
   } | null;
 };
+
+type SortableQuoteItem = {
+  sort_order?: number | null;
+  id?: string;
+};
+
+/** DB·PostgREST는 quote_items 순서를 보장하지 않으므로 sort_order 기준으로 정렬합니다. */
+export function sortQuoteItems<T>(items: readonly T[]): T[] {
+  return [...items].sort((a, b) => {
+    const aMeta = a as SortableQuoteItem;
+    const bMeta = b as SortableQuoteItem;
+    const aOrder = Number(aMeta.sort_order);
+    const bOrder = Number(bMeta.sort_order);
+    const aHas = Number.isFinite(aOrder);
+    const bHas = Number.isFinite(bOrder);
+    if (aHas && bHas && aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+    if (aHas && !bHas) return -1;
+    if (!aHas && bHas) return 1;
+    return String(aMeta.id ?? "").localeCompare(String(bMeta.id ?? ""));
+  });
+}
+
+export function sortQuoteRecordItems<
+  Q extends { quote_items?: readonly SortableQuoteItem[] | null },
+>(quote: Q): Q {
+  if (!quote.quote_items?.length) return quote;
+  return {
+    ...quote,
+    quote_items: sortQuoteItems(quote.quote_items),
+  };
+}
 
 function resolveQuoteItemVariant(
   item: DbQuoteItem,
@@ -97,7 +131,7 @@ export function buildQuotePreviewFromSaved(
   quote: SavedQuoteForPreview,
   managerPhone: string,
 ) {
-  const items = quote.quote_items.map(dbQuoteItemToInput);
+  const items = sortQuoteItems(quote.quote_items).map(dbQuoteItemToInput);
   const discountAmount = Number(quote.discount_amount) || 0;
   const calculatedTotals = calculateQuoteTotals(items, discountAmount);
 

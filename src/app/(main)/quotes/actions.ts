@@ -54,6 +54,7 @@ import type { QuoteItemInput } from "@/types/quote";
 import { QUOTE_MAX_ITEMS } from "@/types/quote";
 import type { CopiedQuotePayload } from "@/lib/quote-clipboard";
 import { resolvePartnerForSave } from "@/lib/business-partners";
+import { sortQuoteItems } from "@/lib/quote-mapper";
 import {
   applyQuoteReservations,
   getReservableQuoteItems,
@@ -104,8 +105,9 @@ function parseQuoteItems(raw: string): QuoteItemInput[] | { error: string } {
 }
 
 function mapItemsForInsert(quoteId: string, items: QuoteItemInput[]) {
-  return items.map((item) => ({
+  return items.map((item, index) => ({
     quote_id: quoteId,
+    sort_order: index,
     product_id: item.product_id || null,
     supplier: item.supplier || null,
     purchase_source: item.purchase_source || null,
@@ -195,6 +197,10 @@ function formatQuoteSaveError(error: {
 
   if (message.includes("discount_amount")) {
     return "quotes 테이블에 할인 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quotes-discount.sql을 실행해 주세요.";
+  }
+
+  if (message.includes("sort_order")) {
+    return "quote_items 테이블에 순서(sort_order) 컬럼이 없습니다. Supabase SQL Editor에서 supabase/schema-quote-items-sort-order.sql을 실행해 주세요.";
   }
 
   if (error.code === "42501" || message.includes("row-level security")) {
@@ -552,7 +558,7 @@ export async function updateQuote(formData: FormData) {
     const reservationResult = await applyQuoteReservations(
       supabase,
       quoteId,
-      updatedQuote.quote_items ?? [],
+      sortQuoteItems([...(updatedQuote.quote_items ?? [])]),
     );
     if ("error" in reservationResult && reservationResult.error) {
       return { error: reservationResult.error };
@@ -589,7 +595,7 @@ export async function previewQuoteConvertStockApproval(input: {
   const purchaseQuantities = input.purchaseQuantities ?? {};
 
   const items = computeNegativeStockApprovals(
-    quote.quote_items.map((item) => {
+    sortQuoteItems([...(quote.quote_items ?? [])]).map((item) => {
       const product = item.products as
         | {
             stock_quantity?: number | null;
@@ -711,7 +717,7 @@ export async function convertQuoteToSale(
   }
   const soldAt = soldAtInput || new Date().toISOString().slice(0, 10);
   const stockNote = `견적 매출전환${quote.customer_name ? ` — ${quote.customer_name}` : ""}`;
-  const quoteItems = quote.quote_items ?? [];
+  const quoteItems = sortQuoteItems([...(quote.quote_items ?? [])]);
   const cardFeePercent = options?.cardFeePercent ?? 0;
   const roundingUnit = options?.roundingUnit ?? "none";
   const roundingMode = options?.roundingMode ?? "none";
@@ -1008,7 +1014,7 @@ export async function cancelQuoteConversion(quoteId: string) {
     const reservationResult = await applyQuoteReservations(
       supabase,
       quoteId,
-      quote.quote_items ?? [],
+      sortQuoteItems([...(quote.quote_items ?? [])]),
     );
     if ("error" in reservationResult && reservationResult.error) {
       return { error: reservationResult.error };
@@ -1053,8 +1059,9 @@ export async function reserveQuote(quoteId: string) {
   }
 
   const nonStockCategories = await fetchNonStockCategoryNames(supabase);
+  const sortedQuoteItems = sortQuoteItems([...(quote.quote_items ?? [])]);
   const reservableItems = getReservableQuoteItems(
-    quote.quote_items ?? [],
+    sortedQuoteItems,
     nonStockCategories,
   );
   if (reservableItems.length === 0) {
@@ -1072,7 +1079,7 @@ export async function reserveQuote(quoteId: string) {
   const result = await applyQuoteReservations(
     supabase,
     quoteId,
-    quote.quote_items ?? [],
+    sortedQuoteItems,
   );
   if ("error" in result && result.error) {
     return { error: result.error };

@@ -1,4 +1,4 @@
-import { dbQuoteItemToInput } from "@/lib/quote-mapper";
+import { dbQuoteItemToInput, sortQuoteItems } from "@/lib/quote-mapper";
 import type { QuoteItemInput } from "@/types/quote";
 
 export type CopiedQuotePayload = {
@@ -44,6 +44,8 @@ export function quoteToCopiedPayload(quote: QuoteForCopy): CopiedQuotePayload {
     manager_name: quote.manager_name,
     payment_method_id: quote.payment_method_id,
     discount_amount: Number(quote.discount_amount) || 0,
-    items: quote.quote_items.map((item) => dbQuoteItemToInput(item)),
+    items: sortQuoteItems(quote.quote_items).map((item) =>
+      dbQuoteItemToInput(item),
+    ),
   };
 }

@@ -17,6 +17,7 @@ import { fetchNonStockCategoryOptions } from "@/lib/non-stock-category-options";
 import { fetchQuoteFavoriteIds } from "@/lib/quote-favorites";
 import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
+import { sortQuoteRecordItems } from "@/lib/quote-mapper";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -134,7 +135,7 @@ export default async function QuotesPage() {
         ) : (
           <QuotesPageClient
             userId={user.id}
-            quotes={quotes}
+            quotes={quotes.map(sortQuoteRecordItems)}
             productSkus={productSkus}
             paymentMethods={paymentMethods}
             saleCategories={saleCategories}

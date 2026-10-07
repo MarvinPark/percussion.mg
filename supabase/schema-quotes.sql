@@ -51,7 +51,8 @@ create table quote_items (
   shipping_cost numeric(12, 0) not null default 0,
   color text,
   product_option text,
-  size text
+  size text,
+  sort_order integer not null default 0
 );
 
 create index quotes_created_at_idx on quotes (created_at desc);
