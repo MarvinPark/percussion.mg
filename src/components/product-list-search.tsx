@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { searchProductsForSaleDropdown } from "@/app/(main)/products/actions";
+import { useListSearchFocusShortcut } from "@/hooks/use-list-search-focus-shortcut";
 import ProductSearchResultRow from "@/components/product-search-result-row";
 import type { SaleProductOption } from "@/types/sale";
 
@@ -44,6 +45,7 @@ export default function ProductListSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
+  useListSearchFocusShortcut(inputRef);
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] =
     useState<DropdownPosition | null>(null);

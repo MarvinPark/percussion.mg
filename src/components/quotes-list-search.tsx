@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { QuoteListItem } from "@/components/quotes-list";
+import { useListSearchFocusShortcut } from "@/hooks/use-list-search-focus-shortcut";
 import {
   filterQuotesByTextQuery,
   formatQuoteDropdownLine,
@@ -39,6 +40,7 @@ export default function QuotesListSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
+  useListSearchFocusShortcut(inputRef);
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] =
     useState<DropdownPosition | null>(null);
