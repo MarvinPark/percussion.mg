@@ -2,9 +2,12 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { findQuoteProductForAdd } from "@/app/(main)/quotes/actions";
 import { createSale } from "@/app/(main)/sales/actions";
-import ProductSearchSelect from "@/components/product-search-select";
 import InlineProductCreateModal from "@/components/inline-product-create-modal";
+import ModelNameAutocomplete, {
+  type ModelNameAutocompleteHandle,
+} from "@/components/model-name-autocomplete";
 import { toSaleProductOption } from "@/lib/inline-product-create-shared";
 import PhoneInput from "@/components/phone-input";
 import PaymentMethodCombobox from "@/components/payment-method-combobox";
@@ -33,6 +36,7 @@ import {
 } from "@/lib/sale-stock-approval";
 import { isSaleFormDirty } from "@/lib/unsaved-form-dirty";
 import SaleStockApprovalDialog from "@/components/sale-stock-approval-dialog";
+import type { QuoteProductOption } from "@/types/quote";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
 
 const inputClass =
@@ -59,6 +63,27 @@ const mobileFieldLabelClass =
 const bulkBarButtonClass =
   "inline-flex h-[34px] shrink-0 items-center rounded border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
+const addProductInputClass =
+  "w-full rounded border border-zinc-200/70 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:px-2 sm:py-1.5 sm:text-sm dark:border-zinc-600/50 dark:bg-white dark:text-zinc-900 dark:focus:border-blue-500";
+
+function quoteProductToSale(product: QuoteProductOption): SaleProductOption {
+  return {
+    id: product.id,
+    product_name: product.product_name,
+    model_name: product.model_name,
+    sku: product.sku,
+    category: product.category,
+    brand: product.brand,
+    supplier: product.supplier,
+    sale_price: product.sale_price,
+    purchase_price: product.purchase_price,
+    stock_quantity: product.stock_quantity ?? 0,
+    stock_yangjae: product.stock_yangjae,
+    stock_uiwang: product.stock_uiwang,
+    reserved_quantity: product.reserved_quantity,
+  };
+}
+
 type SaleFormProps = {
   paymentMethods: PaymentMethod[];
   contactSuggestions: SaleContactSuggestions;
@@ -83,24 +108,6 @@ function todayString() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function createEmptyLine(
-  paymentMethods: PaymentMethod[],
-  options?: { paymentMethodId?: string; quantity?: number },
-): SaleLineDraft {
-  return {
-    id: crypto.randomUUID(),
-    productId: "",
-    quantity: options?.quantity ?? 1,
-    unitSalePrice: 0,
-    unitPurchasePrice: 0,
-    paymentMethodId:
-      options?.paymentMethodId ??
-      getDefaultPaymentMethodId(paymentMethods),
-    fulfillmentLocation: DEFAULT_FULFILLMENT_LOCATION,
-    shippingCost: 0,
-  };
 }
 
 function linePreview(
@@ -154,16 +161,21 @@ export default function SaleForm({
 }: SaleFormProps) {
   const router = useRouter();
   const livePaymentMethods = useLivePaymentMethods(paymentMethods);
-  const [lines, setLines] = useState<SaleLineDraft[]>(() => [
-    createEmptyLine(paymentMethods),
-  ]);
+  const [lines, setLines] = useState<SaleLineDraft[]>([]);
   const [selectedProductsByLine, setSelectedProductsByLine] = useState<
     Record<string, SaleProductOption>
   >({});
-  const [productCreateModal, setProductCreateModal] = useState<{
-    lineId: string;
-    initialQuery: string;
-  } | null>(null);
+  const [modelSearch, setModelSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] =
+    useState<SaleProductOption | null>(null);
+  const [addQuantity, setAddQuantity] = useState(1);
+  const [addSalePrice, setAddSalePrice] = useState(0);
+  const [addPurchasePrice, setAddPurchasePrice] = useState(0);
+  const [isResolvingProduct, setIsResolvingProduct] = useState(false);
+  const modelInputRef = useRef<ModelNameAutocompleteHandle>(null);
+  const [productCreateQuery, setProductCreateQuery] = useState<string | null>(
+    null,
+  );
   const [bulkPaymentMethodId, setBulkPaymentMethodId] = useState(
     () => getDefaultPaymentMethodId(paymentMethods),
   );
@@ -184,10 +196,6 @@ export default function SaleForm({
   >(null);
   const stockApprovalBypassRef = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const [focusTarget, setFocusTarget] = useState<{
-    lineId: string;
-    field: "product" | "quantity";
-  } | null>(null);
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
@@ -303,24 +311,6 @@ export default function SaleForm({
   }
 
   useEffect(() => {
-    if (!focusTarget) return;
-
-    const { lineId, field } = focusTarget;
-    requestAnimationFrame(() => {
-      const element =
-        field === "product"
-          ? document.getElementById(`product_search_${lineId}`)
-          : document.getElementById(`sale_quantity_${lineId}`);
-      element?.focus();
-      setFocusTarget(null);
-    });
-  }, [lines, focusTarget]);
-
-  function scheduleLineFocus(lineId: string, field: "product" | "quantity") {
-    setFocusTarget({ lineId, field });
-  }
-
-  useEffect(() => {
     if (!state?.success) return;
     allowNavigation();
     router.replace("/sales");
@@ -332,72 +322,96 @@ export default function SaleForm({
     );
   }
 
-  function openProductCreate(lineId: string, initialQuery: string) {
-    if (!lineId) return;
-    setProductCreateModal({ lineId, initialQuery });
+  function focusModelInput() {
+    requestAnimationFrame(() => {
+      modelInputRef.current?.focus();
+    });
   }
 
-  function handleHeaderRegisterProduct() {
-    const emptyLine = lines.find((line) => !line.productId);
-    if (emptyLine) {
-      openProductCreate(emptyLine.id, "");
-      return;
-    }
+  function handleProductPick(product: SaleProductOption) {
+    setSelectedProduct(product);
+    setAddSalePrice(product.sale_price);
+    setAddPurchasePrice(product.purchase_price);
+  }
 
-    const newLine = createEmptyLine(livePaymentMethods, {
-      paymentMethodId: bulkPaymentMethodId,
-      quantity: bulkQuantity,
-    });
-    setLines((prev) => [...prev, newLine]);
-    openProductCreate(newLine.id, "");
+  function handleRegisterProductFromSearch(query: string) {
+    setProductCreateQuery(query);
   }
 
   function handleSaleProductCreated(product: SaleProductOption) {
-    if (!productCreateModal) return;
-    handleProductChange(productCreateModal.lineId, product);
-    setProductCreateModal(null);
+    setModelSearch(product.model_name || product.sku || "");
+    handleProductPick(product);
+    setProductCreateQuery(null);
+    focusModelInput();
   }
 
-  function handleProductChange(
-    lineId: string,
-    product: SaleProductOption | null,
-  ) {
-    if (!product) {
-      setSelectedProductsByLine((prev) => {
-        const next = { ...prev };
-        delete next[lineId];
-        return next;
-      });
-      updateLine(lineId, {
-        productId: "",
-        unitSalePrice: 0,
-        unitPurchasePrice: 0,
-      });
+  async function resolveProductForAdd(): Promise<SaleProductOption | null> {
+    if (selectedProduct) return selectedProduct;
+
+    const query = modelSearch.trim();
+    if (!query) return null;
+
+    const { product } = await findQuoteProductForAdd(query);
+    return product ? quoteProductToSale(product) : null;
+  }
+
+  async function addItem() {
+    if (isResolvingProduct) return;
+
+    setIsResolvingProduct(true);
+    let product: SaleProductOption | null = null;
+    try {
+      product = await resolveProductForAdd();
+    } finally {
+      setIsResolvingProduct(false);
+    }
+
+    if (!product || addQuantity <= 0) {
+      alert("모델명을 입력하고 목록에서 제품을 선택해 주세요.");
       return;
     }
 
-    setSelectedProductsByLine((prev) => ({ ...prev, [lineId]: product }));
-    updateLine(lineId, {
-      productId: product.id,
-      unitSalePrice: product.sale_price ?? 0,
-      unitPurchasePrice: product.purchase_price ?? 0,
-    });
-    scheduleLineFocus(lineId, "quantity");
-  }
+    const existing = lines.find((line) => line.productId === product!.id);
+    if (existing) {
+      updateLine(existing.id, {
+        quantity: existing.quantity + addQuantity,
+        unitSalePrice: addSalePrice,
+        unitPurchasePrice: addPurchasePrice,
+      });
+    } else {
+      const newLine: SaleLineDraft = {
+        id: crypto.randomUUID(),
+        productId: product.id,
+        quantity: addQuantity,
+        unitSalePrice: addSalePrice,
+        unitPurchasePrice: addPurchasePrice,
+        paymentMethodId:
+          bulkPaymentMethodId || getDefaultPaymentMethodId(livePaymentMethods),
+        fulfillmentLocation: DEFAULT_FULFILLMENT_LOCATION,
+        shippingCost: 0,
+      };
+      setSelectedProductsByLine((prev) => ({
+        ...prev,
+        [newLine.id]: product!,
+      }));
+      setLines((prev) => [...prev, newLine]);
+    }
 
-  function addLine() {
-    const newLine = createEmptyLine(livePaymentMethods, {
-      paymentMethodId: bulkPaymentMethodId,
-      quantity: bulkQuantity,
-    });
-    setLines((prev) => [...prev, newLine]);
-    scheduleLineFocus(newLine.id, "product");
+    setModelSearch("");
+    setSelectedProduct(null);
+    setAddQuantity(1);
+    setAddSalePrice(0);
+    setAddPurchasePrice(0);
+    focusModelInput();
   }
 
   function removeLine(id: string) {
-    setLines((prev) =>
-      prev.length <= 1 ? prev : prev.filter((line) => line.id !== id),
-    );
+    setLines((prev) => prev.filter((line) => line.id !== id));
+    setSelectedProductsByLine((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   function applyBulkPaymentMethod() {
@@ -552,17 +566,101 @@ export default function SaleForm({
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              판매 제품
-            </h3>
-            <p className="mt-0.5 hidden text-xs text-zinc-600 sm:block dark:text-zinc-400">
-              + 버튼으로 여러 제품을 한 번에 등록할 수 있습니다. 수량·결제방식은
-              행마다 선택하거나 아래 일괄 적용을 사용하세요.
-            </p>
+      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+        <div className="mb-3 flex items-center gap-2">
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+            제품 추가
+          </p>
+          <button
+            type="button"
+            onClick={() => handleRegisterProductFromSearch(modelSearch.trim())}
+            className="shrink-0 rounded-lg border border-blue-600 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 sm:px-3 sm:py-1.5 sm:text-sm dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
+          >
+            제품등록
+          </button>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[200px] flex-1">
+            <label className={labelClass}>모델명</label>
+            <ModelNameAutocomplete
+              ref={modelInputRef}
+              value={modelSearch}
+              onChange={(value) => {
+                setModelSearch(value);
+                setSelectedProduct((prev) => {
+                  if (!prev) return null;
+                  const label = (prev.model_name || prev.sku || "").trim();
+                  return value.trim() === label ? prev : null;
+                });
+              }}
+              onSelectProduct={(product) =>
+                handleProductPick(quoteProductToSale(product))
+              }
+              onRegisterProduct={handleRegisterProductFromSearch}
+            />
           </div>
+          <div className="w-12 shrink-0 sm:w-20">
+            <label className={labelClass}>수량</label>
+            <input
+              type="number"
+              min={1}
+              value={addQuantity}
+              onChange={(event) =>
+                setAddQuantity(Math.max(1, Number(event.target.value) || 1))
+              }
+              className={`${addProductInputClass} text-center tabular-nums`}
+            />
+          </div>
+          <div className="w-36 sm:w-32">
+            <label className={labelClass}>판매가</label>
+            <PriceInput
+              min={0}
+              value={addSalePrice}
+              onChange={setAddSalePrice}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void addItem();
+                }
+              }}
+              className={addProductInputClass}
+            />
+          </div>
+          <div className="w-28 shrink-0 sm:w-32">
+            <label className={labelClass}>매입가</label>
+            <PriceInput
+              min={0}
+              value={addPurchasePrice}
+              onChange={setAddPurchasePrice}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void addItem();
+                }
+              }}
+              className={addProductInputClass}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => void addItem()}
+            disabled={isResolvingProduct}
+            className="ml-auto rounded-lg bg-zinc-800 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-200 dark:text-zinc-900"
+          >
+            {isResolvingProduct ? "확인 중…" : "추가"}
+          </button>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+            판매 제품
+          </h3>
+          <p className="mt-0.5 hidden text-xs text-zinc-600 sm:block dark:text-zinc-400">
+            위에서 제품을 추가한 뒤, 수량·결제방식은 행마다 선택하거나 아래
+            일괄 적용을 사용하세요.
+          </p>
         </div>
 
         <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-800/40 sm:space-y-0">
@@ -612,18 +710,11 @@ export default function SaleForm({
         </div>
 
         <div className="space-y-3 sm:hidden">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              판매 제품
+          {lines.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
+              제품을 추가해 주세요.
             </p>
-            <button
-              type="button"
-              onClick={handleHeaderRegisterProduct}
-              className="rounded border border-blue-600 px-2 py-1 text-[11px] font-semibold leading-none text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
-            >
-              + 제품등록
-            </button>
-          </div>
+          ) : null}
 
           {lines.map((line, index) => {
             const preview = linePreview(line, livePaymentMethods);
@@ -640,8 +731,7 @@ export default function SaleForm({
                   <button
                     type="button"
                     onClick={() => removeLine(line.id)}
-                    disabled={lines.length <= 1}
-                    className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
                     aria-label={`${index + 1}번째 제품 삭제`}
                   >
                     삭제
@@ -671,17 +761,19 @@ export default function SaleForm({
 
                 <div>
                   <label className={mobileFieldLabelClass}>판매제품</label>
-                  <ProductSearchSelect
-                    selectedProduct={selectedProductsByLine[line.id] ?? null}
-                    onSelect={(product) => handleProductChange(line.id, product)}
-                    onRegisterProduct={(query) =>
-                      openProductCreate(line.id, query)
-                    }
-                    emphasizeModelName
-                    showHiddenField={false}
-                    showHelperText={Boolean(line.productId)}
-                    inputId={`product_search_${line.id}`}
-                  />
+                  {selectedProductsByLine[line.id] ? (
+                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800/50">
+                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {selectedProductsByLine[line.id]!.model_name ||
+                          selectedProductsByLine[line.id]!.sku}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {selectedProductsByLine[line.id]!.product_name}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-zinc-400">-</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -786,16 +878,7 @@ export default function SaleForm({
                   출고지
                 </th>
                 <th className="min-w-[14rem] px-3 py-2.5 font-semibold">
-                  <span className="inline-flex items-center gap-1.5">
-                    판매제품
-                    <button
-                      type="button"
-                      onClick={handleHeaderRegisterProduct}
-                      className="rounded border border-blue-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950"
-                    >
-                      제품등록
-                    </button>
-                  </span>
+                  판매제품
                 </th>
                 <th className="min-w-[5rem] px-3 py-2.5 font-semibold">
                   판매수량
@@ -819,6 +902,16 @@ export default function SaleForm({
               </tr>
             </thead>
             <tbody>
+              {lines.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={9}
+                    className="px-3 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                  >
+                    제품을 추가해 주세요.
+                  </td>
+                </tr>
+              ) : null}
               {lines.map((line, index) => {
                 const preview = linePreview(line, livePaymentMethods);
 
@@ -847,20 +940,19 @@ export default function SaleForm({
                       </select>
                     </td>
                     <td className="px-3 py-2 align-top">
-                      <ProductSearchSelect
-                        selectedProduct={selectedProductsByLine[line.id] ?? null}
-                        onSelect={(product) =>
-                          handleProductChange(line.id, product)
-                        }
-                        onRegisterProduct={(query) =>
-                          openProductCreate(line.id, query)
-                        }
-                        compact
-                        emphasizeModelName
-                        showHiddenField={false}
-                        showHelperText={false}
-                        inputId={`product_search_${line.id}`}
-                      />
+                      {selectedProductsByLine[line.id] ? (
+                        <div>
+                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                            {selectedProductsByLine[line.id]!.model_name ||
+                              selectedProductsByLine[line.id]!.sku}
+                          </p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {selectedProductsByLine[line.id]!.product_name}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-zinc-400">-</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 align-top">
                       <input
@@ -939,8 +1031,7 @@ export default function SaleForm({
                       <button
                         type="button"
                         onClick={() => removeLine(line.id)}
-                        disabled={lines.length <= 1}
-                        className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
                         aria-label={`${index + 1}번째 제품 삭제`}
                       >
                         −
@@ -953,13 +1044,6 @@ export default function SaleForm({
           </table>
         </div>
 
-        <button
-          type="button"
-          onClick={addLine}
-          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-zinc-400 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          + 제품 추가
-        </button>
       </section>
 
       <div>
@@ -1022,11 +1106,11 @@ export default function SaleForm({
       </button>
       </form>
 
-      {productCreateModal ? (
+      {productCreateQuery !== null ? (
         <InlineProductCreateModal
           context="sale"
-          initialModelName={productCreateModal.initialQuery}
-          onClose={() => setProductCreateModal(null)}
+          initialModelName={productCreateQuery}
+          onClose={() => setProductCreateQuery(null)}
           onCreated={(product) =>
             handleSaleProductCreated(toSaleProductOption(product))
           }
