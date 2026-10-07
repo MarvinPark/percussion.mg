@@ -541,8 +541,8 @@ export default function ProductsPageClient({
                 id="product_list_category_filter"
                 value={categoryFilter}
                 options={filterCategories}
-                emptyLabel="품목"
-                placeholder="품목"
+                emptyLabel="전체"
+                placeholder="전체"
                 onChange={handleCategoryFilterChange}
                 className={compactFilterInputClass}
               />
@@ -550,8 +550,8 @@ export default function ProductsPageClient({
                 id="product_list_brand_filter"
                 value={brandFilter}
                 options={brandOptions}
-                emptyLabel="브랜드"
-                placeholder="브랜드"
+                emptyLabel="전체"
+                placeholder="전체"
                 onChange={handleBrandFilterChange}
                 className={compactFilterInputClass}
               />

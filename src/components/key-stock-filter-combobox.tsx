@@ -155,9 +155,29 @@ export default function KeyStockFilterCombobox({
             return;
           }
 
-          if (event.key === "Enter" && open && matches[highlightIndex]) {
+          if (event.key === "Enter") {
             event.preventDefault();
-            commitValue(matches[highlightIndex]);
+            event.stopPropagation();
+            const trimmed = query.trim();
+            if (
+              !trimmed ||
+              trimmed === "전체" ||
+              (emptyLabel && trimmed === emptyLabel)
+            ) {
+              commitValue("");
+              event.currentTarget.blur();
+              return;
+            }
+            if (open && matches[highlightIndex]) {
+              commitValue(matches[highlightIndex]);
+              return;
+            }
+            const exact = options.find(
+              (option) => option.toLowerCase() === trimmed.toLowerCase(),
+            );
+            if (exact) {
+              commitValue(exact);
+            }
             return;
           }
 
