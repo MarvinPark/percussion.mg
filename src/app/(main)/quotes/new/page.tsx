@@ -1,4 +1,3 @@
-import Link from "next/link";
 import QuoteForm from "@/components/quote-form";
 import { createPageMetadata } from "@/lib/document-titles";
 import { buildSaleContactSuggestions } from "@/lib/sale-contact-suggestions";
@@ -46,13 +45,7 @@ export default async function NewQuotePage() {
   return (
       <main className="mx-auto max-w-app px-4 py-8">
         <div className="mb-6">
-          <Link
-            href="/quotes"
-            className="text-sm font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
-          >
-            ← 견적 목록으로
-          </Link>
-          <h2 className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
             견적서 작성
           </h2>
         </div>
@@ -74,6 +67,7 @@ export default async function NewQuotePage() {
               completeProfile.job_title,
             )}
             managerPhone={completeProfile.phone}
+            listBackHref="/quotes"
           />
         </div>
       </main>

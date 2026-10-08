@@ -33,6 +33,7 @@ import { displaySaleCategoryFromList } from "@/lib/sale-category-options";
 import { formatKRW } from "@/lib/sales-calculator";
 import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { scheduleNavigationFallback } from "@/lib/client-navigation-fallback";
 import { getDefaultPaymentMethodId } from "@/lib/payment-methods";
 import { isQuoteFormDirty } from "@/lib/unsaved-form-dirty";
 import type { PaymentMethod } from "@/types/sale";
@@ -88,6 +89,9 @@ type QuoteFormProps = {
   initialQuote?: QuoteEditInitial;
   onSaved?: () => void;
   onClose?: () => void;
+  /** 새 견적 작성 등 목록으로 돌아가기 (미저장 시 확인) */
+  listBackHref?: string;
+  listBackLabel?: string;
 };
 
 function todayString() {
@@ -163,6 +167,8 @@ export default function QuoteForm({
   initialQuote,
   onSaved,
   onClose,
+  listBackHref,
+  listBackLabel = "← 견적 목록으로",
 }: QuoteFormProps) {
   const router = useRouter();
   const isEditing = Boolean(quoteId);
@@ -259,11 +265,7 @@ export default function QuoteForm({
   const navigateToQuotesList = useCallback(() => {
     allowNavigationRef.current();
     router.replace("/quotes");
-    window.setTimeout(() => {
-      if (window.location.pathname === "/quotes/new") {
-        window.location.assign("/quotes");
-      }
-    }, 600);
+    scheduleNavigationFallback("/quotes");
   }, [router]);
 
   const [state, formAction, isPending] = useActionState(
@@ -345,10 +347,33 @@ export default function QuoteForm({
 
   const saveSucceeded = Boolean(state && "success" in state && state.success);
 
-  const { dialog: leaveDialog, allowNavigation } = useUnsavedChangesGuard(
-    isDirty && !isPending && !saveSucceeded,
-  );
+  const { dialog: leaveDialog, allowNavigation, requestLeave } =
+    useUnsavedChangesGuard(isDirty && !isPending && !saveSucceeded);
   allowNavigationRef.current = allowNavigation;
+
+  const handleListBack = useCallback(() => {
+    if (!listBackHref) return;
+
+    const go = () => {
+      allowNavigationRef.current();
+      router.replace(listBackHref);
+      scheduleNavigationFallback(listBackHref);
+    };
+
+    if (isDirty && !isPending && !saveSucceeded) {
+      requestLeave(go, listBackHref);
+      return;
+    }
+
+    go();
+  }, [
+    isDirty,
+    isPending,
+    listBackHref,
+    requestLeave,
+    router,
+    saveSucceeded,
+  ]);
 
   const selectedPaymentMethod = useMemo(
     () => livePaymentMethods.find((method) => method.id === paymentMethodId),
@@ -611,6 +636,15 @@ export default function QuoteForm({
 
   return (
     <div className="space-y-6">
+      {listBackHref ? (
+        <button
+          type="button"
+          onClick={handleListBack}
+          className="text-sm font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+        >
+          {listBackLabel}
+        </button>
+      ) : null}
       <section className={sectionMuted}>
         <h3 className="text-center text-2xl font-bold tracking-[0.3em] text-zinc-900 dark:text-zinc-100">
           견 적 서

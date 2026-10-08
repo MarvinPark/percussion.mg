@@ -3,18 +3,28 @@
 import LeaveConfirmDialog from "@/components/leave-confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { scheduleNavigationFallback } from "@/lib/client-navigation-fallback";
+import { createPortal } from "react-dom";
 
 export function useUnsavedChangesGuard(enabled: boolean) {
   const router = useRouter();
   const enabledRef = useRef(enabled);
   const allowNavigationRef = useRef(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
+  const pendingHrefRef = useRef<string | null>(null);
+  const historyGuardPushedRef = useRef(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
 
   enabledRef.current = enabled;
 
-  const requestLeave = useCallback((action: () => void) => {
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  const requestLeave = useCallback((action: () => void, href?: string) => {
     pendingNavigationRef.current = action;
+    pendingHrefRef.current = href ?? null;
     setDialogOpen(true);
   }, []);
 
@@ -22,13 +32,17 @@ export function useUnsavedChangesGuard(enabled: boolean) {
     allowNavigationRef.current = true;
     setDialogOpen(false);
     const action = pendingNavigationRef.current;
+    const href = pendingHrefRef.current;
     pendingNavigationRef.current = null;
+    pendingHrefRef.current = null;
     action?.();
+    if (href) scheduleNavigationFallback(href);
   }, []);
 
   const cancelLeave = useCallback(() => {
     setDialogOpen(false);
     pendingNavigationRef.current = null;
+    pendingHrefRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -57,6 +71,7 @@ export function useUnsavedChangesGuard(enabled: boolean) {
       if (!anchor) return;
       if (anchor.getAttribute("target") === "_blank") return;
       if (anchor.hasAttribute("download")) return;
+      if (anchor.closest("[data-ignore-unsaved-guard]")) return;
 
       const href = anchor.getAttribute("href");
       if (!href || href.startsWith("#") || href.startsWith("javascript:")) {
@@ -82,9 +97,10 @@ export function useUnsavedChangesGuard(enabled: boolean) {
       event.preventDefault();
       event.stopPropagation();
 
+      const destination = `${url.pathname}${url.search}${url.hash}`;
       requestLeave(() => {
-        router.push(`${url.pathname}${url.search}${url.hash}`);
-      });
+        router.push(destination);
+      }, destination);
     }
 
     document.addEventListener("click", handleClick, true);
@@ -92,9 +108,15 @@ export function useUnsavedChangesGuard(enabled: boolean) {
   }, [enabled, requestLeave, router]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      historyGuardPushedRef.current = false;
+      return;
+    }
 
-    window.history.pushState({ pcUnsavedGuard: true }, "", window.location.href);
+    if (!historyGuardPushedRef.current) {
+      window.history.pushState({ pcUnsavedGuard: true }, "", window.location.href);
+      historyGuardPushedRef.current = true;
+    }
 
     function handlePopState() {
       if (allowNavigationRef.current || !enabledRef.current) return;
@@ -113,9 +135,13 @@ export function useUnsavedChangesGuard(enabled: boolean) {
     allowNavigationRef.current = true;
   }, []);
 
-  const dialog = dialogOpen ? (
-    <LeaveConfirmDialog onConfirm={confirmLeave} onCancel={cancelLeave} />
-  ) : null;
+  const dialog =
+    dialogOpen && portalReady ? (
+      createPortal(
+        <LeaveConfirmDialog onConfirm={confirmLeave} onCancel={cancelLeave} />,
+        document.body,
+      )
+    ) : null;
 
-  return { dialog, allowNavigation };
+  return { dialog, allowNavigation, requestLeave };
 }
