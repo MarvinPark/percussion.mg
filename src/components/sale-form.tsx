@@ -35,6 +35,7 @@ import {
   type SaleStockApprovalItem,
 } from "@/lib/sale-stock-approval";
 import { isSaleFormDirty } from "@/lib/unsaved-form-dirty";
+import BlockingLoadingOverlay from "@/components/blocking-loading-overlay";
 import SaleStockApprovalDialog from "@/components/sale-stock-approval-dialog";
 import type { QuoteProductOption } from "@/types/quote";
 import type { PaymentMethod, SaleProductOption } from "@/types/sale";
@@ -1136,6 +1137,11 @@ export default function SaleForm({
       ) : null}
 
       {leaveDialog}
+
+      <BlockingLoadingOverlay
+        open={isSubmitting}
+        message="매출 등록 중..."
+      />
     </>
   );
 }
