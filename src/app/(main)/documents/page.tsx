@@ -6,12 +6,21 @@ import { getCurrentUserProfile } from "@/lib/profile";
 import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import { pageMain, pageSubtitle, pageTitle } from "@/lib/ui-classes";
 import { createClient } from "@/lib/supabase/server";
+import { parseCompanyDocumentListSort } from "@/lib/company-documents-sort";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 
 export const metadata = createPageMetadata("문서");
 
-export default async function DocumentsPage() {
+type DocumentsPageProps = {
+  searchParams: Promise<{ sort?: string; order?: string }>;
+};
+
+export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
+  const params = await searchParams;
+  const initialSort = parseCompanyDocumentListSort(
+    params.sort,
+    params.order,
+  );
   const { user, profile } = await getCurrentUserProfile();
   if (!user) redirect("/login");
 
@@ -35,14 +44,13 @@ export default async function DocumentsPage() {
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <Suspense fallback={<p className="text-sm text-zinc-500">불러오는 중…</p>}>
-          <CompanyDocumentsPageClient
-            userId={user.id}
-            documents={documents}
-            canManage={canManage}
-            schemaError={error}
-          />
-        </Suspense>
+        <CompanyDocumentsPageClient
+          userId={user.id}
+          documents={documents}
+          canManage={canManage}
+          schemaError={error}
+          initialSort={initialSort}
+        />
       </div>
     </main>
   );

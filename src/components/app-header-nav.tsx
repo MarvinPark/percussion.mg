@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import AppNavLink from "@/components/app-nav-link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/login/actions";
@@ -72,9 +72,13 @@ export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
       <div className="hidden items-center gap-2 md:flex">
         <nav className="flex flex-wrap items-center gap-1">
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className={linkClass(item.href)}>
+            <AppNavLink
+              key={item.href}
+              href={item.href}
+              className={linkClass(item.href)}
+            >
               {item.label}
-            </Link>
+            </AppNavLink>
           ))}
         </nav>
         <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
@@ -138,13 +142,13 @@ export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
           >
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => (
-                <Link
+                <AppNavLink
                   key={item.href}
                   href={item.href}
                   className={linkClass(item.href)}
                 >
                   {item.label}
-                </Link>
+                </AppNavLink>
               ))}
               <form action={logout} className="pt-2">
                 <button

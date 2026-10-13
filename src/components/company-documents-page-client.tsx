@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   deleteCompanyDocument,
@@ -13,9 +13,7 @@ import {
   isCompanyDocumentExpired,
 } from "@/lib/company-documents";
 import {
-  companyDocumentListSortToSearchParams,
   cycleCompanyDocumentListSort,
-  parseCompanyDocumentListSort,
   sortCompanyDocuments,
   type CompanyDocumentListSort,
   type CompanyDocumentSortColumn,
@@ -32,6 +30,7 @@ type CompanyDocumentsPageClientProps = {
   documents: CompanyDocument[];
   canManage: boolean;
   schemaError?: string | null;
+  initialSort: CompanyDocumentListSort;
 };
 
 const inputClass =
@@ -49,10 +48,9 @@ export default function CompanyDocumentsPageClient({
   documents,
   canManage,
   schemaError,
+  initialSort,
 }: CompanyDocumentsPageClientProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,12 +62,7 @@ export default function CompanyDocumentsPageClient({
   const [note, setNote] = useState("");
   const [selectedFileName, setSelectedFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [sort, setSort] = useState<CompanyDocumentListSort>(() =>
-    parseCompanyDocumentListSort(
-      searchParams.get("sort"),
-      searchParams.get("order"),
-    ),
-  );
+  const [sort, setSort] = useState<CompanyDocumentListSort>(initialSort);
   const [rowFontSize, setRowFontSize] = useState(DEFAULT_TABLE_ROW_FONT_SIZE);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
@@ -100,20 +93,7 @@ export default function CompanyDocumentsPageClient({
   }
 
   function handleSortColumn(column: CompanyDocumentSortColumn) {
-    const nextSort = cycleCompanyDocumentListSort(sort, column);
-    setSort(nextSort);
-
-    const params = new URLSearchParams(searchParams.toString());
-    const sortParams = companyDocumentListSortToSearchParams(nextSort);
-    if (sortParams.sort) {
-      params.set("sort", sortParams.sort);
-      params.set("order", sortParams.order ?? "desc");
-    } else {
-      params.delete("sort");
-      params.delete("order");
-    }
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    setSort((current) => cycleCompanyDocumentListSort(current, column));
   }
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
@@ -153,14 +133,16 @@ export default function CompanyDocumentsPageClient({
     );
     if (!confirmed) return;
 
-    startTransition(async () => {
-      const result = await deleteCompanyDocument(document.id);
-      if ("error" in result && result.error) {
-        window.alert(result.error);
-        return;
-      }
-      setMessage("문서를 삭제했습니다.");
-      refresh();
+    startTransition(() => {
+      void (async () => {
+        const result = await deleteCompanyDocument(document.id);
+        if ("error" in result && result.error) {
+          window.alert(result.error);
+          return;
+        }
+        setMessage("문서를 삭제했습니다.");
+        refresh();
+      })();
     });
   }
 

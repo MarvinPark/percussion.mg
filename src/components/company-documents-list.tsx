@@ -52,6 +52,13 @@ function documentHref(document: CompanyDocument) {
   return buildDocumentDownloadPath(document.id, document.file_name);
 }
 
+function openDocumentInNewTab(document: CompanyDocument) {
+  window.open(documentHref(document), "_blank", "noopener,noreferrer");
+}
+
+const documentLinkClass =
+  "cursor-pointer text-left font-inherit text-inherit hover:underline";
+
 function DocumentDeleteButton({
   document,
   canManage,
@@ -110,14 +117,13 @@ function DocumentMobileCard({
                 : "font-semibold text-zinc-900 dark:text-zinc-100"
             }
           >
-            <a
-              href={documentHref(document)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
+            <button
+              type="button"
+              className={documentLinkClass}
+              onClick={() => openDocumentInNewTab(document)}
             >
               {document.title}
-            </a>
+            </button>
           </p>
           <p className="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400">
             {document.file_name} ·{" "}
@@ -239,14 +245,13 @@ export default function CompanyDocumentsList({
         return (
           <td className={`px-4 ${rowPaddingClass} font-medium`}>
             <div className="truncate">
-              <a
-                href={documentHref(document)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
+              <button
+                type="button"
+                className={documentLinkClass}
+                onClick={() => openDocumentInNewTab(document)}
               >
                 {document.title}
-              </a>
+              </button>
             </div>
             {document.note ? (
               <p

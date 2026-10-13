@@ -8,10 +8,20 @@ export default function BodyRouteReset() {
   const pathname = usePathname();
 
   useEffect(() => {
-    document.body.style.overflow = "";
-    document.body.style.pointerEvents = "";
-    document.body.style.userSelect = "";
-    document.body.style.cursor = "";
+    function resetBodyInteractionStyles() {
+      document.body.style.overflow = "";
+      document.body.style.pointerEvents = "";
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    }
+
+    resetBodyInteractionStyles();
+    window.addEventListener("focus", resetBodyInteractionStyles);
+    window.addEventListener("pageshow", resetBodyInteractionStyles);
+    return () => {
+      window.removeEventListener("focus", resetBodyInteractionStyles);
+      window.removeEventListener("pageshow", resetBodyInteractionStyles);
+    };
   }, [pathname]);
 
   return null;
