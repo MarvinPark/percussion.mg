@@ -10,6 +10,8 @@ export type InlineProductCreateContext = "sale" | "quote" | "products" | "stock"
 type InlineProductCreateModalProps = {
   context: InlineProductCreateContext;
   initialModelName: string;
+  /** 다른 결과 모달 위에 띄울 때 z-index를 올립니다 */
+  elevated?: boolean;
   onClose: () => void;
   onCreated: (product: InlineCreatedProduct) => void;
 };
@@ -47,6 +49,7 @@ function defaultSku(modelName: string) {
 export default function InlineProductCreateModal({
   context,
   initialModelName,
+  elevated = false,
   onClose,
   onCreated,
 }: InlineProductCreateModalProps) {
@@ -80,7 +83,11 @@ export default function InlineProductCreateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div
+      className={`fixed inset-0 flex items-center justify-center bg-black/40 p-4 ${
+        elevated ? "z-[90]" : "z-50"
+      }`}
+    >
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">

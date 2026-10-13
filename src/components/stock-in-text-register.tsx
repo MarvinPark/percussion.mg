@@ -184,7 +184,7 @@ export default function StockInTextRegister() {
         {isPending ? "처리 중..." : "텍스트 입고 실행"}
       </button>
 
-      {result ? (
+      {result && !registerTarget ? (
         <StockInTextResultDialog
           result={result}
           onClose={() => setResult(null)}
@@ -195,6 +195,7 @@ export default function StockInTextRegister() {
       {registerTarget ? (
         <InlineProductCreateModal
           context="stock"
+          elevated
           initialModelName={registerTarget.sku}
           onClose={() => {
             if (!isRegisteringStock) setRegisterTarget(null);
