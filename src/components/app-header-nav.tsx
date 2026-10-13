@@ -129,7 +129,7 @@ export default function AppHeaderNav({ navItems, role }: AppHeaderNavProps) {
           <button
             type="button"
             aria-label="메뉴 배경 닫기"
-            className="fixed inset-0 z-40 bg-black/30 md:hidden"
+            className="fixed inset-x-0 bottom-0 top-[var(--app-header-height)] z-40 bg-black/30 md:hidden"
             onClick={() => setMenuOpen(false)}
           />
           <div

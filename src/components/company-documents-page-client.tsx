@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   deleteCompanyDocument,
@@ -43,25 +43,6 @@ const labelClass =
 const fileSelectButtonClass =
   "rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500";
 
-function syncDocumentsSortUrl(sort: CompanyDocumentListSort) {
-  const params = new URLSearchParams(window.location.search);
-  const sortParams = companyDocumentListSortToSearchParams(sort);
-
-  if (sortParams.sort) {
-    params.set("sort", sortParams.sort);
-    params.set("order", sortParams.order ?? "desc");
-  } else {
-    params.delete("sort");
-    params.delete("order");
-  }
-
-  const query = params.toString();
-  window.history.replaceState(
-    null,
-    "",
-    query ? `${window.location.pathname}?${query}` : window.location.pathname,
-  );
-}
 
 export default function CompanyDocumentsPageClient({
   userId,
@@ -70,6 +51,7 @@ export default function CompanyDocumentsPageClient({
   schemaError,
 }: CompanyDocumentsPageClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -120,7 +102,18 @@ export default function CompanyDocumentsPageClient({
   function handleSortColumn(column: CompanyDocumentSortColumn) {
     const nextSort = cycleCompanyDocumentListSort(sort, column);
     setSort(nextSort);
-    syncDocumentsSortUrl(nextSort);
+
+    const params = new URLSearchParams(searchParams.toString());
+    const sortParams = companyDocumentListSortToSearchParams(nextSort);
+    if (sortParams.sort) {
+      params.set("sort", sortParams.sort);
+      params.set("order", sortParams.order ?? "desc");
+    } else {
+      params.delete("sort");
+      params.delete("order");
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {

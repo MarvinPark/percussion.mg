@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProductsListView } from "@/app/(main)/products/actions";
 import type { ProductInlineField } from "@/app/(main)/products/actions";
@@ -75,27 +76,6 @@ function buildProductsUrl(
   return query ? `/products?${query}` : "/products";
 }
 
-function syncProductsUrl(
-  page: number,
-  searchQuery: string,
-  pageSize: ProductPageSize,
-  sort: ProductListSort,
-  categoryFilter: string,
-  brandFilter: string,
-) {
-  const nextUrl = buildProductsUrl(
-    page,
-    searchQuery,
-    pageSize,
-    sort,
-    categoryFilter,
-    brandFilter,
-  );
-  const currentUrl = `${window.location.pathname}${window.location.search}`;
-  if (currentUrl === nextUrl) return;
-  window.history.replaceState(window.history.state, "", nextUrl);
-}
-
 function readProductListParamsFromLocation() {
   if (typeof window === "undefined") {
     return {
@@ -148,6 +128,7 @@ export default function ProductsPageClient({
   readOnly = false,
   initialLoadError = null,
 }: ProductsPageClientProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const loadRequestRef = useRef(0);
   const [products, setProducts] = useState(initialProducts);
@@ -260,6 +241,30 @@ export default function ProductsPageClient({
     ? `${isSearchActive ? "검색" : "필터"} ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`
     : `총 ${listStats.totalCount.toLocaleString("ko-KR")}건 · 총 수량 ${listStats.totalStockQuantity.toLocaleString("ko-KR")}개${isLoading ? " · 불러오는 중..." : ""}`;
 
+  const syncProductsUrl = useCallback(
+    (
+      page: number,
+      searchQuery: string,
+      pageSize: ProductPageSize,
+      sort: ProductListSort,
+      categoryFilter: string,
+      brandFilter: string,
+    ) => {
+      const nextUrl = buildProductsUrl(
+        page,
+        searchQuery,
+        pageSize,
+        sort,
+        categoryFilter,
+        brandFilter,
+      );
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (currentUrl === nextUrl) return;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [router],
+  );
+
   const loadView = useCallback(
     (overrides: Partial<ProductListViewParams> = {}) => {
       const current = viewRef.current;
@@ -331,7 +336,7 @@ export default function ProductsPageClient({
           }
         });
     },
-    [userId],
+    [syncProductsUrl, userId],
   );
 
   useEffect(() => {
@@ -361,6 +366,7 @@ export default function ProductsPageClient({
     initialPageSize,
     initialSearchQuery,
     initialSort,
+    syncProductsUrl,
     userId,
   ]);
 

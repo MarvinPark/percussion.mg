@@ -31,9 +31,6 @@ import type { CompanyDocument } from "@/types/company-document";
 const deleteButtonClass =
   "rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60";
 
-const clickableRowClass =
-  "cursor-pointer transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:hover:bg-zinc-800/50 dark:active:bg-zinc-800";
-
 const tableClassName = "w-full table-fixed text-sm";
 
 type CompanyDocumentsListProps = {
@@ -51,12 +48,8 @@ function formatCreatedAt(value: string) {
   return value.slice(0, 10);
 }
 
-function openDocument(document: CompanyDocument) {
-  window.open(
-    buildDocumentDownloadPath(document.id, document.file_name),
-    "_blank",
-    "noopener,noreferrer",
-  );
+function documentHref(document: CompanyDocument) {
+  return buildDocumentDownloadPath(document.id, document.file_name);
 }
 
 function DocumentDeleteButton({
@@ -102,19 +95,10 @@ function DocumentMobileCard({
 
   return (
     <article
-      role="button"
-      tabIndex={0}
-      onClick={() => openDocument(document)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          openDocument(document);
-        }
-      }}
       className={
         expired
-          ? `rounded-xl border border-zinc-200 bg-zinc-100/90 p-3 dark:border-zinc-700 dark:bg-zinc-800/60 ${clickableRowClass}`
-          : `rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900 ${clickableRowClass}`
+          ? "rounded-xl border border-zinc-200 bg-zinc-100/90 p-3 dark:border-zinc-700 dark:bg-zinc-800/60"
+          : "rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
       }
     >
       <div className="flex items-start justify-between gap-2">
@@ -126,7 +110,14 @@ function DocumentMobileCard({
                 : "font-semibold text-zinc-900 dark:text-zinc-100"
             }
           >
-            {document.title}
+            <a
+              href={documentHref(document)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {document.title}
+            </a>
           </p>
           <p className="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400">
             {document.file_name} ·{" "}
@@ -247,7 +238,16 @@ export default function CompanyDocumentsList({
       case "title":
         return (
           <td className={`px-4 ${rowPaddingClass} font-medium`}>
-            <div className="truncate">{document.title}</div>
+            <div className="truncate">
+              <a
+                href={documentHref(document)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {document.title}
+              </a>
+            </div>
             {document.note ? (
               <p
                 className="mt-1 truncate text-zinc-500 dark:text-zinc-400"
@@ -397,19 +397,10 @@ export default function CompanyDocumentsList({
                 return (
                   <tr
                     key={document.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openDocument(document)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openDocument(document);
-                      }
-                    }}
                     className={
                       expired
-                        ? `border-b border-zinc-100 bg-zinc-100/90 text-zinc-500 last:border-0 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400 ${clickableRowClass}`
-                        : `border-b border-zinc-100 last:border-0 dark:border-zinc-800 ${clickableRowClass}`
+                        ? "border-b border-zinc-100 bg-zinc-100/90 text-zinc-500 last:border-0 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400"
+                        : "border-b border-zinc-100 last:border-0 dark:border-zinc-800"
                     }
                   >
                     {orderedColumns.map((column) => (
