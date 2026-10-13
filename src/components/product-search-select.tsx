@@ -42,6 +42,8 @@ type ProductSearchSelectProps = {
   inputId?: string;
   emphasizeModelName?: boolean;
   modelNameOnly?: boolean;
+  /** 마운트 시 검색창에 넣을 초기 문자열 */
+  defaultQuery?: string;
   onRegisterProduct?: (query: string) => void;
 };
 
@@ -55,16 +57,18 @@ export default function ProductSearchSelect({
   inputId = "product_search",
   emphasizeModelName = false,
   modelNameOnly = false,
+  defaultQuery = "",
   onRegisterProduct,
 }: ProductSearchSelectProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
-  const [query, setQuery] = useState(() =>
-    selectedProduct
-      ? productLabel(selectedProduct, emphasizeModelName, modelNameOnly)
-      : "",
-  );
+  const [query, setQuery] = useState(() => {
+    if (selectedProduct) {
+      return productLabel(selectedProduct, emphasizeModelName, modelNameOnly);
+    }
+    return defaultQuery.trim();
+  });
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] =
     useState<DropdownPosition | null>(null);
@@ -77,9 +81,15 @@ export default function ProductSearchSelect({
     setQuery(
       selectedProduct
         ? productLabel(selectedProduct, emphasizeModelName, modelNameOnly)
-        : "",
+        : defaultQuery.trim(),
     );
-  }, [selectedProduct, emphasizeModelName, modelNameOnly]);
+  }, [defaultQuery, selectedProduct, emphasizeModelName, modelNameOnly]);
+
+  useEffect(() => {
+    if (!defaultQuery.trim() || selectedProduct) return;
+    setIsOpen(true);
+    window.requestAnimationFrame(() => updateDropdownPosition());
+  }, [defaultQuery, selectedProduct]);
 
   function currentLabel(product: SaleProductOption) {
     return productLabel(product, emphasizeModelName, modelNameOnly);

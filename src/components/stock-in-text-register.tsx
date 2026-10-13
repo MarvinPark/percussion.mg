@@ -8,12 +8,15 @@ import {
 } from "@/app/(main)/products/actions";
 import BlockingLoadingOverlay from "@/components/blocking-loading-overlay";
 import InlineProductCreateModal from "@/components/inline-product-create-modal";
+import StockInTextMatchDialog from "@/components/stock-in-text-match-dialog";
+import StockInTextMissingActionDialog from "@/components/stock-in-text-missing-action-dialog";
 import StockInTextResultDialog, {
   type StockInTextResultState,
 } from "@/components/stock-in-text-result-dialog";
 import { parseStockInText } from "@/lib/stock-in-text-parser";
 import { splitStockInLookupCode } from "@/lib/stock-in-text-product-lookup";
 import type { InlineCreatedProduct } from "@/lib/inline-product-create-shared";
+import type { SaleProductOption } from "@/types/sale";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400";
@@ -35,12 +38,20 @@ export default function StockInTextRegister() {
   const [text, setText] = useState("");
   const [clientError, setClientError] = useState<string | null>(null);
   const [result, setResult] = useState<StockInTextResultState | null>(null);
+  const [missingActionTarget, setMissingActionTarget] =
+    useState<StockInTextMissingRow | null>(null);
+  const [matchTarget, setMatchTarget] = useState<StockInTextMissingRow | null>(
+    null,
+  );
   const [registerTarget, setRegisterTarget] =
     useState<StockInTextMissingRow | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isRegisteringStock, setIsRegisteringStock] = useState(false);
 
   const preview = useMemo(() => parseStockInText(text), [text]);
+
+  const showResultDialog =
+    result && !missingActionTarget && !matchTarget && !registerTarget;
 
   function handleSubmit() {
     setClientError(null);
@@ -69,20 +80,31 @@ export default function StockInTextRegister() {
     });
   }
 
-  async function handleProductCreated(product: InlineCreatedProduct) {
-    if (!registerTarget || !result) return;
+  function handleResolveMissing(row: StockInTextMissingRow) {
+    if (row.is_stock_product) {
+      setMissingActionTarget(row);
+      return;
+    }
+    setRegisterTarget(row);
+  }
+
+  async function applyStockInForMissingRow(
+    row: StockInTextMissingRow,
+    product: { id: string; sku: string; product_name: string },
+  ) {
+    if (!result) return false;
 
     setIsRegisteringStock(true);
     try {
       const stockResult = await registerStockInForProductId({
         product_id: product.id,
-        quantity: registerTarget.quantity,
+        quantity: row.quantity,
         movement_date: result.movement_date,
       });
 
       if (stockResult.error) {
         setClientError(stockResult.error);
-        return;
+        return false;
       }
 
       setResult((prev) => {
@@ -95,24 +117,44 @@ export default function StockInTextRegister() {
               sku: product.sku,
               product_id: product.id,
               product_name: product.product_name,
-              quantity: registerTarget.quantity,
-              line_numbers: registerTarget.line_numbers,
+              quantity: row.quantity,
+              line_numbers: row.line_numbers,
             },
           ],
-          not_found: prev.not_found.filter((row) => row.sku !== registerTarget.sku),
+          not_found: prev.not_found.filter((item) => item.sku !== row.sku),
         };
       });
-      setRegisterTarget(null);
+      return true;
     } finally {
       setIsRegisteringStock(false);
     }
   }
 
-  const previewLineCount = preview.lines.length;
-  const previewQty = preview.lines.reduce((sum, line) => sum + line.quantity, 0);
+  async function handleProductCreated(product: InlineCreatedProduct) {
+    if (!registerTarget) return;
+    const ok = await applyStockInForMissingRow(registerTarget, product);
+    if (ok) setRegisterTarget(null);
+  }
+
+  async function handleMatchedProduct(product: SaleProductOption) {
+    if (!matchTarget) return;
+    const ok = await applyStockInForMissingRow(matchTarget, {
+      id: product.id,
+      sku: product.sku ?? product.model_name,
+      product_name: product.product_name,
+    });
+    if (ok) setMatchTarget(null);
+  }
+
   const registerLookupSplit = registerTarget
     ? splitStockInLookupCode(registerTarget.sku)
     : null;
+  const matchSearchQuery = matchTarget
+    ? splitStockInLookupCode(matchTarget.sku).model_name || matchTarget.sku
+    : "";
+
+  const previewLineCount = preview.lines.length;
+  const previewQty = preview.lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return (
     <section className="space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-700">
@@ -126,8 +168,8 @@ export default function StockInTextRegister() {
             매입처: 공급처명
           </code>
           을 넣으면 해당 매입처 제품만 찾아 재고에 반영합니다. 모델명·SKU와
-          수량을 여러 줄 붙여넣을 수 있으며, 미등록 품목은 결과 창에서 바로
-          등록할 수 있습니다.
+          수량을 여러 줄 붙여넣을 수 있으며, 미등록 품목은 결과 창에서 기존
+          제품과 매칭하거나 새로 등록할 수 있습니다.
         </p>
       </div>
 
@@ -198,11 +240,40 @@ export default function StockInTextRegister() {
         {isPending ? "처리 중..." : "텍스트 입고 실행"}
       </button>
 
-      {result && !registerTarget ? (
+      {showResultDialog ? (
         <StockInTextResultDialog
           result={result}
           onClose={() => setResult(null)}
-          onRegisterProduct={(row) => setRegisterTarget(row)}
+          onResolveMissing={handleResolveMissing}
+        />
+      ) : null}
+
+      {missingActionTarget ? (
+        <StockInTextMissingActionDialog
+          row={missingActionTarget}
+          onClose={() => {
+            if (!isRegisteringStock) setMissingActionTarget(null);
+          }}
+          onMatchExisting={() => {
+            setMatchTarget(missingActionTarget);
+            setMissingActionTarget(null);
+          }}
+          onRegisterNew={() => {
+            setRegisterTarget(missingActionTarget);
+            setMissingActionTarget(null);
+          }}
+        />
+      ) : null}
+
+      {matchTarget ? (
+        <StockInTextMatchDialog
+          row={matchTarget}
+          initialSearchQuery={matchSearchQuery}
+          isSubmitting={isRegisteringStock}
+          onClose={() => {
+            if (!isRegisteringStock) setMatchTarget(null);
+          }}
+          onConfirm={handleMatchedProduct}
         />
       ) : null}
 
@@ -224,7 +295,11 @@ export default function StockInTextRegister() {
 
       <BlockingLoadingOverlay
         open={isPending || isRegisteringStock}
-        message={isRegisteringStock ? "제품 등록 및 입고 중..." : "텍스트 입고 처리 중..."}
+        message={
+          isRegisteringStock
+            ? "제품 연결 및 입고 중..."
+            : "텍스트 입고 처리 중..."
+        }
       />
     </section>
   );

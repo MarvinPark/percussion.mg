@@ -31,7 +31,9 @@ import type { Product } from "@/types/product";
 import { SALE_PRODUCT_OPTION_SELECT } from "@/types/sale";
 
 export const PRODUCT_PAGE_SIZE = 10;
-export const PRODUCT_PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100, 200] as const;
+export const PRODUCT_PAGE_SIZE_OPTIONS = [
+  10, 20, 30, 50, 100, 200, 500, 1000,
+] as const;
 
 export type ProductPageSize =
   (typeof PRODUCT_PAGE_SIZE_OPTIONS)[number];

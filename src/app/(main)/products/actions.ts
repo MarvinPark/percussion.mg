@@ -46,6 +46,8 @@ import {
   STOCK_LOCATION_FIELD,
 } from "@/lib/stock-locations";
 import { parseStockInText } from "@/lib/stock-in-text-parser";
+import { fetchNonStockCategoryNames } from "@/lib/non-stock-category-options";
+import { isNonStockServiceItem } from "@/lib/quote-fulfillment";
 import { findProductForStockInTextLookup } from "@/lib/stock-in-text-product-lookup";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_PRODUCT_OPTION_SELECT, type SaleProductOption } from "@/types/sale";
@@ -832,6 +834,8 @@ export type StockInTextMissingRow = {
   sku: string;
   quantity: number;
   line_numbers: number[];
+  /** 재고 반영 품목(제품)이면 기존 제품 매칭을 제공합니다 */
+  is_stock_product: boolean;
 };
 
 export async function registerStockIns(formData: FormData) {
@@ -915,6 +919,7 @@ export async function registerStockInsFromText(input: {
 
   const applied: StockInTextApplyRow[] = [];
   const not_found: StockInTextMissingRow[] = [];
+  const nonStockCategoryNames = await fetchNonStockCategoryNames(supabase);
 
   for (const line of parsed.lines) {
     const product = await findProductForStockInTextLookup(
@@ -923,10 +928,15 @@ export async function registerStockInsFromText(input: {
       parsed.supplier,
     );
     if (!product) {
+      const isStockProduct = !isNonStockServiceItem(
+        { model_name: line.sku, product_name: line.sku },
+        nonStockCategoryNames,
+      );
       not_found.push({
         sku: line.sku,
         quantity: line.quantity,
         line_numbers: line.lineNumbers,
+        is_stock_product: isStockProduct,
       });
       continue;
     }

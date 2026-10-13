@@ -24,8 +24,10 @@ import {
   type ProductListSort,
   type ProductSortColumn,
 } from "@/lib/product-list-sort";
-import type { ProductPageSize } from "@/lib/product-list-loader";
-import type { TablePageSize } from "@/lib/table-page-size";
+import {
+  PRODUCT_PAGE_SIZE_OPTIONS,
+  type ProductPageSize,
+} from "@/lib/product-list-loader";
 import { isLowStockProduct } from "@/lib/product-stock";
 import ProductReservationHover from "@/components/product-reservation-hover";
 import ProductReservationList from "@/components/product-reservation-list";
@@ -1135,10 +1137,9 @@ export default function ProductsList({
             {pageSize != null && onPageSizeChange ? (
               <TablePageSizeSelect
                 compact
-                value={pageSize as TablePageSize}
-                onChange={(nextPageSize) =>
-                  onPageSizeChange(nextPageSize as ProductPageSize)
-                }
+                options={PRODUCT_PAGE_SIZE_OPTIONS}
+                value={pageSize}
+                onChange={onPageSizeChange}
               />
             ) : null}
             {!readOnly ? (

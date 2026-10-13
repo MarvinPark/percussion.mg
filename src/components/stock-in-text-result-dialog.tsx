@@ -18,13 +18,13 @@ export type StockInTextResultState = {
 type StockInTextResultDialogProps = {
   result: StockInTextResultState;
   onClose: () => void;
-  onRegisterProduct: (row: StockInTextMissingRow) => void;
+  onResolveMissing: (row: StockInTextMissingRow) => void;
 };
 
 export default function StockInTextResultDialog({
   result,
   onClose,
-  onRegisterProduct,
+  onResolveMissing,
 }: StockInTextResultDialogProps) {
   const hasApplied = result.applied.length > 0;
   const hasMissing = result.not_found.length > 0;
@@ -83,21 +83,24 @@ export default function StockInTextResultDialog({
           {hasMissing ? (
             <div>
               <p className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                미등록 제품 ({result.not_found.length}건) — 클릭하여 등록
+                미등록 품목 ({result.not_found.length}건)
               </p>
               <ul className="space-y-2">
                 {result.not_found.map((row) => (
                   <li key={row.sku}>
                     <button
                       type="button"
-                      onClick={() => onRegisterProduct(row)}
+                      onClick={() => onResolveMissing(row)}
                       className="w-full rounded-lg border border-dashed border-blue-400 bg-blue-50/50 px-3 py-2 text-left text-sm hover:bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30 dark:hover:bg-blue-950/50"
                     >
                       <span className="font-medium text-blue-900 dark:text-blue-200">
                         {row.sku}
                       </span>
                       <span className="mt-0.5 block text-xs text-zinc-600 dark:text-zinc-400">
-                        입고 예정 +{row.quantity} · 제품 등록 후 재고 반영
+                        입고 예정 +{row.quantity}
+                        {row.is_stock_product
+                          ? " · 기존 제품 매칭 또는 새로 등록"
+                          : " · 등록 후 재고 반영"}
                       </span>
                     </button>
                   </li>

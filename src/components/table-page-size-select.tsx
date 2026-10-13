@@ -8,19 +8,23 @@ import {
 const pageSizeSelectClass =
   "h-[26px] rounded border border-zinc-300 bg-white px-2 text-[12px] text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200";
 
-type TablePageSizeSelectProps = {
-  value: TablePageSize;
-  onChange: (value: TablePageSize) => void;
+type TablePageSizeSelectProps<T extends number = TablePageSize> = {
+  value: T;
+  onChange: (value: T) => void;
+  /** 미지정 시 공통 표(table-page-size) 옵션 사용 */
+  options?: readonly T[];
   disabled?: boolean;
   compact?: boolean;
 };
 
-export default function TablePageSizeSelect({
+export default function TablePageSizeSelect<T extends number = TablePageSize>({
   value,
   onChange,
+  options,
   disabled = false,
   compact = false,
-}: TablePageSizeSelectProps) {
+}: TablePageSizeSelectProps<T>) {
+  const sizeOptions = (options ?? TABLE_PAGE_SIZE_OPTIONS) as readonly T[];
   return (
     <label
       className={`flex items-center gap-1.5 ${
@@ -33,13 +37,11 @@ export default function TablePageSizeSelect({
       <select
         value={value}
         disabled={disabled}
-        onChange={(event) =>
-          onChange(Number(event.target.value) as TablePageSize)
-        }
+        onChange={(event) => onChange(Number(event.target.value) as T)}
         className={compact ? pageSizeSelectClass : `${pageSizeSelectClass} h-8 text-sm`}
         aria-label="페이지당 표시 개수"
       >
-        {TABLE_PAGE_SIZE_OPTIONS.map((size) => (
+        {sizeOptions.map((size) => (
           <option key={size} value={size}>
             {size}
           </option>
