@@ -10,6 +10,8 @@ export type InlineProductCreateContext = "sale" | "quote" | "products" | "stock"
 type InlineProductCreateModalProps = {
   context: InlineProductCreateContext;
   initialModelName: string;
+  initialSupplier?: string;
+  initialBrand?: string;
   /** 다른 결과 모달 위에 띄울 때 z-index를 올립니다 */
   elevated?: boolean;
   onClose: () => void;
@@ -49,6 +51,8 @@ function defaultSku(modelName: string) {
 export default function InlineProductCreateModal({
   context,
   initialModelName,
+  initialSupplier = "",
+  initialBrand = "",
   elevated = false,
   onClose,
   onCreated,
@@ -108,6 +112,8 @@ export default function InlineProductCreateModal({
               product_name: trimmedModel,
               model_name: trimmedModel,
               sku: defaultSku(trimmedModel),
+              supplier: initialSupplier.trim(),
+              brand: initialBrand.trim(),
             }}
           />
 

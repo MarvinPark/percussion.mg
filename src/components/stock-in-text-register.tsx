@@ -12,6 +12,7 @@ import StockInTextResultDialog, {
   type StockInTextResultState,
 } from "@/components/stock-in-text-result-dialog";
 import { parseStockInText } from "@/lib/stock-in-text-parser";
+import { splitStockInLookupCode } from "@/lib/stock-in-text-product-lookup";
 import type { InlineCreatedProduct } from "@/lib/inline-product-create-shared";
 
 const inputClass =
@@ -24,10 +25,10 @@ function todayString() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-const PLACEHOLDER = `BE-0112-00   2
-BE-0112-00  *  2
-BE-0112-00  2ea
-BE-0112-00  *  2ea`;
+const PLACEHOLDER = `매입처: KSV
+XENYX 802S *1
+Behringer C2 *1
+Gibraltar SC-19A * 1`;
 
 export default function StockInTextRegister() {
   const [movementDate, setMovementDate] = useState(todayString);
@@ -56,6 +57,7 @@ export default function StockInTextRegister() {
 
       setResult({
         movement_date: response.movement_date,
+        supplier: response.supplier,
         applied: response.applied,
         not_found: response.not_found,
         parse_errors: response.parse_errors,
@@ -108,6 +110,9 @@ export default function StockInTextRegister() {
 
   const previewLineCount = preview.lines.length;
   const previewQty = preview.lines.reduce((sum, line) => sum + line.quantity, 0);
+  const registerLookupSplit = registerTarget
+    ? splitStockInLookupCode(registerTarget.sku)
+    : null;
 
   return (
     <section className="space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-700">
@@ -116,8 +121,13 @@ export default function StockInTextRegister() {
           텍스트로 입고
         </h3>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          모델번호(SKU)와 수량을 여러 줄 붙여넣으면 등록된 제품 재고에 반영됩니다.
-          미등록 SKU는 결과 창에서 바로 제품 등록할 수 있습니다.
+          첫 줄에{" "}
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
+            매입처: 공급처명
+          </code>
+          을 넣으면 해당 매입처 제품만 찾아 재고에 반영합니다. 모델명·SKU와
+          수량을 여러 줄 붙여넣을 수 있으며, 미등록 품목은 결과 창에서 바로
+          등록할 수 있습니다.
         </p>
       </div>
 
@@ -147,21 +157,25 @@ export default function StockInTextRegister() {
           className={`${inputClass} font-mono text-xs leading-relaxed`}
         />
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          한 줄 형식:{" "}
+          품목 줄 형식:{" "}
           <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
-            SKU 수량
+            모델명 수량
           </code>
           ,{" "}
           <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
-            SKU * 수량
+            브랜드 모델명 * 수량
           </code>
           , 끝에{" "}
           <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">ea</code>{" "}
-          가능 · 같은 SKU는 수량 합산
+          가능 · 같은 품목 키는 수량 합산
         </p>
-        {previewLineCount > 0 ? (
+        {previewLineCount > 0 || preview.supplier ? (
           <p className="mt-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-            미리보기: {previewLineCount}품목 · 총 {previewQty}개
+            미리보기
+            {preview.supplier ? `: 매입처 ${preview.supplier}` : ""}
+            {previewLineCount > 0
+              ? ` · ${previewLineCount}품목 · 총 ${previewQty}개`
+              : ""}
             {preview.errors.length > 0
               ? ` · 형식 오류 ${preview.errors.length}줄`
               : ""}
@@ -196,7 +210,11 @@ export default function StockInTextRegister() {
         <InlineProductCreateModal
           context="stock"
           elevated
-          initialModelName={registerTarget.sku}
+          initialModelName={
+            registerLookupSplit?.model_name || registerTarget.sku
+          }
+          initialBrand={registerLookupSplit?.brand ?? ""}
+          initialSupplier={result?.supplier ?? preview.supplier ?? ""}
           onClose={() => {
             if (!isRegisteringStock) setRegisterTarget(null);
           }}

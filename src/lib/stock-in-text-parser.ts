@@ -11,6 +11,7 @@ export type MergedStockInTextLine = {
 };
 
 export type StockInTextParseResult = {
+  supplier: string | null;
   lines: MergedStockInTextLine[];
   errors: StockInTextParseError[];
 };
@@ -21,6 +22,27 @@ function parseQuantityToken(raw: string): number | null {
   const quantity = Number(match[1]);
   if (!Number.isFinite(quantity) || quantity <= 0) return null;
   return Math.round(quantity);
+}
+
+function tryParseSupplierLine(
+  lineNumber: number,
+  rawLine: string,
+): { supplier: string } | StockInTextParseError | null {
+  const trimmed = rawLine.trim();
+  if (!/^매입처\s*[:：]/iu.test(trimmed)) {
+    return null;
+  }
+
+  const match = trimmed.match(/^매입처\s*[:：]\s*(.+)$/iu);
+  if (!match?.[1]?.trim()) {
+    return {
+      lineNumber,
+      text: rawLine,
+      message: "매입처 이름을 입력해 주세요. (예: 매입처: KSV)",
+    };
+  }
+
+  return { supplier: match[1].trim() };
 }
 
 function parseStockInTextLine(
@@ -36,23 +58,23 @@ function parseStockInTextLine(
   let qtyPart = "";
 
   if (trimmed.includes("*")) {
-    const segments = trimmed.split("*").map((part) => part.trim());
-    if (segments.length !== 2 || !segments[0] || !segments[1]) {
+    const starIndex = trimmed.indexOf("*");
+    skuPart = trimmed.slice(0, starIndex).trim();
+    qtyPart = trimmed.slice(starIndex + 1).trim();
+    if (!skuPart || !qtyPart) {
       return {
         lineNumber,
         text: rawLine,
-        message: "「모델번호 * 수량」 형식이 아닙니다.",
+        message: "「모델명 * 수량」 형식이 아닙니다.",
       };
     }
-    skuPart = segments[0];
-    qtyPart = segments[1];
   } else {
     const match = trimmed.match(/^(.+?)\s+(\d+\s*(?:ea|EA|개)?)$/i);
     if (!match) {
       return {
         lineNumber,
         text: rawLine,
-        message: "「모델번호 수량」 형식으로 입력해 주세요.",
+        message: "「모델명 수량」 형식으로 입력해 주세요.",
       };
     }
     skuPart = match[1].trim();
@@ -63,7 +85,7 @@ function parseStockInTextLine(
     return {
       lineNumber,
       text: rawLine,
-      message: "모델번호(SKU)가 비어 있습니다.",
+      message: "모델명(SKU)이 비어 있습니다.",
     };
   }
 
@@ -79,15 +101,41 @@ function parseStockInTextLine(
   return { sku: skuPart, quantity };
 }
 
-/** 동일 SKU는 수량을 합칩니다. */
+/** 동일 모델·SKU 키는 수량을 합칩니다. 첫 줄 `매입처:` 는 공급처 필터로 사용합니다. */
 export function parseStockInText(raw: string): StockInTextParseResult {
   const rows = raw.split(/\r?\n/);
   const errors: StockInTextParseError[] = [];
   const merged = new Map<string, MergedStockInTextLine>();
+  let supplier: string | null = null;
 
   for (let index = 0; index < rows.length; index += 1) {
     const lineNumber = index + 1;
-    const parsed = parseStockInTextLine(lineNumber, rows[index] ?? "");
+    const rawLine = rows[index] ?? "";
+    const trimmed = rawLine.trim();
+
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("//")) {
+      continue;
+    }
+
+    const supplierLine = tryParseSupplierLine(lineNumber, rawLine);
+    if (supplierLine !== null) {
+      if ("message" in supplierLine) {
+        errors.push(supplierLine);
+        continue;
+      }
+      if (supplier !== null) {
+        errors.push({
+          lineNumber,
+          text: rawLine,
+          message: "매입처는 한 번만 지정할 수 있습니다.",
+        });
+        continue;
+      }
+      supplier = supplierLine.supplier;
+      continue;
+    }
+
+    const parsed = parseStockInTextLine(lineNumber, rawLine);
     if (parsed === null) continue;
     if ("message" in parsed) {
       errors.push(parsed);
@@ -109,6 +157,7 @@ export function parseStockInText(raw: string): StockInTextParseResult {
   }
 
   return {
+    supplier,
     lines: [...merged.values()],
     errors,
   };

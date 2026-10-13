@@ -46,6 +46,7 @@ import {
   STOCK_LOCATION_FIELD,
 } from "@/lib/stock-locations";
 import { parseStockInText } from "@/lib/stock-in-text-parser";
+import { findProductForStockInTextLookup } from "@/lib/stock-in-text-product-lookup";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_PRODUCT_OPTION_SELECT, type SaleProductOption } from "@/types/sale";
 import { revalidatePath } from "next/cache";
@@ -819,39 +820,6 @@ function revalidateStockInPaths() {
   revalidatePath("/dashboard");
 }
 
-async function findProductForStockInCode(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  code: string,
-): Promise<StockInProductRow | null> {
-  const normalized = normalizeProductSku(code);
-  if (!normalized) return null;
-
-  const select =
-    "id, product_name, sku, stock_quantity, stock_location, stock_yangjae, stock_uiwang";
-
-  const bySku = await findProductBySku(supabase, normalized);
-  if (bySku?.id) {
-    const { data } = await supabase
-      .from("products")
-      .select(select)
-      .eq("id", bySku.id)
-      .maybeSingle();
-    return (data as StockInProductRow | null) ?? null;
-  }
-
-  const { data: byModel } = await supabase
-    .from("products")
-    .select(select)
-    .eq("model_name", normalized)
-    .limit(2);
-
-  if (byModel?.length === 1) {
-    return byModel[0] as StockInProductRow;
-  }
-
-  return null;
-}
-
 export type StockInTextApplyRow = {
   sku: string;
   product_id: string;
@@ -916,6 +884,7 @@ export async function registerStockInsFromText(input: {
   | {
       success: true;
       movement_date: string;
+      supplier: string | null;
       applied: StockInTextApplyRow[];
       not_found: StockInTextMissingRow[];
       parse_errors: { lineNumber: number; text: string; message: string }[];
@@ -948,7 +917,11 @@ export async function registerStockInsFromText(input: {
   const not_found: StockInTextMissingRow[] = [];
 
   for (const line of parsed.lines) {
-    const product = await findProductForStockInCode(supabase, line.sku);
+    const product = await findProductForStockInTextLookup(
+      supabase,
+      line.sku,
+      parsed.supplier,
+    );
     if (!product) {
       not_found.push({
         sku: line.sku,
@@ -990,6 +963,7 @@ export async function registerStockInsFromText(input: {
   return {
     success: true,
     movement_date,
+    supplier: parsed.supplier,
     applied,
     not_found,
     parse_errors: parsed.errors,

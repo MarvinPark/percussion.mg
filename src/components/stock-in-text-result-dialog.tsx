@@ -9,6 +9,7 @@ import type { StockInTextParseError } from "@/lib/stock-in-text-parser";
 
 export type StockInTextResultState = {
   movement_date: string;
+  supplier: string | null;
   applied: StockInTextApplyRow[];
   not_found: StockInTextMissingRow[];
   parse_errors: StockInTextParseError[];
@@ -54,6 +55,7 @@ export default function StockInTextResultDialog({
           </h3>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
             입고일 {result.movement_date}
+            {result.supplier ? ` · 매입처 ${result.supplier}` : ""}
           </p>
         </div>
 

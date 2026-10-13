@@ -17,6 +17,8 @@ type ProductCreateFieldsProps = {
     product_name?: string;
     model_name?: string;
     sku?: string;
+    supplier?: string;
+    brand?: string;
   };
 };
 
@@ -30,6 +32,8 @@ export default function ProductCreateFields({
     product?.product_name ?? defaultValues?.product_name ?? "";
   const modelName = product?.model_name ?? defaultValues?.model_name ?? "";
   const sku = product?.sku ?? defaultValues?.sku ?? "";
+  const supplier = product?.supplier ?? defaultValues?.supplier ?? "";
+  const brand = product?.brand ?? defaultValues?.brand ?? "";
 
   return (
     <>
@@ -47,7 +51,7 @@ export default function ProductCreateFields({
               id="supplier"
               name="supplier"
               required
-              defaultValue={product?.supplier ?? ""}
+              defaultValue={supplier}
               placeholder="예: A사, B사"
               className={productCreateInputClass}
             />
@@ -73,7 +77,7 @@ export default function ProductCreateFields({
             <input
               id="brand"
               name="brand"
-              defaultValue={product?.brand ?? ""}
+              defaultValue={brand}
               placeholder="예: Fender"
               className={productCreateInputClass}
             />
