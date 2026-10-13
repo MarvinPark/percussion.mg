@@ -1,5 +1,6 @@
 import Link from "next/link";
 import StockForm from "@/components/stock-form";
+import StockInTextRegister from "@/components/stock-in-text-register";
 import { createPageMetadata } from "@/lib/document-titles";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -42,7 +43,7 @@ export default async function StockPage({ searchParams }: PageProps) {
             입고기록
           </h2>
           <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            여러 제품을 한 번에 입고 기록할 수 있습니다.
+            표로 입력하거나, SKU·수량 텍스트를 붙여넣어 한 번에 입고할 수 있습니다.
           </p>
         </div>
         <Link
@@ -68,6 +69,7 @@ export default async function StockPage({ searchParams }: PageProps) {
       ) : (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <StockForm initialProduct={preselectedProduct} />
+          <StockInTextRegister />
         </div>
       )}
     </main>

@@ -25,6 +25,7 @@ import {
   createRegistrationSkuContext,
   DUPLICATE_SKU_MESSAGE,
   findProductBySku,
+  normalizeProductSku,
   resolveDuplicateSku,
   resolveRegistrationSku,
 } from "@/lib/product-duplicate";
@@ -44,6 +45,7 @@ import {
   type StockLocationField,
   STOCK_LOCATION_FIELD,
 } from "@/lib/stock-locations";
+import { parseStockInText } from "@/lib/stock-in-text-parser";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_PRODUCT_OPTION_SELECT, type SaleProductOption } from "@/types/sale";
 import { revalidatePath } from "next/cache";
@@ -747,6 +749,123 @@ function parseStockInLinesJson(raw: string): {
   }
 }
 
+type StockInProductRow = {
+  id: string;
+  product_name: string;
+  sku: string;
+  stock_quantity: number;
+  stock_location: string | null;
+  stock_yangjae: number;
+  stock_uiwang: number;
+};
+
+async function applyStockInForProduct(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  product: Pick<
+    StockInProductRow,
+    | "id"
+    | "product_name"
+    | "stock_quantity"
+    | "stock_location"
+    | "stock_yangjae"
+    | "stock_uiwang"
+  >,
+  quantity: number,
+  movement_date: string,
+  label: string,
+): Promise<{ error?: string }> {
+  const stockBefore = product.stock_quantity;
+  const locationPatch = addLocationStock(product, quantity);
+  const stockAfter = sumLocationStock({ ...product, ...locationPatch });
+
+  const movementResult = await recordStockMovement(supabase, {
+    product_id: product.id,
+    movement_type: "in",
+    quantity,
+    stock_before: stockBefore,
+    stock_after: stockAfter,
+    note: null,
+    movement_date,
+  });
+
+  if ("error" in movementResult) {
+    return {
+      error: `${label} (${product.product_name}): ${movementResult.error}`,
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("products")
+    .update({
+      ...locationPatch,
+      stock_quantity: stockAfter,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", product.id);
+
+  if (updateError) {
+    return { error: `${label}: 재고 반영에 실패했습니다.` };
+  }
+
+  return {};
+}
+
+function revalidateStockInPaths() {
+  revalidatePath("/products");
+  revalidatePath("/products/stock");
+  revalidatePath("/products/stock/list");
+  revalidatePath("/products/history");
+  revalidatePath("/products/key-stock");
+  revalidatePath("/dashboard");
+}
+
+async function findProductForStockInCode(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  code: string,
+): Promise<StockInProductRow | null> {
+  const normalized = normalizeProductSku(code);
+  if (!normalized) return null;
+
+  const select =
+    "id, product_name, sku, stock_quantity, stock_location, stock_yangjae, stock_uiwang";
+
+  const bySku = await findProductBySku(supabase, normalized);
+  if (bySku?.id) {
+    const { data } = await supabase
+      .from("products")
+      .select(select)
+      .eq("id", bySku.id)
+      .maybeSingle();
+    return (data as StockInProductRow | null) ?? null;
+  }
+
+  const { data: byModel } = await supabase
+    .from("products")
+    .select(select)
+    .eq("model_name", normalized)
+    .limit(2);
+
+  if (byModel?.length === 1) {
+    return byModel[0] as StockInProductRow;
+  }
+
+  return null;
+}
+
+export type StockInTextApplyRow = {
+  sku: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  line_numbers: number[];
+};
+
+export type StockInTextMissingRow = {
+  sku: string;
+  quantity: number;
+  line_numbers: number[];
+};
+
 export async function registerStockIns(formData: FormData) {
   const parsed = parseStockInLinesJson(String(formData.get("lines_json") ?? ""));
   if (parsed.error || !parsed.lines) {
@@ -764,7 +883,7 @@ export async function registerStockIns(formData: FormData) {
     const { data: product } = await supabase
       .from("products")
       .select(
-        "product_name, stock_quantity, stock_location, stock_yangjae, stock_uiwang",
+        "id, product_name, stock_quantity, stock_location, stock_yangjae, stock_uiwang",
       )
       .eq("id", line.product_id)
       .single();
@@ -773,44 +892,152 @@ export async function registerStockIns(formData: FormData) {
       return { error: `${lineNumber}번째 줄: 제품을 찾을 수 없습니다.` };
     }
 
-    const stockBefore = product.stock_quantity;
-    const locationPatch = addLocationStock(product, line.quantity);
-    const stockAfter = sumLocationStock({ ...product, ...locationPatch });
-
-    const movementResult = await recordStockMovement(supabase, {
-      product_id: line.product_id,
-      movement_type: "in",
-      quantity: line.quantity,
-      stock_before: stockBefore,
-      stock_after: stockAfter,
-      note: null,
-      movement_date: line.movement_date,
-    });
-
-    if ("error" in movementResult) {
-      return {
-        error: `${lineNumber}번째 줄 (${product.product_name}): ${movementResult.error}`,
-      };
+    const result = await applyStockInForProduct(
+      supabase,
+      product as StockInProductRow,
+      line.quantity,
+      line.movement_date,
+      `${lineNumber}번째 줄`,
+    );
+    if (result.error) {
+      return { error: result.error };
     }
-
-    await supabase
-      .from("products")
-      .update({
-        ...locationPatch,
-        stock_quantity: stockAfter,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", line.product_id);
   }
 
-  revalidatePath("/products");
-  revalidatePath("/products/stock");
-  revalidatePath("/products/stock/list");
-  revalidatePath("/products/history");
-  revalidatePath("/products/key-stock");
-  revalidatePath("/dashboard");
-
+  revalidateStockInPaths();
   redirect("/products/stock/list");
+}
+
+export async function registerStockInsFromText(input: {
+  movement_date: string;
+  text: string;
+}): Promise<
+  | { error: string }
+  | {
+      success: true;
+      movement_date: string;
+      applied: StockInTextApplyRow[];
+      not_found: StockInTextMissingRow[];
+      parse_errors: { lineNumber: number; text: string; message: string }[];
+    }
+> {
+  const movement_date = input.movement_date?.trim();
+  if (!movement_date) {
+    return { error: "입고일을 입력해 주세요." };
+  }
+
+  const parsed = parseStockInText(input.text ?? "");
+  if (parsed.errors.length > 0 && parsed.lines.length === 0) {
+    const first = parsed.errors[0];
+    return {
+      error: `${first.lineNumber}번째 줄: ${first.message}`,
+    };
+  }
+
+  if (parsed.lines.length === 0) {
+    return { error: "입고할 내용을 한 줄 이상 입력해 주세요." };
+  }
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) {
+    return { error: denied.error ?? "제품 관리 권한이 없습니다." };
+  }
+
+  const applied: StockInTextApplyRow[] = [];
+  const not_found: StockInTextMissingRow[] = [];
+
+  for (const line of parsed.lines) {
+    const product = await findProductForStockInCode(supabase, line.sku);
+    if (!product) {
+      not_found.push({
+        sku: line.sku,
+        quantity: line.quantity,
+        line_numbers: line.lineNumbers,
+      });
+      continue;
+    }
+
+    const label =
+      line.lineNumbers.length > 0
+        ? `${line.lineNumbers.join(",")}번째 줄`
+        : line.sku;
+
+    const result = await applyStockInForProduct(
+      supabase,
+      product,
+      line.quantity,
+      movement_date,
+      label,
+    );
+    if (result.error) {
+      return { error: result.error };
+    }
+
+    applied.push({
+      sku: product.sku,
+      product_id: product.id,
+      product_name: product.product_name,
+      quantity: line.quantity,
+      line_numbers: line.lineNumbers,
+    });
+  }
+
+  if (applied.length > 0) {
+    revalidateStockInPaths();
+  }
+
+  return {
+    success: true,
+    movement_date,
+    applied,
+    not_found,
+    parse_errors: parsed.errors,
+  };
+}
+
+export async function registerStockInForProductId(input: {
+  product_id: string;
+  quantity: number;
+  movement_date: string;
+}): Promise<{ error?: string; success?: true }> {
+  const product_id = input.product_id?.trim();
+  const movement_date = input.movement_date?.trim();
+  const quantity = Math.round(Number(input.quantity) || 0);
+
+  if (!product_id) return { error: "제품을 찾을 수 없습니다." };
+  if (!movement_date) return { error: "입고일을 입력해 주세요." };
+  if (quantity <= 0) return { error: "수량은 1 이상이어야 합니다." };
+
+  const supabase = await createClient();
+  const denied = await ensureManageProducts(supabase);
+  if (denied) return denied;
+
+  const { data: product } = await supabase
+    .from("products")
+    .select(
+      "id, product_name, stock_quantity, stock_location, stock_yangjae, stock_uiwang",
+    )
+    .eq("id", product_id)
+    .maybeSingle();
+
+  if (!product) {
+    return { error: "제품을 찾을 수 없습니다." };
+  }
+
+  const result = await applyStockInForProduct(
+    supabase,
+    product as StockInProductRow,
+    quantity,
+    movement_date,
+    "입고",
+  );
+  if (result.error) {
+    return { error: result.error };
+  }
+
+  revalidateStockInPaths();
+  return { success: true };
 }
 
 type StockMovementRow = {
@@ -904,15 +1131,6 @@ async function applyProductStockDelta(
   }
 
   return { stockBefore, stockAfter };
-}
-
-function revalidateStockInPaths() {
-  revalidatePath("/products");
-  revalidatePath("/products/stock");
-  revalidatePath("/products/stock/list");
-  revalidatePath("/products/history");
-  revalidatePath("/products/key-stock");
-  revalidatePath("/dashboard");
 }
 
 export type StockInEditableField = "movement_date" | "quantity" | "product_id";

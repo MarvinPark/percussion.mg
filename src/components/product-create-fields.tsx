@@ -11,6 +11,8 @@ export const productCreateLabelClass =
 type ProductCreateFieldsProps = {
   product?: Product;
   isEdit?: boolean;
+  /** true면 등록 시 재고 입력란을 숨기고 0으로 제출합니다 */
+  omitInitialStock?: boolean;
   defaultValues?: {
     product_name?: string;
     model_name?: string;
@@ -21,6 +23,7 @@ type ProductCreateFieldsProps = {
 export default function ProductCreateFields({
   product,
   isEdit = false,
+  omitInitialStock = false,
   defaultValues,
 }: ProductCreateFieldsProps) {
   const productName =
@@ -256,32 +259,36 @@ export default function ProductCreateFields({
                 : "등록하는 재고가 들어갈 위치입니다."}
             </p>
           </div>
-          <div>
-            <label htmlFor="stock_quantity" className={productCreateLabelClass}>
-              {isEdit ? "현재 재고수량 (합계)" : "현재 재고수량"}
-            </label>
-            {isEdit ? (
-              <input
-                id="stock_quantity"
-                type="number"
-                min={0}
-                readOnly
-                value={
-                  (product?.stock_yangjae ?? 0) + (product?.stock_uiwang ?? 0)
-                }
-                className={`${productCreateInputClass} bg-zinc-100 dark:bg-zinc-800/80`}
-              />
-            ) : (
-              <input
-                id="stock_quantity"
-                name="stock_quantity"
-                type="number"
-                min={0}
-                defaultValue={0}
-                className={productCreateInputClass}
-              />
-            )}
-          </div>
+          {omitInitialStock && !isEdit ? (
+            <input type="hidden" name="stock_quantity" value="0" />
+          ) : (
+            <div>
+              <label htmlFor="stock_quantity" className={productCreateLabelClass}>
+                {isEdit ? "현재 재고수량 (합계)" : "현재 재고수량"}
+              </label>
+              {isEdit ? (
+                <input
+                  id="stock_quantity"
+                  type="number"
+                  min={0}
+                  readOnly
+                  value={
+                    (product?.stock_yangjae ?? 0) + (product?.stock_uiwang ?? 0)
+                  }
+                  className={`${productCreateInputClass} bg-zinc-100 dark:bg-zinc-800/80`}
+                />
+              ) : (
+                <input
+                  id="stock_quantity"
+                  name="stock_quantity"
+                  type="number"
+                  min={0}
+                  defaultValue={0}
+                  className={productCreateInputClass}
+                />
+              )}
+            </div>
+          )}
           {isEdit ? (
             <>
               <div>

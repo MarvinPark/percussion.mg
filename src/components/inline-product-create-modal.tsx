@@ -5,7 +5,7 @@ import { createProductFromFormAction } from "@/app/(main)/products/actions";
 import ProductCreateFields from "@/components/product-create-fields";
 import type { InlineCreatedProduct } from "@/lib/inline-product-create-shared";
 
-export type InlineProductCreateContext = "sale" | "quote" | "products";
+export type InlineProductCreateContext = "sale" | "quote" | "products" | "stock";
 
 type InlineProductCreateModalProps = {
   context: InlineProductCreateContext;
@@ -28,6 +28,10 @@ const CONTEXT_COPY: Record<
   },
   products: {
     description: "제품 목록에 바로 등록합니다.",
+  },
+  stock: {
+    description:
+      "등록되지 않은 제품을 추가한 뒤, 입력한 수량만큼 입고 기록을 남깁니다.",
   },
 };
 
@@ -92,6 +96,7 @@ export default function InlineProductCreateModal({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <ProductCreateFields
+            omitInitialStock={context === "stock"}
             defaultValues={{
               product_name: trimmedModel,
               model_name: trimmedModel,
