@@ -6,7 +6,10 @@ import {
   type BulkUpdateSalesFields,
 } from "@/app/(main)/sales/actions";
 import BusinessPartnerAutocomplete from "@/components/business-partner-autocomplete";
+import PaymentMethodCombobox from "@/components/payment-method-combobox";
 import type { StaffOption } from "@/components/sales-page-client";
+import { useLivePaymentMethods } from "@/hooks/use-live-payment-methods";
+import type { PaymentMethod } from "@/types/sale";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
@@ -18,6 +21,7 @@ type SalesBulkEditModalProps = {
   saleIds: string[];
   saleCategories: string[];
   staffOptions: StaffOption[];
+  paymentMethods: PaymentMethod[];
   onClose: () => void;
   onSaved: () => void;
 };
@@ -26,6 +30,7 @@ export default function SalesBulkEditModal({
   saleIds,
   saleCategories,
   staffOptions,
+  paymentMethods,
   onClose,
   onSaved,
 }: SalesBulkEditModalProps) {
@@ -36,8 +41,10 @@ export default function SalesBulkEditModal({
   const [saleCategory, setSaleCategory] = useState("");
   const [soldAt, setSoldAt] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const livePaymentMethods = useLivePaymentMethods(paymentMethods);
 
   const sellerOptions = useMemo(
     () => staffOptions.map((staff) => staff.full_name),
@@ -88,12 +95,17 @@ export default function SalesBulkEditModal({
       fields.partner_id = partnerId.trim() || null;
     }
 
+    if (paymentMethodId.trim()) {
+      fields.payment_method_id = paymentMethodId.trim();
+    }
+
     if (
       fields.created_by_name === undefined &&
       fields.sale_category === undefined &&
       fields.sold_at === undefined &&
       fields.quantity === undefined &&
-      fields.business_partner === undefined
+      fields.business_partner === undefined &&
+      fields.payment_method_id === undefined
     ) {
       setError("수정할 항목을 하나 이상 입력해 주세요.");
       return;
@@ -126,8 +138,8 @@ export default function SalesBulkEditModal({
           일괄 수정
         </h3>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          선택한 {saleIds.length}건의 판매자, 거래처명, 구분, 날짜, 수량을 수정합니다.
-          입력한 항목만 변경됩니다.
+          선택한 {saleIds.length}건의 판매자, 거래처명, 구분, 날짜, 수량, 결제
+          방식을 수정합니다. 입력한 항목만 변경됩니다.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
@@ -212,6 +224,22 @@ export default function SalesBulkEditModal({
               onChange={(event) => setQuantity(event.target.value)}
               placeholder="변경 없음"
               className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="bulk_payment_method" className={labelClass}>
+              결제 방식
+            </label>
+            <PaymentMethodCombobox
+              id="bulk_payment_method"
+              paymentMethods={livePaymentMethods}
+              value={paymentMethodId}
+              onChange={setPaymentMethodId}
+              preferNativeSelect
+              placeholder="변경 없음"
+              className={inputClass}
+              aria-label="결제 방식"
             />
           </div>
 

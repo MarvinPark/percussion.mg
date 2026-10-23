@@ -70,9 +70,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user) {
-    const profile = await loadAuthProfile(supabase, user.id);
+  const profile = user
+    ? await loadAuthProfile(supabase, user.id)
+    : null;
 
+  if (user && profile) {
     if (isAccountSuspended(profile)) {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
@@ -82,9 +84,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (user && (isLoginPage || isSignupPage)) {
-    const profile = await loadAuthProfile(supabase, user.id);
-
+  if (user && profile && (isLoginPage || isSignupPage)) {
     if (needsAdminApproval(profile)) {
       const url = request.nextUrl.clone();
       url.pathname = "/profile/pending-approval";
@@ -108,9 +108,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && !isProfileFlowPage && !isApiRoute) {
-    const profile = await loadAuthProfile(supabase, user.id);
-
+  if (user && profile && !isProfileFlowPage && !isApiRoute) {
     if (needsProfileSetup(profile) && !isProfileSetupPage) {
       const url = request.nextUrl.clone();
       url.pathname = "/profile/setup";

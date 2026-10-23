@@ -1272,6 +1272,7 @@ export default function SalesTable({
           saleIds={[...selectedIds]}
           saleCategories={saleCategories}
           staffOptions={staffOptions}
+          paymentMethods={paymentMethods}
           onClose={() => setBulkEditOpen(false)}
           onSaved={() => {
             setBulkEditOpen(false);

@@ -1051,6 +1051,7 @@ export type BulkUpdateSalesFields = {
   quantity?: number;
   business_partner?: string;
   partner_id?: string | null;
+  payment_method_id?: string;
 };
 
 export async function bulkUpdateSales(
@@ -1072,15 +1073,21 @@ export async function bulkUpdateSales(
   const hasDateUpdate = fields.sold_at !== undefined;
   const hasQuantityUpdate = fields.quantity !== undefined;
   const hasPartnerUpdate = fields.business_partner !== undefined;
+  const hasPaymentMethodUpdate = fields.payment_method_id !== undefined;
 
   if (
     !hasSellerUpdate &&
     !hasCategoryUpdate &&
     !hasDateUpdate &&
     !hasQuantityUpdate &&
-    !hasPartnerUpdate
+    !hasPartnerUpdate &&
+    !hasPaymentMethodUpdate
   ) {
     return { error: "수정할 항목을 하나 이상 입력해 주세요." };
+  }
+
+  if (hasPaymentMethodUpdate && !fields.payment_method_id?.trim()) {
+    return { error: "결제 방식을 선택해 주세요." };
   }
 
   if (hasSellerUpdate && !fields.created_by_name?.trim()) {
@@ -1136,6 +1143,29 @@ export async function bulkUpdateSales(
     };
   }
 
+  let resolvedPaymentMethod:
+    | {
+        name: string;
+        fee_rate: number;
+      }
+    | undefined;
+  if (hasPaymentMethodUpdate) {
+    const { data: paymentMethod } = await supabase
+      .from("payment_methods")
+      .select("name, fee_rate")
+      .eq("id", fields.payment_method_id!.trim())
+      .single();
+
+    if (!paymentMethod) {
+      return { error: "결제 방식을 찾을 수 없습니다." };
+    }
+
+    resolvedPaymentMethod = {
+      name: paymentMethod.name,
+      fee_rate: Number(paymentMethod.fee_rate) || 0,
+    };
+  }
+
   let updated = 0;
   const errors: string[] = [];
 
@@ -1174,6 +1204,10 @@ export async function bulkUpdateSales(
       updatePayload.partner_id = resolvedPartner.partner_id;
     }
 
+    const effectiveFeeRate =
+      resolvedPaymentMethod?.fee_rate ??
+      (Number(sale.payment_fee_rate) || 0);
+
     if (
       hasQuantityUpdate &&
       normalizedQuantity !== undefined &&
@@ -1198,12 +1232,32 @@ export async function bulkUpdateSales(
         quantity: normalizedQuantity,
         unitSalePrice: Number(sale.unit_sale_price) || 0,
         unitPurchasePrice: Number(sale.unit_purchase_price) || 0,
-        feeRate: Number(sale.payment_fee_rate) || 0,
+        feeRate: effectiveFeeRate,
         shippingCost: Number(sale.shipping_cost) || 0,
       });
 
       updatePayload.quantity = normalizedQuantity;
       updatePayload.total_amount = totalAmount;
+      updatePayload.payment_fee_amount = paymentFeeAmount;
+      updatePayload.margin_amount = marginAmount;
+    }
+
+    if (resolvedPaymentMethod) {
+      const quantityForPayment =
+        hasQuantityUpdate && normalizedQuantity !== undefined
+          ? normalizedQuantity
+          : sale.quantity;
+
+      const { paymentFeeAmount, marginAmount } = calculateSaleAmounts({
+        quantity: quantityForPayment,
+        unitSalePrice: Number(sale.unit_sale_price) || 0,
+        unitPurchasePrice: Number(sale.unit_purchase_price) || 0,
+        feeRate: resolvedPaymentMethod.fee_rate,
+        shippingCost: Number(sale.shipping_cost) || 0,
+      });
+
+      updatePayload.payment_method = resolvedPaymentMethod.name;
+      updatePayload.payment_fee_rate = resolvedPaymentMethod.fee_rate;
       updatePayload.payment_fee_amount = paymentFeeAmount;
       updatePayload.margin_amount = marginAmount;
     }

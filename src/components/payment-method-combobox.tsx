@@ -84,23 +84,6 @@ export default function PaymentMethodCombobox({
   }, [paymentMethods]);
 
   useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    void listPaymentMethods()
-      .then((result) => {
-        if (cancelled || result.error) return;
-        setMethods(sortPaymentMethods(result.paymentMethods));
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     return () => {
       if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     };
