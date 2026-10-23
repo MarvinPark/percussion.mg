@@ -39,6 +39,9 @@ type ProductsWorkspaceProps = {
   searchSlot?: ReactNode;
   listSummary?: ReactNode;
   searchQuery?: string;
+  categoryFilter?: string;
+  brandFilter?: string;
+  filteredProductCount?: number;
   sort: ProductListSort;
   onSortColumn: (column: ProductSortColumn) => void;
   emptyMessage?: string;
@@ -62,6 +65,9 @@ export default function ProductsWorkspace({
   searchSlot,
   listSummary,
   searchQuery = "",
+  categoryFilter = "",
+  brandFilter = "",
+  filteredProductCount = 0,
   sort,
   onSortColumn,
   emptyMessage,
@@ -179,7 +185,7 @@ export default function ProductsWorkspace({
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [searchQuery]);
+  }, [searchQuery, categoryFilter, brandFilter]);
 
   useEffect(() => {
     if (!pendingHighlightRef.current.length) return;
@@ -255,7 +261,14 @@ export default function ProductsWorkspace({
         ) : null}
         {!readOnly ? (
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2 max-md:ml-0 max-md:w-full">
-            <ExcelProductActions searchQuery={searchQuery} sort={sort} />
+            <ExcelProductActions
+              searchQuery={searchQuery}
+              categoryFilter={categoryFilter}
+              brandFilter={brandFilter}
+              filteredProductCount={filteredProductCount}
+              selectedIds={selectedIds}
+              sort={sort}
+            />
           </div>
         ) : null}
       </div>

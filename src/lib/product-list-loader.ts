@@ -400,15 +400,41 @@ export async function fetchAllProducts(
   return { products, error: null };
 }
 
+const PRODUCT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function normalizeProductExportIds(ids: string[]): string[] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of ids) {
+    const id = raw.trim();
+    if (!id || !PRODUCT_ID_PATTERN.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    unique.push(id);
+  }
+
+  return unique;
+}
+
 export async function fetchProductsForExport(
   supabase: SupabaseClient,
   options: {
     searchQuery?: string;
     sort?: ProductListSort;
+    scopeFilters?: ProductListScopeFilters;
+    ids?: string[];
   },
 ): Promise<{ products: Product[]; error: string | null }> {
-  const searchQuery = options.searchQuery?.trim() ?? "";
   const sort = options.sort ?? DEFAULT_PRODUCT_LIST_SORT;
+  const scopeFilters = normalizeProductListScopeFilters(options.scopeFilters);
+  const exportIds = normalizeProductExportIds(options.ids ?? []);
+
+  if (exportIds.length > 0) {
+    return fetchProductsForExportByIds(supabase, exportIds);
+  }
+
+  const searchQuery = options.searchQuery?.trim() ?? "";
   const products: Product[] = [];
   let offset = 0;
 
@@ -420,6 +446,8 @@ export async function fetchProductsForExport(
     if (searchQuery) {
       builder = applyProductSearchFilter(builder, searchQuery);
     }
+
+    builder = applyProductListScopeFilters(builder, scopeFilters);
 
     const { data, error } = await builder.range(offset, offset + 999);
 
@@ -441,6 +469,39 @@ export async function fetchProductsForExport(
     products,
     error: null,
   };
+}
+
+async function fetchProductsForExportByIds(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<{ products: Product[]; error: string | null }> {
+  const byId = new Map<string, Product>();
+  const chunkSize = 200;
+
+  for (let offset = 0; offset < ids.length; offset += chunkSize) {
+    const chunk = ids.slice(offset, offset + chunkSize);
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .in("id", chunk);
+
+    if (error) {
+      return {
+        products: [],
+        error: "선택한 제품을 불러오지 못했습니다.",
+      };
+    }
+
+    for (const row of (data as Product[]) ?? []) {
+      byId.set(row.id, row);
+    }
+  }
+
+  const products = ids
+    .map((id) => byId.get(id))
+    .filter((product): product is Product => !!product);
+
+  return { products, error: null };
 }
 
 export async function searchProductsForDropdown(

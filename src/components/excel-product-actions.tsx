@@ -12,7 +12,7 @@ import {
 import ProductRegistrationReportModal, {
   type ProductRegistrationReport,
 } from "@/components/product-registration-report-modal";
-import ConfirmDialog from "@/components/confirm-dialog";
+import ProductExcelExportDialog from "@/components/product-excel-export-dialog";
 import {
   productListSortToSearchParams,
   type ProductListSort,
@@ -123,17 +123,58 @@ function SuccessMessage({
   );
 }
 
+async function downloadExcelFromResponse(
+  response: Response,
+  fallbackFilename: string,
+) {
+  if (!response.ok) {
+    let message = "엑셀 다운로드에 실패했습니다.";
+    try {
+      const data = (await response.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // ignore
+    }
+    window.alert(message);
+    return;
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition");
+  let filename = fallbackFilename;
+  const encodedMatch = disposition?.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    filename = decodeURIComponent(encodedMatch[1]);
+  }
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ExcelProductActions({
   searchQuery = "",
+  categoryFilter = "",
+  brandFilter = "",
+  filteredProductCount = 0,
+  selectedIds,
   sort,
 }: {
   searchQuery?: string;
+  categoryFilter?: string;
+  brandFilter?: string;
+  filteredProductCount?: number;
+  selectedIds?: Set<string>;
   sort?: ProductListSort;
 }) {
   const importInputRef = useRef<HTMLInputElement>(null);
   const updateInputRef = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<ProductRegistrationReport | null>(null);
-  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [importState, importAction, importPending] = useActionState<
     ExcelImportResult | null,
@@ -167,25 +208,75 @@ export default function ExcelProductActions({
     }
   }, [updatePending, updateState]);
 
-  function buildExportUrl() {
+  const isFilterActive =
+    searchQuery.trim().length > 0 ||
+    categoryFilter.trim().length > 0 ||
+    brandFilter.trim().length > 0;
+  const selectedCount = selectedIds?.size ?? 0;
+
+  function appendSortParams(params: URLSearchParams) {
+    if (!sort) return;
+    const sortParams = productListSortToSearchParams(sort);
+    if (sortParams.sort) params.set("sort", sortParams.sort);
+    if (sortParams.order) params.set("order", sortParams.order);
+  }
+
+  function buildFilteredExportUrl() {
     const params = new URLSearchParams();
     if (searchQuery.trim()) {
       params.set("q", searchQuery.trim());
     }
-    if (sort) {
-      const sortParams = productListSortToSearchParams(sort);
-      if (sortParams.sort) params.set("sort", sortParams.sort);
-      if (sortParams.order) params.set("order", sortParams.order);
+    if (categoryFilter.trim()) {
+      params.set("category", categoryFilter.trim());
     }
+    if (brandFilter.trim()) {
+      params.set("brand", brandFilter.trim());
+    }
+    appendSortParams(params);
     const query = params.toString();
     return query
       ? `/api/products/excel-export?${query}`
       : "/api/products/excel-export";
   }
 
-  function handleExportConfirm() {
-    setExportConfirmOpen(false);
-    window.location.assign(buildExportUrl());
+  async function handleExportFiltered() {
+    setIsExporting(true);
+    try {
+      await downloadExcelFromResponse(
+        await fetch(buildFilteredExportUrl()),
+        isFilterActive ? "검색제품목록.xlsx" : "제품목록.xlsx",
+      );
+      setExportDialogOpen(false);
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleExportSelected() {
+    const ids = Array.from(selectedIds ?? []);
+    if (!ids.length) return;
+
+    setIsExporting(true);
+    try {
+      const params = new URLSearchParams();
+      appendSortParams(params);
+      const query = params.toString();
+      const url = query
+        ? `/api/products/excel-export?${query}`
+        : "/api/products/excel-export";
+
+      await downloadExcelFromResponse(
+        await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        }),
+        "선택제품목록.xlsx",
+      );
+      setExportDialogOpen(false);
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   return (
@@ -247,7 +338,7 @@ export default function ExcelProductActions({
 
           <button
             type="button"
-            onClick={() => setExportConfirmOpen(true)}
+            onClick={() => setExportDialogOpen(true)}
             className={buttonClass}
           >
             <ExcelIcon />
@@ -268,11 +359,17 @@ export default function ExcelProductActions({
         />
       ) : null}
 
-      {exportConfirmOpen ? (
-        <ConfirmDialog
-          title="검색된 상품을 엑셀로 다운로드 하시겠습니까?"
-          onConfirm={handleExportConfirm}
-          onCancel={() => setExportConfirmOpen(false)}
+      {exportDialogOpen ? (
+        <ProductExcelExportDialog
+          filteredCount={filteredProductCount}
+          isFilterActive={isFilterActive}
+          selectedCount={selectedCount}
+          isExporting={isExporting}
+          onExportFiltered={() => void handleExportFiltered()}
+          onExportSelected={() => void handleExportSelected()}
+          onCancel={() => {
+            if (!isExporting) setExportDialogOpen(false);
+          }}
         />
       ) : null}
     </>

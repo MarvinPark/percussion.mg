@@ -531,6 +531,9 @@ export default function ProductsPageClient({
           externalHighlightedIds={highlightedIds}
           listSummary={listSummary}
           searchQuery={searchQuery}
+          categoryFilter={categoryFilter}
+          brandFilter={brandFilter}
+          filteredProductCount={listStats.totalCount}
           emptyMessage={
             isListFiltered
               ? "검색 조건에 맞는 제품이 없습니다."
