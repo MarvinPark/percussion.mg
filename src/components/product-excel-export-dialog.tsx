@@ -45,10 +45,9 @@ export default function ProductExcelExportDialog({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isExporting, onCancel]);
 
-  const filteredLabel = "검색된 상품만 다운로드";
   const filteredDescription = isFilterActive
-    ? `현재 검색·필터 조건 ${filteredCount.toLocaleString("ko-KR")}건`
-    : `조건 없음 · 전체 ${filteredCount.toLocaleString("ko-KR")}건`;
+    ? `검색·필터 조건에 맞는 전체 ${filteredCount.toLocaleString("ko-KR")}건 (현재 페이지만이 아님)`
+    : `검색·필터 없음 · 등록된 전체 ${filteredCount.toLocaleString("ko-KR")}건`;
 
   return (
     <div
@@ -71,7 +70,7 @@ export default function ProductExcelExportDialog({
           엑셀 다운로드
         </h3>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          다운로드 범위를 선택해 주세요.
+          아래 두 가지 중 하나를 선택해 주세요.
         </p>
 
         <div className="mt-4 flex flex-col gap-2">
@@ -83,7 +82,7 @@ export default function ProductExcelExportDialog({
             className={optionButtonClass}
           >
             <span className="font-medium text-zinc-900 dark:text-zinc-100">
-              1. {filteredLabel}
+              1. 검색된 모든상품 다운로드
             </span>
             <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
               {filteredDescription}
@@ -98,12 +97,12 @@ export default function ProductExcelExportDialog({
             className={optionButtonClass}
           >
             <span className="font-medium text-zinc-900 dark:text-zinc-100">
-              2. 선택한 상품만 다운로드
+              2. 선택한상품만 다운로드 (체크박스에 체크한 제품)
             </span>
             <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
               {selectedCount > 0
-                ? `체크한 ${selectedCount.toLocaleString("ko-KR")}건`
-                : "목록에서 상품을 선택해 주세요"}
+                ? `현재 ${selectedCount.toLocaleString("ko-KR")}건 선택됨`
+                : "목록 체크박스를 선택한 뒤 이용해 주세요"}
             </span>
           </button>
         </div>
