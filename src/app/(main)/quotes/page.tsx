@@ -17,6 +17,7 @@ import { fetchNonStockCategoryOptions } from "@/lib/non-stock-category-options";
 import { fetchQuoteFavoriteIds } from "@/lib/quote-favorites";
 import { fetchAllProductSkus } from "@/lib/quote-product-search";
 import { getCurrentUserProfile, formatManagerDisplayName } from "@/lib/profile";
+import { fetchConvertedQuoteIds } from "@/lib/quote-conversion-status";
 import { sortQuoteRecordItems } from "@/lib/quote-mapper";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -33,7 +34,6 @@ export default async function QuotesPage() {
     { data: quotes, error },
     productSkus,
     { paymentMethods: paymentMethodsResult },
-    { data: linkedSales },
     { data: salesContacts },
     { data: staffProfiles },
     { names: saleCategories },
@@ -47,11 +47,6 @@ export default async function QuotesPage() {
       .limit(5000),
     fetchAllProductSkus(supabase),
     fetchPaymentMethods(supabase),
-    supabase
-      .from("sales")
-      .select("quote_id")
-      .not("quote_id", "is", null)
-      .limit(500),
     supabase
       .from("sales")
       .select(
@@ -80,13 +75,12 @@ export default async function QuotesPage() {
 
   const contactSuggestions = buildSaleContactSuggestions(salesContacts ?? []);
 
-  const convertedQuoteIds = [
-    ...new Set(
-      (linkedSales ?? [])
-        .map((row) => row.quote_id)
-        .filter((id): id is string => typeof id === "string" && id.length > 0),
-    ),
-  ];
+  const sortedQuotes = quotes?.map(sortQuoteRecordItems) ?? [];
+  const { ids: convertedQuoteIds, error: conversionStatusError } =
+    await fetchConvertedQuoteIds(
+      supabase,
+      sortedQuotes.map((quote) => quote.id),
+    );
 
   return (
       <main className={pageMainWithMobileFab}>
@@ -133,9 +127,15 @@ export default async function QuotesPage() {
             </Link>
           </div>
         ) : (
+          <>
+            {conversionStatusError ? (
+              <div className={`${alertError} mb-4`}>
+                <p className="font-medium">{conversionStatusError}</p>
+              </div>
+            ) : null}
           <QuotesPageClient
             userId={user.id}
-            quotes={quotes.map(sortQuoteRecordItems)}
+            quotes={sortedQuotes}
             productSkus={productSkus}
             paymentMethods={paymentMethods}
             saleCategories={saleCategories}
@@ -151,6 +151,7 @@ export default async function QuotesPage() {
             currentUserName={profile?.full_name?.trim() ?? ""}
             staffOptions={staffOptions}
           />
+          </>
         )}
       </main>
   );
