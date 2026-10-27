@@ -12,6 +12,7 @@ import {
   releaseQuote,
   previewQuoteConvertStockApproval,
 } from "@/app/(main)/quotes/actions";
+import BlockingLoadingOverlay from "@/components/blocking-loading-overlay";
 import ConfirmDialog from "@/components/confirm-dialog";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import QuoteConvertDialog, {
@@ -329,7 +330,7 @@ export default function QuotesList({
   }
 
   function handleStockApprovalConfirm() {
-    if (!pendingConvertPayload) return;
+    if (!pendingConvertPayload || isConverting) return;
 
     const payload = pendingConvertPayload;
     setStockApprovalItems(null);
@@ -811,7 +812,7 @@ export default function QuotesList({
         />
       ) : null}
 
-      {convertingQuote && !stockApprovalItems ? (
+      {convertingQuote && !stockApprovalItems && !isConverting ? (
         <QuoteConvertDialog
           title="매출기록하겠습니까?"
           description={`${convertingQuote.customer_name} 견적 (${convertingQuote.quote_items.length}개 제품)을 매출로 기록합니다.`}
@@ -873,6 +874,11 @@ export default function QuotesList({
           }}
         />
       ) : null}
+
+      <BlockingLoadingOverlay
+        open={isConverting}
+        message="매출 전환 중..."
+      />
 
       {cancellingQuote ? (
         <ConfirmDialog
