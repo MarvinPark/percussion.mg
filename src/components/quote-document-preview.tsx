@@ -44,6 +44,7 @@ type QuoteDocumentPreviewProps = {
   mode: PreviewMode;
   open: boolean;
   onClose: () => void;
+  defaultCardFeePercent?: CardFeePercent;
   data: QuoteFormData;
   totals: {
     subtotalAmount?: number;
@@ -63,7 +64,7 @@ const TABLE_COL_WIDTH_PRODUCT_DESC = "17em";
 const TABLE_COL_WIDTH_6_KOR = "6em";
 const TABLE_COL_WIDTH_3_DIGITS = "3ch";
 const TABLE_COL_WIDTH_PRICE = "10ch";
-const QUOTE_PREVIEW_CARD_FEE_PERCENT = 4;
+const DEFAULT_PREVIEW_CARD_FEE_PERCENT: CardFeePercent = 4;
 const DESCRIPTION_CHARS_PER_LINE = 16;
 
 function estimateWrappedLines(
@@ -190,6 +191,8 @@ function DocumentTable({
   showTotal,
   invoiceLinePricing,
   itemStartIndex = 0,
+  cardFeePercent = 0,
+  cardPaymentWithFee = 0,
 }: {
   items: QuoteItemInput[];
   mode: PreviewMode;
@@ -199,11 +202,9 @@ function DocumentTable({
   showTotal: boolean;
   invoiceLinePricing?: Map<string, { adjustedUnitPrice: number; adjustedLineTotal: number }>;
   itemStartIndex?: number;
+  cardFeePercent?: CardFeePercent;
+  cardPaymentWithFee?: number;
 }) {
-  const cardPaymentWithFee =
-    totalAmount > 0
-      ? Math.round(totalAmount * (1 + QUOTE_PREVIEW_CARD_FEE_PERCENT / 100))
-      : 0;
   const headCellClass =
     "border-y border-zinc-400 px-1 py-1 text-center align-middle";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
@@ -340,11 +341,11 @@ function DocumentTable({
                 </DocumentTableBodyCell>
               )}
             </tr>
-            {mode === "quote" ? (
+            {mode === "quote" && cardFeePercent > 0 ? (
               <tr className="bg-zinc-50 font-semibold">
                 <DocumentTableBodyCell colSpan={5} />
                 <DocumentTableBodyCell innerClassName={`${priceInnerClass} whitespace-nowrap`}>
-                  카드결제시 {QUOTE_PREVIEW_CARD_FEE_PERCENT}%추가 :
+                  카드결제시 {cardFeePercent}%추가 :
                 </DocumentTableBodyCell>
                 <DocumentTableBodyCell colSpan={2} innerClassName={priceInnerClass}>
                   {formatKRW(cardPaymentWithFee)}원
@@ -662,6 +663,7 @@ export default function QuoteDocumentPreview({
   mode,
   open,
   onClose,
+  defaultCardFeePercent = DEFAULT_PREVIEW_CARD_FEE_PERCENT,
   data,
   totals,
 }: QuoteDocumentPreviewProps) {
@@ -671,7 +673,9 @@ export default function QuoteDocumentPreview({
   const [isCopying, setIsCopying] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [documentDate, setDocumentDate] = useState(data.quote_date);
-  const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(0);
+  const [cardFeePercent, setCardFeePercent] = useState<CardFeePercent>(
+    defaultCardFeePercent,
+  );
   const [roundingUnit, setRoundingUnit] = useState<AmountRoundingUnit>(1000);
   const [roundingMode, setRoundingMode] = useState<AmountRoundingMode>("ceil");
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>("single");
@@ -679,11 +683,11 @@ export default function QuoteDocumentPreview({
   useEffect(() => {
     if (!open) return;
     setDocumentDate(data.quote_date);
-    setCardFeePercent(0);
+    setCardFeePercent(defaultCardFeePercent);
     setRoundingUnit(1000);
     setRoundingMode("ceil");
     setPreviewLayout("single");
-  }, [data.quote_date, mode, open]);
+  }, [data.quote_date, defaultCardFeePercent, mode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -1053,6 +1057,8 @@ export default function QuoteDocumentPreview({
                       mode === "invoice" ? invoiceLinePricing : undefined
                     }
                     itemStartIndex={itemStartIndex}
+                    cardFeePercent={cardFeePercent}
+                    cardPaymentWithFee={cardPaymentTotal}
                   />
 
                   {isLastPage && mode === "quote" ? (

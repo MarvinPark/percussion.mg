@@ -809,6 +809,9 @@ export default function QuotesList({
           open
           onClose={() => setPreview(null)}
           {...buildQuotePreviewFromSaved(preview.quote, managerPhone)}
+          defaultCardFeePercent={
+            defaultCardFeePercentFromPayment(preview.quote.payment_method) || 4
+          }
         />
       ) : null}
 
