@@ -16,7 +16,7 @@ const cellBaseClass = `min-w-0 px-1.5 ${QUOTE_CELL_HEIGHT_CLASS} ${QUOTE_CELL_TE
 
 const cellEditableDisplayClass = `${cellBaseClass} flex w-full cursor-text items-center bg-white text-slate-900 hover:bg-slate-50 dark:bg-slate-800/70 dark:text-slate-100 dark:hover:bg-slate-800/90`;
 
-const cellEditingClass = `${cellBaseClass} w-full rounded-sm border border-blue-400 bg-white text-slate-900 outline-none ring-2 ring-blue-500/20 dark:bg-white dark:text-slate-900`;
+const cellEditingClass = `${cellBaseClass} w-full rounded-sm border border-blue-400 bg-white text-slate-900 outline-none ring-2 ring-blue-500/20 dark:border-blue-500 dark:bg-zinc-950 dark:text-zinc-100`;
 
 const cellEmptyClass = "text-slate-400";
 

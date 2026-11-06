@@ -2,6 +2,14 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+html {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
 :root {
   --background: #f4f4f5;
   --foreground: #2a3a4f;
@@ -79,7 +87,30 @@ input,
 select,
 textarea {
   font: inherit;
-  color: inherit;
+}
+
+/*
+  inherit는 다크 모드에서 body의 밝은 글자색이 그대로 넘어가,
+  bg-white 등 밝은 필드 안에서 글자가 거의 안 보이게 됩니다.
+  다크에서는 기본 글자·placeholder를 변수로 맞춥니다.
+*/
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.dark select,
+.dark textarea {
+  color: var(--foreground);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* 밝은 배경 위 입력(명시적 text-zinc-900 등이 없을 때 대비) */
+.dark .bg-white input:not([type="checkbox"]):not([type="radio"]),
+.dark .bg-white select,
+.dark .bg-white textarea {
+  color: #18181b;
 }
 
 button {
