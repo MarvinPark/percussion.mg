@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { fetchAuthProfile } from "@/lib/profile-auth";
 import { canAccessPath, normalizeRole } from "@/lib/permissions";
-import { fetchRolePermissionMap } from "@/lib/role-permission-settings";
+import { getRolePermissionMap } from "@/lib/role-permission-settings";
 import {
   canUseApp,
   isAccountSuspended,
@@ -127,7 +127,7 @@ export async function updateSession(request: NextRequest) {
 
     if (canUseApp(profile)) {
       const role = normalizeRole(profile?.role);
-      const permissionMap = await fetchRolePermissionMap(supabase);
+      const permissionMap = await getRolePermissionMap();
       if (!canAccessPath(role, pathname, permissionMap)) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
