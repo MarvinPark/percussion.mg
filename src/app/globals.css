@@ -106,12 +106,6 @@ textarea {
   opacity: 1;
 }
 
-/* 밝은 배경 위 입력(명시적 text-zinc-900 등이 없을 때 대비) */
-.dark .bg-white input:not([type="checkbox"]):not([type="radio"]),
-.dark .bg-white select,
-.dark .bg-white textarea {
-  color: #18181b;
-}
 
 button {
   font-family: inherit;

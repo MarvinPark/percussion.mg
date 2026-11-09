@@ -19,7 +19,7 @@ import type { InlineCreatedProduct } from "@/lib/inline-product-create-shared";
 import type { SaleProductOption } from "@/types/sale";
 
 const inputClass =
-  "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400";
+  "w-full rounded-lg border border-zinc-400 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 dark:caret-zinc-50 dark:placeholder:text-zinc-400";
 
 const labelClass = "mb-1 block text-sm font-semibold text-zinc-900 dark:text-zinc-100";
 
@@ -196,7 +196,7 @@ export default function StockInTextRegister() {
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder={PLACEHOLDER}
-          className={`${inputClass} font-mono text-xs leading-relaxed`}
+          className={`${inputClass} font-mono text-xs leading-relaxed text-zinc-900 dark:text-zinc-50`}
         />
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           품목 줄 형식:{" "}
