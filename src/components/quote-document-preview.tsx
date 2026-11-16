@@ -659,14 +659,26 @@ function buildDocumentFileName(
   return `${safeDate}(${customerLabel})${docType}`;
 }
 
+function resolvePreviewDefaultCardFeePercent(
+  mode: PreviewMode,
+  override?: CardFeePercent,
+): CardFeePercent {
+  if (override !== undefined) return override;
+  return mode === "invoice" ? 0 : DEFAULT_PREVIEW_CARD_FEE_PERCENT;
+}
+
 export default function QuoteDocumentPreview({
   mode,
   open,
   onClose,
-  defaultCardFeePercent = DEFAULT_PREVIEW_CARD_FEE_PERCENT,
+  defaultCardFeePercent: defaultCardFeePercentProp,
   data,
   totals,
 }: QuoteDocumentPreviewProps) {
+  const defaultCardFeePercent = resolvePreviewDefaultCardFeePercent(
+    mode,
+    defaultCardFeePercentProp,
+  );
   const printRef = useRef<HTMLDivElement>(null);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
