@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   applyKeyStockToProducts,
   deleteProductsByIds,
@@ -47,6 +47,7 @@ type ProductsWorkspaceProps = {
   emptyMessage?: string;
   onProductRegistered?: (productId: string) => void;
   onReloadList?: () => void;
+  onProductsDeleted?: (deletedIds: string[]) => void;
   onProductFieldSaved?: (
     productId: string,
     field: ProductInlineField,
@@ -73,6 +74,7 @@ export default function ProductsWorkspace({
   emptyMessage,
   onProductRegistered,
   onReloadList,
+  onProductsDeleted,
   onProductFieldSaved,
   pageSize,
   onPageSizeChange,
@@ -84,7 +86,7 @@ export default function ProductsWorkspace({
   const [toast, setToast] = useState<string | null>(null);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Product[] | null>(null);
-  const [isDeleting, startDelete] = useTransition();
+  const [isDeleting, setIsDeleting] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isApplyingKeyStock, setIsApplyingKeyStock] = useState(false);
   const pendingHighlightRef = useRef<string[]>([]);
@@ -144,22 +146,32 @@ export default function ProductsWorkspace({
       const ids = targets.map((product) => product.id);
       const result = await deleteProductsByIds(ids);
 
-      if (result.error) {
-        showToast(result.error);
+      if (!result.deletedIds?.length) {
+        showToast(result.error ?? "삭제에 실패했습니다.");
         return;
       }
 
+      const deletedSet = new Set(result.deletedIds);
+      onProductsDeleted?.(result.deletedIds);
+
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        for (const product of targets) {
-          next.delete(product.id);
+        for (const id of deletedSet) {
+          next.delete(id);
         }
         return next;
       });
-      showToast(`삭제 ${targets.length}건`);
+
+      if (result.warning) {
+        showToast(
+          `삭제 ${result.deletedIds.length}건 · ${result.warning}`,
+        );
+      } else {
+        showToast(`삭제 ${result.deletedIds.length}건`);
+      }
       onReloadList?.();
     },
-    [onReloadList, showToast],
+    [onProductsDeleted, onReloadList, showToast],
   );
 
   const handleRequestDelete = useCallback((targets: Product[]) => {
@@ -171,10 +183,15 @@ export default function ProductsWorkspace({
     if (!pendingDelete?.length || isDeleting) return;
 
     const targets = pendingDelete;
-    startDelete(async () => {
-      await handleDeleteProducts(targets);
-      setPendingDelete(null);
-    });
+    setIsDeleting(true);
+    void (async () => {
+      try {
+        await handleDeleteProducts(targets);
+        setPendingDelete(null);
+      } finally {
+        setIsDeleting(false);
+      }
+    })();
   }, [handleDeleteProducts, isDeleting, pendingDelete]);
 
   const handleDeleteSelected = useCallback(() => {

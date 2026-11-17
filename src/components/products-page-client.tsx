@@ -476,6 +476,16 @@ export default function ProductsPageClient({
     loadView();
   }, [loadView]);
 
+  const handleProductsDeleted = useCallback((deletedIds: string[]) => {
+    if (!deletedIds.length) return;
+    const removed = new Set(deletedIds);
+    setProducts((prev) => prev.filter((product) => !removed.has(product.id)));
+    setListStats((prev) => ({
+      ...prev,
+      totalCount: Math.max(0, prev.totalCount - deletedIds.length),
+    }));
+  }, []);
+
   const syncListFromServer = useCallback(() => {
     void loadProductsListView({
       page: currentPage,
@@ -541,6 +551,7 @@ export default function ProductsPageClient({
           }
           onProductRegistered={handleProductRegistered}
           onReloadList={reloadList}
+          onProductsDeleted={handleProductsDeleted}
           onProductFieldSaved={handleProductFieldSaved}
           pageSize={pageSize}
           onPageSizeChange={handlePageSizeChange}

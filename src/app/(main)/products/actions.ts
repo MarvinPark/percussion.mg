@@ -1390,8 +1390,9 @@ export async function deleteProduct(formData: FormData) {
 
 export async function deleteProductsByIds(
   ids: string[],
-): Promise<{ error?: string }> {
-  if (!ids.length) {
+): Promise<{ error?: string; deletedIds?: string[]; warning?: string }> {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (!uniqueIds.length) {
     return { error: "삭제할 제품이 없습니다." };
   }
 
@@ -1399,21 +1400,70 @@ export async function deleteProductsByIds(
   const denied = await ensureManageProducts(supabase);
   if (denied) return denied;
 
-  if (await hasLinkedSales(supabase, ids)) {
+  const { data: linkedSales, error: linkedSalesError } = await supabase
+    .from("sales")
+    .select("product_id")
+    .in("product_id", uniqueIds);
+
+  if (linkedSalesError) {
+    console.error("deleteProductsByIds linked sales check:", linkedSalesError);
+    return { error: "삭제 전 매출 연결을 확인하지 못했습니다." };
+  }
+
+  const blockedIds = new Set(
+    (linkedSales ?? [])
+      .map((row) => row.product_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+  const deletableIds = uniqueIds.filter((id) => !blockedIds.has(id));
+
+  if (deletableIds.length === 0) {
     return { error: PRODUCT_DELETE_BLOCKED_BY_SALES_MESSAGE };
   }
 
-  const { error } = await supabase.from("products").delete().in("id", ids);
+  const { data: deletedRows, error } = await supabase
+    .from("products")
+    .delete()
+    .in("id", deletableIds)
+    .select("id");
 
   if (error) {
     console.error("deleteProductsByIds error:", error);
     return { error: resolveProductDeleteError(error) };
   }
 
+  const deletedIds = (deletedRows ?? [])
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  if (deletedIds.length === 0) {
+    return {
+      error: "제품이 삭제되지 않았습니다. 권한을 확인하거나 잠시 후 다시 시도해 주세요.",
+    };
+  }
+
   revalidatePath("/products");
   revalidatePath("/dashboard");
 
-  return {};
+  const blockedCount = uniqueIds.length - deletableIds.length;
+  const notRemovedCount = deletableIds.length - deletedIds.length;
+  const warnings: string[] = [];
+
+  if (blockedCount > 0) {
+    warnings.push(
+      `매출 기록이 있는 ${blockedCount}건은 삭제할 수 없습니다.`,
+    );
+  }
+  if (notRemovedCount > 0) {
+    warnings.push(
+      `${notRemovedCount}건은 삭제되지 않았습니다. 다른 데이터와 연결되어 있을 수 있습니다.`,
+    );
+  }
+
+  return {
+    deletedIds,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
+  };
 }
 
 export async function bulkUpdateProductFields(
