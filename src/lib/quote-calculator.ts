@@ -35,9 +35,13 @@ export function calculateQuoteTotals(
   discountAmount = 0,
 ) {
   const subtotalAmount = items.reduce((sum, item) => sum + item.line_total, 0);
-  const totalMargin = items.reduce((sum, item) => sum + (item.margin ?? 0), 0);
+  const marginBeforeDiscount = items.reduce(
+    (sum, item) => sum + (item.margin ?? 0),
+    0,
+  );
   const normalizedDiscount = Math.max(0, Math.round(discountAmount));
   const totalAmount = Math.max(0, subtotalAmount - normalizedDiscount);
+  const totalMargin = Math.max(0, marginBeforeDiscount - normalizedDiscount);
   const cardAmount = Math.round(totalAmount * 1.04);
   return {
     subtotalAmount,

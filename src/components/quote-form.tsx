@@ -870,6 +870,7 @@ export default function QuoteForm({
         userId={userId}
         items={items}
         discountAmount={discountAmount}
+        totalMargin={totals.totalMargin}
         onDiscountChange={setDiscountAmount}
         draggingItemIndex={draggingItemIndex}
         dragOverItemIndex={dragOverItemIndex}

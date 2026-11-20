@@ -32,6 +32,7 @@ type QuoteItemsTableProps = {
   userId: string;
   items: QuoteItemInput[];
   discountAmount: number;
+  totalMargin: number;
   onDiscountChange: (value: number) => void;
   draggingItemIndex: number | null;
   dragOverItemIndex: number | null;
@@ -103,6 +104,7 @@ export default function QuoteItemsTable({
   userId,
   items,
   discountAmount,
+  totalMargin,
   onDiscountChange,
   draggingItemIndex,
   dragOverItemIndex,
@@ -353,6 +355,17 @@ export default function QuoteItemsTable({
         );
       case "purchase_price":
       case "margin":
+        return (
+          <td
+            className={`${readOnlyCellClass} text-right font-bold tabular-nums ${
+              totalMargin >= 0
+                ? "text-green-700 dark:text-green-300"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            {formatKRW(totalMargin)}
+          </td>
+        );
       case "margin_rate":
         return (
           <td className={`${readOnlyCellClass} text-zinc-400 dark:text-zinc-500`}>-</td>
