@@ -1,9 +1,13 @@
+/** 세금계산서·Popbill 기준 달력일 (한국 시간). 서버 UTC와 로컬 KST가 어긋나지 않게 합니다. */
+const KOREA_TIME_ZONE = "Asia/Seoul";
+
 export function getTodayIsoDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: KOREA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 export function isoDateToPopbillDate(isoDate: string) {
