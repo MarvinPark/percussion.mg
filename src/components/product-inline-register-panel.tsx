@@ -178,13 +178,9 @@ export default function ProductInlineRegisterPanel({
             <label className={labelClass}>양재</label>
             <input
               type="number"
-              min={0}
               value={form.stock_yangjae}
               onChange={(event) =>
-                updateField(
-                  "stock_yangjae",
-                  Math.max(0, Number(event.target.value) || 0),
-                )
+                updateField("stock_yangjae", Number(event.target.value) || 0)
               }
               className={fieldClass}
             />
@@ -193,13 +189,9 @@ export default function ProductInlineRegisterPanel({
             <label className={labelClass}>의왕</label>
             <input
               type="number"
-              min={0}
               value={form.stock_uiwang}
               onChange={(event) =>
-                updateField(
-                  "stock_uiwang",
-                  Math.max(0, Number(event.target.value) || 0),
-                )
+                updateField("stock_uiwang", Number(event.target.value) || 0)
               }
               className={fieldClass}
             />

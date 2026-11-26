@@ -152,11 +152,8 @@ function validateProduct(data: ReturnType<typeof parseProductForm>) {
   if (data.purchase_price < 0 || data.sale_price < 0) {
     return "가격은 0 이상이어야 합니다.";
   }
-  if (data.stock_quantity < 0 || data.min_stock_quantity < 0) {
-    return "재고 수량은 0 이상이어야 합니다.";
-  }
-  if (data.stock_yangjae < 0 || data.stock_uiwang < 0) {
-    return "위치별 재고는 0 이상이어야 합니다.";
+  if (data.min_stock_quantity < 0) {
+    return "최소 재고 알림 수량은 0 이상이어야 합니다.";
   }
   return null;
 }
@@ -428,8 +425,8 @@ async function updateProductFieldInternal(
     case "stock_yangjae":
     case "stock_uiwang": {
       const locationValue = Number(rawValue);
-      if (Number.isNaN(locationValue) || locationValue < 0) {
-        return { error: "재고는 0 이상 숫자여야 합니다." };
+      if (Number.isNaN(locationValue)) {
+        return { error: "재고는 숫자여야 합니다." };
       }
 
       const locationLabel = field === "stock_yangjae" ? "양재" : "의왕";
@@ -487,8 +484,8 @@ async function updateProductFieldInternal(
       };
     case "stock_quantity": {
       const stock_quantity = Number(rawValue);
-      if (Number.isNaN(stock_quantity) || stock_quantity < 0) {
-        return { error: "재고는 0 이상 숫자여야 합니다." };
+      if (Number.isNaN(stock_quantity)) {
+        return { error: "재고는 숫자여야 합니다." };
       }
 
       const stockBefore = product.stock_quantity;
@@ -500,9 +497,6 @@ async function updateProductFieldInternal(
 
       const currentLocationStock = product[locationField as StockLocationField] as number;
       const nextLocationStock = currentLocationStock + delta;
-      if (nextLocationStock < 0) {
-        return { error: "해당 위치 재고가 0 미만이 됩니다." };
-      }
 
       updateData[locationField] = nextLocationStock;
       updateData.stock_quantity = stock_quantity;
@@ -570,7 +564,7 @@ export async function updateStock(formData: FormData) {
   const stock_quantity = Number(formData.get("stock_quantity") ?? 0);
 
   if (!id) return;
-  if (stock_quantity < 0 || Number.isNaN(stock_quantity)) return;
+  if (Number.isNaN(stock_quantity)) return;
 
   const supabase = await createClient();
   const denied = await ensureManageProducts(supabase);
@@ -594,7 +588,6 @@ export async function updateStock(formData: FormData) {
     STOCK_LOCATION_FIELD[normalizeStockLocation(product.stock_location)];
   const currentLocationStock = product[locationField as StockLocationField] as number;
   const nextLocationStock = currentLocationStock + delta;
-  if (nextLocationStock < 0) return;
 
   const movementResult = await recordStockMovement(supabase, {
     product_id: id,

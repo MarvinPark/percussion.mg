@@ -37,9 +37,9 @@ export async function createInlineProduct(
     return { error: "가격은 0 이상이어야 합니다." };
   }
 
-  const stock_quantity = Math.max(0, Math.round(input.stock_quantity ?? 0));
+  const stock_quantity = Math.round(input.stock_quantity ?? 0);
   if (!Number.isFinite(stock_quantity)) {
-    return { error: "재고 수량은 0 이상이어야 합니다." };
+    return { error: "재고 수량은 숫자여야 합니다." };
   }
 
   const supabase = await createClient();

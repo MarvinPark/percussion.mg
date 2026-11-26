@@ -37,8 +37,8 @@ export default function StockEditModal({ product, onClose }: StockEditModalProps
     setError(null);
 
     const quantity = Number(stockQuantity);
-    if (Number.isNaN(quantity) || quantity < 0) {
-      setError("재고는 0 이상 숫자여야 합니다.");
+    if (Number.isNaN(quantity)) {
+      setError("재고는 숫자여야 합니다.");
       return;
     }
 
@@ -81,7 +81,6 @@ export default function StockEditModal({ product, onClose }: StockEditModalProps
               ref={inputRef}
               id="stock_quantity"
               type="number"
-              min={0}
               value={stockQuantity}
               onChange={(event) => setStockQuantity(event.target.value)}
               className={inputClass}

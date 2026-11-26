@@ -221,7 +221,14 @@ export default function EditableProductCell({
           type={formatAsPrice ? "text" : inputType}
           inputMode={formatAsPrice ? "numeric" : undefined}
           value={draft}
-          min={inputType === "number" && !formatAsPrice ? 0 : undefined}
+          min={
+            inputType === "number" &&
+            !formatAsPrice &&
+            !isStockLocationField(field) &&
+            field !== "stock_quantity"
+              ? 0
+              : undefined
+          }
           onChange={(event) => {
             setDraft(event.target.value);
             if (error) setError(null);

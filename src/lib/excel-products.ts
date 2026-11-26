@@ -318,13 +318,8 @@ export function validateExcelProductRow(row: ExcelProductRow, rowNumber: number)
   if (row.purchase_price < 0 || row.sale_price < 0) {
     return `${rowNumber}행: 가격은 0 이상이어야 합니다.`;
   }
-  if (
-    row.stock_yangjae < 0 ||
-    row.stock_uiwang < 0 ||
-    row.stock_quantity < 0 ||
-    row.min_stock_quantity < 0
-  ) {
-    return `${rowNumber}행: 재고 수량은 0 이상이어야 합니다.`;
+  if (row.min_stock_quantity < 0) {
+    return `${rowNumber}행: 최소 재고 알림 수량은 0 이상이어야 합니다.`;
   }
 
   const locationSum = row.stock_yangjae + row.stock_uiwang;

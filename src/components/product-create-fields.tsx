@@ -286,7 +286,6 @@ export default function ProductCreateFields({
                   id="stock_quantity"
                   name="stock_quantity"
                   type="number"
-                  min={0}
                   defaultValue={0}
                   className={productCreateInputClass}
                 />
@@ -303,7 +302,6 @@ export default function ProductCreateFields({
                   id="stock_yangjae"
                   name="stock_yangjae"
                   type="number"
-                  min={0}
                   defaultValue={product?.stock_yangjae ?? 0}
                   className={productCreateInputClass}
                 />
@@ -316,7 +314,6 @@ export default function ProductCreateFields({
                   id="stock_uiwang"
                   name="stock_uiwang"
                   type="number"
-                  min={0}
                   defaultValue={product?.stock_uiwang ?? 0}
                   className={productCreateInputClass}
                 />
