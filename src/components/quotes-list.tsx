@@ -329,10 +329,18 @@ export default function QuotesList({
     }
   }
 
-  function handleStockApprovalConfirm() {
+  function handleStockApprovalConfirm(
+    inboundByLineId?: Record<string, number>,
+  ) {
     if (!pendingConvertPayload || isConverting) return;
 
-    const payload = pendingConvertPayload;
+    const payload: QuoteConvertConfirmPayload = {
+      ...pendingConvertPayload,
+      purchaseQuantities: {
+        ...pendingConvertPayload.purchaseQuantities,
+        ...(inboundByLineId ?? {}),
+      },
+    };
     setStockApprovalItems(null);
     setPendingConvertPayload(null);
     executeConvert(payload);
@@ -867,10 +875,14 @@ export default function QuotesList({
       {stockApprovalItems ? (
         <SaleStockApprovalDialog
           title="마이너스 재고 승인"
-          description="매장 출고 시 재고가 부족합니다. 품목별 재고를 확인한 뒤 매출 전환을 진행해 주세요."
+          description="매장 출고 시 재고가 부족합니다. 입고 수량을 입력하거나, 그대로 승인하면 마이너스 재고로 매출 전환됩니다."
           items={stockApprovalItems}
           confirmLabel="승인 후 매출 전환"
           isPending={isConverting}
+          enableInboundQuantityInput
+          initialPurchaseQuantities={
+            pendingConvertPayload?.purchaseQuantities
+          }
           onConfirm={handleStockApprovalConfirm}
           onCancel={() => {
             if (!isConverting) {

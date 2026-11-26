@@ -11,8 +11,17 @@ export type SaleStockApprovalItem = {
   fulfillment_location: string;
   quantity: number;
   current_stock: number;
+  purchase_quantity: number;
   stock_after: number;
 };
+
+export function projectStockAfterWithInbound(
+  item: Pick<SaleStockApprovalItem, "current_stock" | "quantity">,
+  inboundQuantity: number,
+) {
+  const inbound = Math.max(0, Math.round(Number(inboundQuantity) || 0));
+  return item.current_stock + inbound - item.quantity;
+}
 
 export type SaleStockApprovalLineInput = {
   id: string;
@@ -83,6 +92,7 @@ export function computeNegativeStockApprovals(
         fulfillment_location: line.fulfillment_location,
         quantity,
         current_stock: currentStock,
+        purchase_quantity: purchaseQuantity,
         stock_after: stockAfter,
       });
     }
