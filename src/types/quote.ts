@@ -92,9 +92,31 @@ export const QUOTE_MAX_ITEMS = 50;
 export const QUOTE_LINE_START_ROW = 14;
 export const QUOTE_LINE_COUNT = 50;
 
+export type QuoteSupplierBrandKey = "percussion" | "church";
+
+export const QUOTE_SUPPLIER_BRAND_OPTIONS: {
+  value: QuoteSupplierBrandKey;
+  label: string;
+}[] = [
+  { value: "percussion", label: "퍼커션센터" },
+  { value: "church", label: "우리교회악기" },
+];
+
+export const QUOTE_SUPPLIER_BRAND_LINES: Record<QuoteSupplierBrandKey, string> =
+  {
+    percussion: " -퍼커션센터",
+    church: " -우리교회악기",
+  };
+
+export function resolveQuoteSupplierBrandLine(
+  key: QuoteSupplierBrandKey,
+): string {
+  return QUOTE_SUPPLIER_BRAND_LINES[key];
+}
+
 export const SUPPLIER_INFO = {
   companyName: "(주)비에스비인터내셔널",
-  brandLine: " -퍼커션센터",
+  brandLine: QUOTE_SUPPLIER_BRAND_LINES.percussion,
   representative: "대표자 조익환",
   businessNumber: "488-81-02809",
   email: "percussion.cs@gmail.com",

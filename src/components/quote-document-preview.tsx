@@ -32,9 +32,12 @@ import { formatKoreanWonLabel } from "@/lib/korean-number";
 import { getQuoteItemVariantLines } from "@/lib/quote-item-display";
 import { formatKRW } from "@/lib/sales-calculator";
 import {
+  QUOTE_SUPPLIER_BRAND_OPTIONS,
   SUPPLIER_INFO,
+  resolveQuoteSupplierBrandLine,
   type QuoteFormData,
   type QuoteItemInput,
+  type QuoteSupplierBrandKey,
 } from "@/types/quote";
 
 type PreviewMode = "quote" | "invoice";
@@ -363,12 +366,12 @@ const COMPANY_SEAL_SRC = "/images/company-seal.jpg";
 const COMPANY_SEAL_SIZE_PX = 95;
 const COMPANY_SEAL_BOTTOM_PX = -25;
 
-function SupplierInfoBox() {
+function SupplierInfoBox({ brandLine }: { brandLine: string }) {
   return (
     <div className="box rounded border border-zinc-400 p-3 text-sm">
       <p className="mb-2 font-semibold">공급자 정보</p>
       <p>{SUPPLIER_INFO.companyName}</p>
-      <p>{SUPPLIER_INFO.brandLine}</p>
+      <p>{brandLine}</p>
       <div className="supplier-company-line relative">
         <p className="relative z-0">{SUPPLIER_INFO.representative}</p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -397,9 +400,11 @@ function SupplierInfoBox() {
 function DocumentHeader({
   mode,
   data,
+  supplierBrandLine,
 }: {
   mode: PreviewMode;
   data: QuoteFormData;
+  supplierBrandLine: string;
 }) {
   const title = mode === "quote" ? "견적서" : "거래명세서";
   const customerEmail = data.customer_email?.trim() ?? "";
@@ -426,7 +431,7 @@ function DocumentHeader({
       </div>
 
       <div className="grid-2 mb-3 grid grid-cols-2 gap-3">
-        <SupplierInfoBox />
+        <SupplierInfoBox brandLine={supplierBrandLine} />
         <div className="box rounded border border-zinc-400 p-3 text-sm">
           <p className="mb-2 font-semibold">고객 정보</p>
           <p>거래처명: {data.business_partner ?? ""}</p>
@@ -575,7 +580,7 @@ function DocumentDateControl({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+    <div className="min-w-[10rem] flex-1 sm:max-w-xs">
       <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-400">
         {mode === "quote" ? "견적일" : "거래일"}
       </label>
@@ -583,8 +588,41 @@ function DocumentDateControl({
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={controlSelectClass}
+        className={`${controlSelectClass} w-full`}
       />
+    </div>
+  );
+}
+
+function DocumentSupplierBrandControl({
+  value,
+  onChange,
+}: {
+  value: QuoteSupplierBrandKey;
+  onChange: (value: QuoteSupplierBrandKey) => void;
+}) {
+  return (
+    <div className="min-w-[10rem] flex-1 sm:max-w-xs">
+      <label
+        htmlFor="document_supplier_brand"
+        className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-400"
+      >
+        공급자 표기
+      </label>
+      <select
+        id="document_supplier_brand"
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value as QuoteSupplierBrandKey)
+        }
+        className={`${controlSelectClass} w-full`}
+      >
+        {QUOTE_SUPPLIER_BRAND_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -691,6 +729,13 @@ export default function QuoteDocumentPreview({
   const [roundingUnit, setRoundingUnit] = useState<AmountRoundingUnit>(1000);
   const [roundingMode, setRoundingMode] = useState<AmountRoundingMode>("ceil");
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>("single");
+  const [supplierBrandKey, setSupplierBrandKey] =
+    useState<QuoteSupplierBrandKey>("percussion");
+
+  const supplierBrandLine = useMemo(
+    () => resolveQuoteSupplierBrandLine(supplierBrandKey),
+    [supplierBrandKey],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -699,6 +744,7 @@ export default function QuoteDocumentPreview({
     setRoundingUnit(1000);
     setRoundingMode("ceil");
     setPreviewLayout("single");
+    setSupplierBrandKey("percussion");
   }, [data.quote_date, defaultCardFeePercent, mode, open]);
 
   useEffect(() => {
@@ -986,11 +1032,15 @@ export default function QuoteDocumentPreview({
           </p>
         ) : null}
 
-        <div className="shrink-0">
+        <div className="shrink-0 flex flex-wrap items-end gap-4 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
           <DocumentDateControl
             mode={mode}
             value={documentDate}
             onChange={setDocumentDate}
+          />
+          <DocumentSupplierBrandControl
+            value={supplierBrandKey}
+            onChange={setSupplierBrandKey}
           />
         </div>
 
@@ -1047,7 +1097,11 @@ export default function QuoteDocumentPreview({
                   style={{ ...A4_PAGE_SIZE_STYLE, ...A4_PAGE_PADDING_STYLE }}
                 >
                   {isFirstPage ? (
-                    <DocumentHeader mode={mode} data={previewData} />
+                    <DocumentHeader
+                      mode={mode}
+                      data={previewData}
+                      supplierBrandLine={supplierBrandLine}
+                    />
                   ) : isPaginatedView ? (
                     <div className="mb-3 text-right text-xs text-zinc-500">
                       {title} (계속) · {pageIndex + 1}/{displayPages.length}페이지
