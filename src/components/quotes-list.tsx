@@ -874,6 +874,7 @@ export default function QuotesList({
 
       {stockApprovalItems ? (
         <SaleStockApprovalDialog
+          key={stockApprovalItems.map((item) => item.id).join("-")}
           title="마이너스 재고 승인"
           description="매장 출고 시 재고가 부족합니다. 입고 수량을 입력하거나, 그대로 승인하면 마이너스 재고로 매출 전환됩니다."
           items={stockApprovalItems}

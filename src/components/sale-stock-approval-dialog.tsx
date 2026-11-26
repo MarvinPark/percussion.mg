@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseFulfillmentLocation } from "@/lib/quote-fulfillment";
 import {
+  buildInboundQuantityDrafts,
   projectStockAfterWithInbound,
   type SaleStockApprovalItem,
 } from "@/lib/sale-stock-approval";
@@ -38,22 +39,15 @@ export default function SaleStockApprovalDialog({
   onCancel,
 }: SaleStockApprovalDialogProps) {
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
-  const [inboundQuantities, setInboundQuantities] = useState<
-    Record<string, string>
-  >(() =>
-    Object.fromEntries(
-      items.map((item) => {
-        const fromInitial = initialPurchaseQuantities?.[item.id];
-        const resolved =
-          fromInitial !== undefined && fromInitial > 0
-            ? fromInitial
-            : item.purchase_quantity > 0
-              ? item.purchase_quantity
-              : 0;
-        return [item.id, resolved > 0 ? String(resolved) : ""];
-      }),
-    ),
+  const [inboundQuantities, setInboundQuantities] = useState(() =>
+    buildInboundQuantityDrafts(items, initialPurchaseQuantities),
   );
+
+  useEffect(() => {
+    setInboundQuantities(
+      buildInboundQuantityDrafts(items, initialPurchaseQuantities),
+    );
+  }, [items, initialPurchaseQuantities]);
 
   const parsedInboundByItem = useMemo(() => {
     const map = new Map<string, number>();

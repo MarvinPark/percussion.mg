@@ -23,6 +23,24 @@ export function projectStockAfterWithInbound(
   return item.current_stock + inbound - item.quantity;
 }
 
+export function buildInboundQuantityDrafts(
+  items: SaleStockApprovalItem[],
+  initialPurchaseQuantities?: Record<string, number>,
+): Record<string, string> {
+  return Object.fromEntries(
+    items.map((item) => {
+      const fromInitial = initialPurchaseQuantities?.[item.id];
+      const resolved =
+        fromInitial !== undefined && fromInitial > 0
+          ? fromInitial
+          : item.purchase_quantity > 0
+            ? item.purchase_quantity
+            : 0;
+      return [item.id, resolved > 0 ? String(resolved) : ""];
+    }),
+  );
+}
+
 export type SaleStockApprovalLineInput = {
   id: string;
   product_id: string;
