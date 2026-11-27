@@ -653,36 +653,23 @@ function DocumentProductOptionsControl({
   showOptions: boolean;
   onChange: (show: boolean) => void;
 }) {
-  const optionClass = (active: boolean) =>
-    `rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-      active
-        ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-        : "border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-    }`;
-
   return (
-    <div className="min-w-[12rem] flex-1 sm:max-w-md">
-      <p className="mb-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+    <div className="min-w-[10rem] flex-1 sm:max-w-xs">
+      <label
+        htmlFor="document_product_options"
+        className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-400"
+      >
         상품 옵션
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          aria-pressed={showOptions}
-          onClick={() => onChange(true)}
-          className={optionClass(showOptions)}
-        >
-          보이기
-        </button>
-        <button
-          type="button"
-          aria-pressed={!showOptions}
-          onClick={() => onChange(false)}
-          className={optionClass(!showOptions)}
-        >
-          가리기
-        </button>
-      </div>
+      </label>
+      <select
+        id="document_product_options"
+        value={showOptions ? "show" : "hide"}
+        onChange={(event) => onChange(event.target.value === "show")}
+        className={`${controlSelectClass} w-full`}
+      >
+        <option value="show">보이기</option>
+        <option value="hide">가리기</option>
+      </select>
     </div>
   );
 }
