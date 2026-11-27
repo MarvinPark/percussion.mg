@@ -79,13 +79,18 @@ function estimateWrappedLines(
   return Math.max(1, Math.ceil(trimmed.length / maxCharsPerLine));
 }
 
-function estimateDescriptionLineCount(item: QuoteItemInput) {
+function estimateDescriptionLineCount(
+  item: QuoteItemInput,
+  showProductOptions: boolean,
+) {
   const nameLines = estimateWrappedLines(item.product_name ?? "");
-  const variantLines = getQuoteItemVariantLines(item).reduce(
+  const variantLines = showProductOptions
+    ? getQuoteItemVariantLines(item).reduce(
     (sum, line) =>
       sum + estimateWrappedLines(`${line.label}: ${line.value}`, 18),
-    0,
-  );
+        0,
+      )
+    : 0;
   return nameLines + variantLines;
 }
 
@@ -115,8 +120,14 @@ function paginateItems(items: QuoteItemInput[]) {
   return pages;
 }
 
-function ProductDescriptionCell({ item }: { item: QuoteItemInput }) {
-  const variantLines = getQuoteItemVariantLines(item);
+function ProductDescriptionCell({
+  item,
+  showProductOptions,
+}: {
+  item: QuoteItemInput;
+  showProductOptions: boolean;
+}) {
+  const variantLines = showProductOptions ? getQuoteItemVariantLines(item) : [];
 
   return (
     <div
@@ -196,6 +207,7 @@ function DocumentTable({
   itemStartIndex = 0,
   cardFeePercent = 0,
   cardPaymentWithFee = 0,
+  showProductOptions = true,
 }: {
   items: QuoteItemInput[];
   mode: PreviewMode;
@@ -207,7 +219,9 @@ function DocumentTable({
   itemStartIndex?: number;
   cardFeePercent?: CardFeePercent;
   cardPaymentWithFee?: number;
+  showProductOptions?: boolean;
 }) {
+  const displayProductOptions = mode === "quote" || showProductOptions;
   const headCellClass =
     "border-y border-zinc-400 px-1 py-1 text-center align-middle";
   const headCellNowrapClass = `${headCellClass} whitespace-nowrap`;
@@ -256,7 +270,9 @@ function DocumentTable({
               : item.line_total;
 
           const rowMinHeight = {
-            minHeight: itemRowMinHeight(estimateDescriptionLineCount(item)),
+            minHeight: itemRowMinHeight(
+              estimateDescriptionLineCount(item, displayProductOptions),
+            ),
           };
 
           return (
@@ -268,7 +284,10 @@ function DocumentTable({
               {item.brand}
             </DocumentTableBodyCell>
             <DocumentTableBodyCell style={rowMinHeight} innerClassName={itemWrapTextInnerClass}>
-              <ProductDescriptionCell item={item} />
+              <ProductDescriptionCell
+                item={item}
+                showProductOptions={displayProductOptions}
+              />
             </DocumentTableBodyCell>
             <DocumentTableBodyCell
               style={rowMinHeight}
@@ -627,6 +646,47 @@ function DocumentSupplierBrandControl({
   );
 }
 
+function DocumentProductOptionsControl({
+  showOptions,
+  onChange,
+}: {
+  showOptions: boolean;
+  onChange: (show: boolean) => void;
+}) {
+  const optionClass = (active: boolean) =>
+    `rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+      active
+        ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+        : "border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+    }`;
+
+  return (
+    <div className="min-w-[12rem] flex-1 sm:max-w-md">
+      <p className="mb-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+        상품 옵션
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          aria-pressed={showOptions}
+          onClick={() => onChange(true)}
+          className={optionClass(showOptions)}
+        >
+          보이기
+        </button>
+        <button
+          type="button"
+          aria-pressed={!showOptions}
+          onClick={() => onChange(false)}
+          className={optionClass(!showOptions)}
+        >
+          가리기
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DocumentPreviewLayoutControl({
   pageCount,
   layout,
@@ -731,6 +791,7 @@ export default function QuoteDocumentPreview({
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>("single");
   const [supplierBrandKey, setSupplierBrandKey] =
     useState<QuoteSupplierBrandKey>("percussion");
+  const [showProductOptions, setShowProductOptions] = useState(true);
 
   const supplierBrandLine = useMemo(
     () => resolveQuoteSupplierBrandLine(supplierBrandKey),
@@ -745,6 +806,7 @@ export default function QuoteDocumentPreview({
     setRoundingMode("ceil");
     setPreviewLayout("single");
     setSupplierBrandKey("percussion");
+    setShowProductOptions(true);
   }, [data.quote_date, defaultCardFeePercent, mode, open]);
 
   useEffect(() => {
@@ -1042,6 +1104,12 @@ export default function QuoteDocumentPreview({
             value={supplierBrandKey}
             onChange={setSupplierBrandKey}
           />
+          {mode === "invoice" ? (
+            <DocumentProductOptionsControl
+              showOptions={showProductOptions}
+              onChange={setShowProductOptions}
+            />
+          ) : null}
         </div>
 
         <div className="shrink-0">
@@ -1125,6 +1193,7 @@ export default function QuoteDocumentPreview({
                     itemStartIndex={itemStartIndex}
                     cardFeePercent={cardFeePercent}
                     cardPaymentWithFee={cardPaymentTotal}
+                    showProductOptions={showProductOptions}
                   />
 
                   {isLastPage && mode === "quote" ? (
